@@ -848,6 +848,94 @@ window.addEventListener('DOMContentLoaded', () => {
   ::-webkit-scrollbar-track { background: var(--bg); }
   ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
 
+  /* ═══════════════ RESPONSIVE / MOBILE ═══════════════ */
+
+  /* زر القائمة (يظهر فقط على الموبايل) */
+  .menu-toggle {
+    display: none;
+    width: 40px;
+    height: 40px;
+    border-radius: 12px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+    cursor: pointer;
+    flex-shrink: 0;
+    color: var(--cream);
+  }
+
+  .sidebar-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.5);
+    z-index: 99;
+  }
+
+  .sidebar-overlay.open { display: block; }
+
+  /* ── تابلت: عمودين بدل ٤ ── */
+  @media (max-width: 1100px) {
+    .stats-grid { grid-template-columns: repeat(2, 1fr); }
+    .mid-row { grid-template-columns: 1fr; }
+    .bottom-row { grid-template-columns: 1fr 1fr; }
+  }
+
+  /* ── موبايل: سايدبار يتحول لقائمة منسدلة (drawer) ── */
+  @media (max-width: 860px) {
+    .sidebar {
+      transform: translateX(100%);
+      transition: transform 0.25s ease;
+      z-index: 200;
+      box-shadow: -10px 0 30px rgba(0,0,0,0.35);
+    }
+    .sidebar.open { transform: translateX(0); }
+
+    .main {
+      margin-right: 0;
+      padding: 18px 16px 90px;
+    }
+
+    .menu-toggle { display: flex; }
+
+    .topbar {
+      flex-wrap: wrap;
+      gap: 12px;
+      margin-bottom: 22px;
+    }
+
+    .topbar-actions { flex-wrap: wrap; }
+
+    .page-title { font-size: 19px; }
+    .page-subtitle { font-size: 12px; }
+
+    .btn-primary .btn-primary-label { display: none; }
+
+    .stats-grid { grid-template-columns: 1fr 1fr; gap: 12px; }
+    .stat-card { padding: 16px 14px; border-radius: 14px; }
+    .stat-number { font-size: 22px; }
+
+    .bottom-row { grid-template-columns: 1fr; }
+
+    /* جدول الطلبات بيصير قابل للتمرير أفقياً */
+    .table-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+    table { min-width: 560px; }
+  }
+
+  /* ── موبايل صغير ── */
+  @media (max-width: 480px) {
+    .stats-grid { grid-template-columns: 1fr 1fr; }
+    .stat-emoji { font-size: 20px; }
+    .stat-number { font-size: 20px; }
+    .stat-label { font-size: 11px; }
+    .card-header { padding: 16px; }
+    .card-title { font-size: 14px; }
+    .main { padding: 16px 12px 90px; }
+    .logo-text { font-size: 24px; }
+  }
+
 </style>
 </head>
 <body>
@@ -872,8 +960,11 @@ window.addEventListener('DOMContentLoaded', () => {
 
 <div id="app-shell" style="display:none;width:100%;">
 
+<!-- ══════ SIDEBAR OVERLAY (موبايل) ══════ -->
+<div class="sidebar-overlay" id="sidebarOverlay" onclick="closeSidebar()"></div>
+
 <!-- ══════ SIDEBAR ══════ -->
-<aside class="sidebar">
+<aside class="sidebar" id="sidebar">
   <div class="logo">
     <div class="logo-text">أكليتو 🍽️</div>
     <div class="logo-sub">لوحة التحكم — ADMIN</div>
@@ -950,12 +1041,13 @@ window.addEventListener('DOMContentLoaded', () => {
       <div class="page-subtitle">متصل بقاعدة البيانات مباشرة 🔴</div>
     </div>
     <div class="topbar-actions">
+      <button class="menu-toggle" id="menuBtn" onclick="toggleSidebar()" title="القائمة">☰</button>
       <button class="theme-toggle" id="themeBtn" onclick="toggleTheme()" title="تبديل الوضع">🌙</button>
       <div class="btn-notif">
         🔔
         <span class="notif-dot"></span>
       </div>
-      <button class="btn-primary">➕ إضافة وجبة</button>
+      <button class="btn-primary">➕ <span class="btn-primary-label">إضافة وجبة</span></button>
     </div>
   </div>
 
@@ -995,20 +1087,22 @@ window.addEventListener('DOMContentLoaded', () => {
         <div class="card-title">🛒 آخر الطلبات</div>
         <button class="card-action">عرض الكل ←</button>
       </div>
-      <table>
-        <thead>
-          <tr>
-            <th>رقم الطلب</th>
-            <th>الزبون</th>
-            <th>الوجبة</th>
-            <th>المبلغ</th>
-            <th>الحالة</th>
-          </tr>
-        </thead>
-        <tbody id="orders-tbody">
-          <tr><td colspan="5" style="text-align:center;padding:30px;color:var(--cream30)">جاري التحميل...</td></tr>
-        </tbody>
-      </table>
+      <div class="table-scroll">
+        <table>
+          <thead>
+            <tr>
+              <th>رقم الطلب</th>
+              <th>الزبون</th>
+              <th>الوجبة</th>
+              <th>المبلغ</th>
+              <th>الحالة</th>
+            </tr>
+          </thead>
+          <tbody id="orders-tbody">
+            <tr><td colspan="5" style="text-align:center;padding:30px;color:var(--cream30)">جاري التحميل...</td></tr>
+          </tbody>
+        </table>
+      </div>
     </div>
 
     <!-- ACTIVITY -->
@@ -1065,6 +1159,23 @@ window.addEventListener('DOMContentLoaded', () => {
 </div>
 
 <script>
+  function toggleSidebar() {
+    document.getElementById('sidebar').classList.toggle('open');
+    document.getElementById('sidebarOverlay').classList.toggle('open');
+  }
+  function closeSidebar() {
+    document.getElementById('sidebar').classList.remove('open');
+    document.getElementById('sidebarOverlay').classList.remove('open');
+  }
+  // إغلاق القائمة تلقائياً عند اختيار عنصر (على الموبايل)
+  document.addEventListener('DOMContentLoaded', () => {
+    document.querySelectorAll('.nav-item').forEach(item => {
+      item.addEventListener('click', () => {
+        if (window.innerWidth <= 860) closeSidebar();
+      });
+    });
+  });
+
   function toggleTheme() {
     const body = document.body;
     const btn  = document.getElementById('themeBtn');

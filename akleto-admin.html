@@ -1,0 +1,1084 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>أكليتو — لوحة التحكم</title>
+<link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;900&family=Tajawal:wght@400;500;700;800&display=swap" rel="stylesheet">
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+import { getFirestore, collection, getDocs, query, orderBy, limit, onSnapshot }
+  from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, signOut }
+  from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyAefkYqFsvL9wQEZYnGkb_y47eYZacrs7U",
+  authDomain: "akleto-prod.firebaseapp.com",
+  projectId: "akleto-prod",
+  storageBucket: "akleto-prod.firebasestorage.app",
+  messagingSenderId: "739001380275",
+  appId: "1:739001380275:web:41da29d05a75481df9efc6"
+};
+
+const app  = initializeApp(firebaseConfig);
+const db   = getFirestore(app);
+const auth = getAuth(app);
+
+window.addEventListener('DOMContentLoaded', () => {
+
+  onAuthStateChanged(auth, user => {
+    if (!user) {
+      showLoginGate();
+    } else {
+      hideLoginGate();
+      loadDashboard();
+    }
+  });
+
+  window.adminLogin = async () => {
+    const email = document.getElementById('gate-email').value.trim();
+    const pass  = document.getElementById('gate-pass').value.trim();
+    const err   = document.getElementById('gate-error');
+    err.style.display = 'none';
+    try {
+      await signInWithEmailAndPassword(auth, email, pass);
+    } catch(e) {
+      err.textContent = 'فشل الدخول — تأكد من الإيميل وكلمة المرور';
+      err.style.display = 'block';
+    }
+  };
+
+  window.adminLogout = () => signOut(auth);
+
+  function showLoginGate() {
+    document.getElementById('login-gate').style.display = 'flex';
+    document.getElementById('app-shell').style.display = 'none';
+  }
+  function hideLoginGate() {
+    document.getElementById('login-gate').style.display = 'none';
+    document.getElementById('app-shell').style.display = 'flex';
+  }
+
+  async function loadDashboard() {
+    // ── الوجبات: عدد + الأكثر طلباً ──
+    try {
+      const mealsSnap = await getDocs(collection(db, 'meals'));
+      const meals = [];
+      mealsSnap.forEach(d => meals.push({ id: d.id, ...d.data() }));
+
+      document.getElementById('stat-meals-count').textContent = meals.length;
+
+      // رتب حسب order_count تنازلياً
+      const topMeals = [...meals].sort((a,b) => (b.order_count||0) - (a.order_count||0)).slice(0,5);
+      renderTopMeals(topMeals);
+
+    } catch(e) {
+      console.error('meals load error', e);
+    }
+
+    // ── المتاجر ──
+    try {
+      const storesSnap = await getDocs(collection(db, 'stores'));
+      const stores = [];
+      storesSnap.forEach(d => stores.push({ id: d.id, ...d.data() }));
+      renderStores(stores);
+    } catch(e) { console.error('stores load error', e); }
+
+    // ── السائقين ──
+    try {
+      const driversSnap = await getDocs(collection(db, 'drivers'));
+      const drivers = [];
+      driversSnap.forEach(d => drivers.push({ id: d.id, ...d.data() }));
+      renderDrivers(drivers);
+    } catch(e) { console.error('drivers load error', e); }
+
+    // ── الطلبات (live) ──
+    try {
+      const ordersQ = query(collection(db, 'orders'), orderBy('created_at','desc'), limit(10));
+      onSnapshot(ordersQ, snap => {
+        const orders = [];
+        snap.forEach(d => orders.push({ id: d.id, ...d.data() }));
+        renderOrders(orders);
+        updateOrderStats(orders);
+      }, err => {
+        console.error('orders listen error', err);
+        renderOrders([]);
+      });
+    } catch(e) { console.error('orders load error', e); }
+
+    // ── المستخدمين (عدد) ──
+    try {
+      const usersSnap = await getDocs(collection(db, 'users'));
+      document.getElementById('stat-users-count').textContent = usersSnap.size;
+    } catch(e) { console.error('users load error', e); }
+  }
+
+  function renderTopMeals(meals) {
+    const wrap = document.getElementById('top-meals-list');
+    if (!meals.length) {
+      wrap.innerHTML = `<div class="empty-state">لا توجد بيانات طلبات بعد 🍽️</div>`;
+      return;
+    }
+    const maxCount = Math.max(...meals.map(m => m.order_count||0), 1);
+    const ranks = ['r1','r2','r2','r3','r3'];
+    wrap.innerHTML = meals.map((m,i) => `
+      <div class="meal-item">
+        <div class="meal-rank ${ranks[i]||'r3'}">${i+1}</div>
+        <div class="meal-emoji">🍽️</div>
+        <div class="meal-info">
+          <div class="meal-name">${m.name_ar||''}</div>
+          <div class="meal-orders">${m.order_count||0} طلب</div>
+        </div>
+        <div class="meal-bar-wrap">
+          <div class="meal-bar-bg"><div class="meal-bar-fill" style="width:${((m.order_count||0)/maxCount*100)}%"></div></div>
+        </div>
+      </div>
+    `).join('');
+  }
+
+  function renderStores(stores) {
+    const wrap = document.getElementById('stores-list');
+    if (!stores.length) {
+      wrap.innerHTML = `<div class="empty-state">ما في متاجر شريكة مضافة بعد 🏪</div>`;
+      return;
+    }
+    wrap.innerHTML = stores.map(s => `
+      <div class="store-item">
+        <div class="store-emoji">🏪</div>
+        <div>
+          <div class="store-name">${s.name||''}</div>
+          <div class="store-orders">${s.is_active ? 'نشط' : 'غير نشط'}</div>
+        </div>
+        <div class="store-score">${s.rating ? '⭐ '+s.rating : 'جديد'}</div>
+      </div>
+    `).join('');
+  }
+
+  function renderDrivers(drivers) {
+    const wrap = document.getElementById('drivers-list');
+    if (!drivers.length) {
+      wrap.innerHTML = `<div class="empty-state">ما في سائقين مسجلين بعد 🛵</div>`;
+      return;
+    }
+    const colors = ['red','orange','green','blue'];
+    wrap.innerHTML = drivers.map((d,i) => `
+      <div class="driver-item">
+        <div class="driver-avatar" style="background:rgba(255,71,87,0.15);color:var(--${colors[i%4]})">${(d.name||'?')[0]}</div>
+        <div>
+          <div class="driver-name">${d.name||'سائق'}</div>
+          <div class="driver-zone">📍 ${d.status==='online'?'متاح':d.status==='busy'?'مشغول':'أوفلاين'}</div>
+        </div>
+        <div class="driver-status-dot ${d.status||'offline'}"></div>
+        <div class="driver-trips">${d.total_trips||0} رحلة</div>
+      </div>
+    `).join('');
+  }
+
+  function renderOrders(orders) {
+    const tbody = document.getElementById('orders-tbody');
+    if (!orders.length) {
+      tbody.innerHTML = `<tr><td colspan="5" style="text-align:center;padding:30px;color:var(--cream30)">ما في طلبات بعد — أول طلب رح يظهر هون لحظياً 🛒</td></tr>`;
+      return;
+    }
+    const statusMap = {
+      pending: ['pending','بانتظار المتجر'],
+      confirmed: ['preparing','مؤكد'],
+      preparing: ['preparing','بالتحضير'],
+      out_for_delivery: ['delivering','جاري التوصيل'],
+      delivered: ['delivered','وصل ✓'],
+      cancelled: ['cancelled','ملغي']
+    };
+    tbody.innerHTML = orders.map(o => {
+      const [cls,label] = statusMap[o.status] || ['pending', o.status||''];
+      return `
+      <tr>
+        <td>${o.order_number||o.id}</td>
+        <td>${o.customer_name||'—'}</td>
+        <td>${(o.meals && o.meals[0] && o.meals[0].name) || '—'}</td>
+        <td>${o.total ? o.total.toFixed(2)+' د.أ' : '—'}</td>
+        <td><span class="status-badge ${cls}"><span class="status-dot"></span>${label}</span></td>
+      </tr>`;
+    }).join('');
+  }
+
+  function updateOrderStats(orders) {
+    document.getElementById('stat-orders-count').textContent = orders.length;
+    const revenue = orders.reduce((s,o) => s + (o.total||0), 0);
+    document.getElementById('stat-revenue').textContent = revenue.toFixed(0);
+    const delivered = orders.filter(o => o.status === 'delivered').length;
+    document.getElementById('stat-delivered').textContent = delivered;
+  }
+
+});
+</script>
+<style>
+  /* ══ DARK MODE (default) ══ */
+  :root {
+    --bg:        #130609;
+    --surface:   #1E0C10;
+    --surface2:  #2A1118;
+    --border:    #3D1820;
+    --red:       #FF4757;
+    --red-glow:  rgba(255,71,87,0.25);
+    --orange:    #FFA502;
+    --orange-glow: rgba(255,165,2,0.22);
+    --green:     #2ED573;
+    --green-glow: rgba(46,213,115,0.22);
+    --blue:      #45B7FF;
+    --blue-glow: rgba(69,183,255,0.22);
+    --cream:     #FDF8F3;
+    --cream60:   rgba(253,248,243,0.6);
+    --cream30:   rgba(253,248,243,0.3);
+    --cream10:   rgba(253,248,243,0.07);
+  }
+
+  /* ══ LIGHT MODE ══ */
+  body.light {
+    --bg:        #FDF8F3;
+    --surface:   #FFFFFF;
+    --surface2:  #F5EDE6;
+    --border:    #E8D5C8;
+    --red:       #C0392B;
+    --red-glow:  rgba(192,57,43,0.18);
+    --orange:    #E67E22;
+    --orange-glow: rgba(230,126,34,0.18);
+    --green:     #27AE60;
+    --green-glow: rgba(39,174,96,0.18);
+    --blue:      #2980B9;
+    --blue-glow: rgba(41,128,185,0.18);
+    --cream:     #2C1810;
+    --cream60:   rgba(44,24,16,0.65);
+    --cream30:   rgba(44,24,16,0.38);
+    --cream10:   rgba(44,24,16,0.06);
+  }
+
+  /* ══ THEME TOGGLE BUTTON ══ */
+  .theme-toggle {
+    width: 40px;
+    height: 40px;
+    border-radius: 12px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+    cursor: pointer;
+    transition: all 0.2s;
+    flex-shrink: 0;
+  }
+  .theme-toggle:hover { border-color: var(--orange); transform: rotate(15deg); }
+
+  * { margin:0; padding:0; box-sizing:border-box; }
+
+  body {
+    font-family: 'Cairo', sans-serif;
+    background: var(--bg);
+    color: var(--cream);
+    min-height: 100vh;
+    display: flex;
+    transition: background 0.3s, color 0.3s;
+  }
+
+  /* ═══════════════ SIDEBAR ═══════════════ */
+  .sidebar {
+    width: 240px;
+    min-height: 100vh;
+    background: var(--surface);
+    border-left: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    padding: 24px 0;
+    position: fixed;
+    right: 0;
+    top: 0;
+    z-index: 100;
+  }
+
+  .logo {
+    padding: 0 20px 28px;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 20px;
+  }
+
+  .logo-text {
+    font-family: 'Tajawal', sans-serif;
+    font-size: 28px;
+    font-weight: 800;
+    background: linear-gradient(135deg, var(--red), var(--orange));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    line-height: 1;
+  }
+
+  .logo-sub {
+    font-size: 11px;
+    color: var(--cream30);
+    margin-top: 4px;
+    letter-spacing: 1px;
+  }
+
+  .nav-section {
+    padding: 0 12px;
+    margin-bottom: 8px;
+  }
+
+  .nav-label {
+    font-size: 10px;
+    color: var(--cream30);
+    letter-spacing: 2px;
+    padding: 0 10px;
+    margin-bottom: 6px;
+    text-transform: uppercase;
+  }
+
+  .nav-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 11px 14px;
+    border-radius: 12px;
+    cursor: pointer;
+    transition: all 0.2s;
+    font-size: 14px;
+    color: var(--cream60);
+    margin-bottom: 2px;
+    position: relative;
+  }
+
+  .nav-item:hover { background: var(--cream10); color: var(--cream); }
+
+  .nav-item.active {
+    background: linear-gradient(135deg, rgba(255,71,87,0.2), rgba(255,165,2,0.1));
+    color: var(--cream);
+    border: 1px solid rgba(255,71,87,0.3);
+  }
+
+  .nav-item.active .nav-icon { filter: drop-shadow(0 0 6px var(--red)); }
+
+  .nav-icon { font-size: 18px; width: 22px; text-align: center; }
+
+  .nav-badge {
+    margin-right: auto;
+    background: var(--red);
+    color: white;
+    font-size: 10px;
+    font-weight: 700;
+    padding: 2px 7px;
+    border-radius: 20px;
+    box-shadow: 0 0 10px var(--red-glow);
+  }
+
+  .sidebar-footer {
+    margin-top: auto;
+    padding: 20px 20px 0;
+    border-top: 1px solid var(--border);
+  }
+
+  .admin-card {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .admin-avatar {
+    width: 38px;
+    height: 38px;
+    border-radius: 12px;
+    background: linear-gradient(135deg, var(--red), var(--orange));
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 16px;
+    font-weight: 700;
+    flex-shrink: 0;
+  }
+
+  .admin-name { font-size: 13px; font-weight: 600; }
+  .admin-role { font-size: 11px; color: var(--cream30); }
+
+  /* ═══════════════ MAIN ═══════════════ */
+  .main {
+    margin-left: 0;
+    margin-right: 240px;
+    flex: 1;
+    padding: 28px 32px;
+    min-height: 100vh;
+  }
+
+  /* ═══════════════ TOPBAR ═══════════════ */
+  .topbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 32px;
+  }
+
+  .page-title {
+    font-family: 'Tajawal', sans-serif;
+    font-size: 24px;
+    font-weight: 700;
+  }
+
+  .page-subtitle { font-size: 13px; color: var(--cream30); margin-top: 2px; }
+
+  .topbar-actions { display: flex; gap: 12px; align-items: center; }
+
+  .btn-notif {
+    width: 40px;
+    height: 40px;
+    border-radius: 12px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+    cursor: pointer;
+    position: relative;
+    transition: all 0.2s;
+  }
+
+  .btn-notif:hover { border-color: var(--red); }
+
+  .notif-dot {
+    width: 8px;
+    height: 8px;
+    background: var(--red);
+    border-radius: 50%;
+    position: absolute;
+    top: 8px;
+    left: 9px;
+    box-shadow: 0 0 8px var(--red);
+  }
+
+  .btn-primary {
+    background: linear-gradient(135deg, var(--red), #c0392b);
+    color: white;
+    border: none;
+    padding: 10px 20px;
+    border-radius: 12px;
+    font-family: 'Cairo', sans-serif;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    box-shadow: 0 4px 20px var(--red-glow);
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .btn-primary:hover { transform: translateY(-1px); box-shadow: 0 6px 24px var(--red-glow); }
+
+  /* ═══════════════ STATS GRID ═══════════════ */
+  .stats-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 16px;
+    margin-bottom: 28px;
+  }
+
+  .stat-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 18px;
+    padding: 22px 20px;
+    position: relative;
+    overflow: hidden;
+    transition: transform 0.2s;
+  }
+
+  .stat-card:hover { transform: translateY(-2px); }
+
+  .stat-card::before {
+    content: '';
+    position: absolute;
+    top: 0; right: 0;
+    width: 80px;
+    height: 80px;
+    border-radius: 0 18px 0 80px;
+    opacity: 0.12;
+  }
+
+  .stat-card.red::before   { background: var(--red); }
+  .stat-card.orange::before { background: var(--orange); }
+  .stat-card.green::before  { background: var(--green); }
+  .stat-card.blue::before   { background: var(--blue); }
+
+  .stat-card.red   { border-color: rgba(255,71,87,0.25); }
+  .stat-card.orange { border-color: rgba(255,165,2,0.25); }
+  .stat-card.green  { border-color: rgba(46,213,115,0.25); }
+  .stat-card.blue   { border-color: rgba(69,183,255,0.25); }
+
+  .stat-emoji { font-size: 24px; margin-bottom: 12px; display: block; }
+
+  .stat-number {
+    font-family: 'Tajawal', sans-serif;
+    font-size: 36px;
+    font-weight: 800;
+    line-height: 1;
+    margin-bottom: 6px;
+  }
+
+  .stat-card.red .stat-number    { color: var(--red);    text-shadow: 0 0 20px var(--red-glow); }
+  .stat-card.orange .stat-number { color: var(--orange);  text-shadow: 0 0 20px var(--orange-glow); }
+  .stat-card.green .stat-number  { color: var(--green);   text-shadow: 0 0 20px var(--green-glow); }
+  .stat-card.blue .stat-number   { color: var(--blue);    text-shadow: 0 0 20px var(--blue-glow); }
+
+  .stat-label { font-size: 13px; color: var(--cream60); }
+
+  .stat-change {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 12px;
+    margin-top: 8px;
+    font-weight: 600;
+  }
+
+  .stat-change.up   { color: var(--green); }
+  .stat-change.down { color: var(--red); }
+
+  /* ═══════════════ MIDDLE ROW ═══════════════ */
+  .mid-row {
+    display: grid;
+    grid-template-columns: 1fr 360px;
+    gap: 16px;
+    margin-bottom: 20px;
+  }
+
+  /* ═══════════════ ORDERS TABLE ═══════════════ */
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 18px;
+    overflow: hidden;
+  }
+
+  .card-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 20px 22px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .card-title {
+    font-family: 'Tajawal', sans-serif;
+    font-size: 16px;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .card-action {
+    font-size: 12px;
+    color: var(--orange);
+    cursor: pointer;
+    background: none;
+    border: none;
+    font-family: 'Cairo', sans-serif;
+    font-weight: 600;
+  }
+
+  .card-action:hover { text-decoration: underline; }
+
+  table { width: 100%; border-collapse: collapse; }
+
+  thead th {
+    font-size: 11px;
+    color: var(--cream30);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    padding: 12px 22px;
+    text-align: right;
+    font-weight: 500;
+    background: var(--surface2);
+  }
+
+  tbody tr {
+    border-top: 1px solid var(--border);
+    transition: background 0.15s;
+  }
+
+  tbody tr:hover { background: var(--cream10); }
+
+  tbody td {
+    padding: 14px 22px;
+    font-size: 13px;
+    color: var(--cream60);
+  }
+
+  tbody td:first-child { color: var(--cream); font-weight: 600; }
+
+  .status-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 4px 10px;
+    border-radius: 20px;
+    font-size: 11px;
+    font-weight: 700;
+  }
+
+  .status-badge.delivered  { background: rgba(46,213,115,0.12); color: var(--green); border: 1px solid rgba(46,213,115,0.25); }
+  .status-badge.preparing  { background: rgba(255,165,2,0.12);  color: var(--orange); border: 1px solid rgba(255,165,2,0.25); }
+  .status-badge.pending    { background: rgba(69,183,255,0.12); color: var(--blue);   border: 1px solid rgba(69,183,255,0.25); }
+  .status-badge.cancelled  { background: rgba(255,71,87,0.12);  color: var(--red);    border: 1px solid rgba(255,71,87,0.25); }
+
+  .status-dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+
+  /* ═══════════════ ACTIVITY PANEL ═══════════════ */
+  .activity-list { padding: 8px 0; }
+
+  .activity-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 14px 20px;
+    border-bottom: 1px solid var(--border);
+    transition: background 0.15s;
+  }
+
+  .activity-item:last-child { border-bottom: none; }
+  .activity-item:hover { background: var(--cream10); }
+
+  .activity-icon {
+    width: 38px;
+    height: 38px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+    flex-shrink: 0;
+  }
+
+  .activity-icon.order    { background: rgba(255,71,87,0.15); }
+  .activity-icon.store    { background: rgba(255,165,2,0.15); }
+  .activity-icon.driver   { background: rgba(46,213,115,0.15); }
+  .activity-icon.user     { background: rgba(69,183,255,0.15); }
+
+  .activity-text { font-size: 13px; line-height: 1.5; flex: 1; }
+  .activity-text strong { color: var(--cream); }
+  .activity-time { font-size: 11px; color: var(--cream30); margin-top: 2px; }
+
+  /* ═══════════════ BOTTOM ROW ═══════════════ */
+  .bottom-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 16px;
+  }
+
+  /* ═══════════════ MEAL PERF ═══════════════ */
+  .meal-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 14px 20px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .meal-item:last-child { border-bottom: none; }
+
+  .meal-rank {
+    font-family: 'Tajawal', sans-serif;
+    font-size: 18px;
+    font-weight: 800;
+    width: 28px;
+    text-align: center;
+    flex-shrink: 0;
+  }
+
+  .meal-rank.r1 { color: var(--orange); text-shadow: 0 0 12px var(--orange-glow); }
+  .meal-rank.r2 { color: var(--cream60); }
+  .meal-rank.r3 { color: var(--cream30); }
+
+  .meal-emoji { font-size: 28px; flex-shrink: 0; }
+
+  .meal-info { flex: 1; }
+  .meal-name { font-size: 13px; font-weight: 600; }
+  .meal-orders { font-size: 11px; color: var(--cream30); margin-top: 2px; }
+
+  .meal-bar-wrap { width: 80px; }
+  .meal-bar-bg { height: 6px; background: var(--border); border-radius: 3px; overflow: hidden; }
+  .meal-bar-fill { height: 100%; border-radius: 3px; background: linear-gradient(90deg, var(--red), var(--orange)); }
+
+  /* ═══════════════ DRIVERS ═══════════════ */
+  .driver-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 20px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .driver-item:last-child { border-bottom: none; }
+
+  .driver-avatar {
+    width: 36px;
+    height: 36px;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    font-size: 14px;
+    flex-shrink: 0;
+  }
+
+  .driver-name { font-size: 13px; font-weight: 600; }
+  .driver-zone { font-size: 11px; color: var(--cream30); margin-top: 1px; }
+
+  .driver-status-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    margin-right: auto;
+    flex-shrink: 0;
+  }
+
+  .driver-status-dot.online  { background: var(--green); box-shadow: 0 0 8px var(--green); }
+  .driver-status-dot.busy    { background: var(--orange); box-shadow: 0 0 8px var(--orange); }
+  .driver-status-dot.offline { background: var(--cream30); }
+
+  .driver-trips { font-size: 12px; font-weight: 700; color: var(--cream60); }
+
+  /* ═══════════════ STORES ═══════════════ */
+  .store-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 14px 20px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .store-item:last-child { border-bottom: none; }
+  .store-emoji { font-size: 26px; }
+  .store-name { font-size: 13px; font-weight: 600; flex: 1; }
+  .store-orders { font-size: 11px; color: var(--cream30); }
+  .store-score {
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--green);
+  }
+
+  /* ═══════════════ SCROLLBAR ═══════════════ */
+  .empty-state {
+    padding: 36px 20px;
+    text-align: center;
+    color: var(--cream30);
+    font-size: 13px;
+  }
+
+  /* ══ LOGIN GATE ══ */
+  #login-gate {
+    position: fixed;
+    inset: 0;
+    background: var(--bg);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    z-index: 999;
+    font-family: 'Cairo', sans-serif;
+  }
+  .gate-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 32px 28px;
+    width: 100%;
+    max-width: 360px;
+  }
+  .gate-logo {
+    font-family: 'Tajawal', sans-serif;
+    font-size: 28px;
+    font-weight: 800;
+    text-align: center;
+    background: linear-gradient(135deg, var(--red), var(--orange));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    margin-bottom: 4px;
+  }
+  .gate-sub { text-align:center; font-size:12px; color:var(--cream30); margin-bottom:24px; }
+  .gate-field { margin-bottom: 14px; }
+  .gate-field label { display:block; font-size:12px; color:var(--cream60); margin-bottom:6px; }
+  .gate-field input {
+    width: 100%;
+    padding: 11px 14px;
+    border-radius: 10px;
+    border: 1px solid var(--border);
+    background: var(--bg);
+    color: var(--cream);
+    font-family: 'Cairo', sans-serif;
+    font-size: 13px;
+    outline: none;
+  }
+  .gate-field input:focus { border-color: var(--red); }
+  .gate-btn {
+    width: 100%;
+    padding: 12px;
+    border-radius: 10px;
+    border: none;
+    background: linear-gradient(135deg, var(--red), #c0392b);
+    color: white;
+    font-family: 'Cairo', sans-serif;
+    font-weight: 700;
+    font-size: 14px;
+    cursor: pointer;
+    margin-top: 6px;
+  }
+  .gate-error {
+    display: none;
+    background: rgba(255,71,87,0.12);
+    color: var(--red);
+    font-size: 12px;
+    padding: 8px 12px;
+    border-radius: 8px;
+    margin-bottom: 12px;
+    text-align: center;
+  }
+
+  ::-webkit-scrollbar { width: 6px; }
+  ::-webkit-scrollbar-track { background: var(--bg); }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+</style>
+</head>
+<body>
+
+<!-- ══════ LOGIN GATE ══════ -->
+<div id="login-gate">
+  <div class="gate-card">
+    <div class="gate-logo">أكليتو 🍽️</div>
+    <div class="gate-sub">دخول لوحة التحكم</div>
+    <div class="gate-error" id="gate-error"></div>
+    <div class="gate-field">
+      <label>الإيميل</label>
+      <input type="email" id="gate-email" placeholder="admin@akleto.jo" />
+    </div>
+    <div class="gate-field">
+      <label>كلمة المرور</label>
+      <input type="password" id="gate-pass" onkeydown="if(event.key==='Enter')adminLogin()" />
+    </div>
+    <button class="gate-btn" onclick="adminLogin()">دخول</button>
+  </div>
+</div>
+
+<div id="app-shell" style="display:none;width:100%;">
+
+<!-- ══════ SIDEBAR ══════ -->
+<aside class="sidebar">
+  <div class="logo">
+    <div class="logo-text">أكليتو 🍽️</div>
+    <div class="logo-sub">لوحة التحكم — ADMIN</div>
+  </div>
+
+  <div class="nav-section">
+    <div class="nav-label">الرئيسية</div>
+    <div class="nav-item active">
+      <span class="nav-icon">📊</span>
+      <span>نظرة عامة</span>
+    </div>
+    <div class="nav-item">
+      <span class="nav-icon">🛒</span>
+      <span>الطلبات</span>
+      <span class="nav-badge">12</span>
+    </div>
+    <div class="nav-item">
+      <span class="nav-icon">🍖</span>
+      <span>الوجبات</span>
+    </div>
+    <div class="nav-item">
+      <span class="nav-icon">🧅</span>
+      <span>المكونات</span>
+    </div>
+  </div>
+
+  <div class="nav-section">
+    <div class="nav-label">المستخدمون</div>
+    <div class="nav-item">
+      <span class="nav-icon">👤</span>
+      <span>الزبائن</span>
+    </div>
+    <div class="nav-item">
+      <span class="nav-icon">🛵</span>
+      <span>السائقين</span>
+    </div>
+    <div class="nav-item">
+      <span class="nav-icon">🏪</span>
+      <span>المتاجر الشريكة</span>
+    </div>
+  </div>
+
+  <div class="nav-section">
+    <div class="nav-label">الإعدادات</div>
+    <div class="nav-item">
+      <span class="nav-icon">📣</span>
+      <span>الإشعارات</span>
+    </div>
+    <div class="nav-item">
+      <span class="nav-icon">⚙️</span>
+      <span>الإعدادات</span>
+    </div>
+  </div>
+
+  <div class="sidebar-footer">
+    <div class="admin-card">
+      <div class="admin-avatar">م</div>
+      <div>
+        <div class="admin-name">مؤيد</div>
+        <div class="admin-role">مدير المنصة 👑</div>
+      </div>
+      <button onclick="adminLogout()" title="خروج" style="margin-right:auto;background:none;border:none;color:var(--cream30);cursor:pointer;font-size:16px;">⏻</button>
+    </div>
+  </div>
+</aside>
+
+<!-- ══════ MAIN ══════ -->
+<main class="main">
+
+  <!-- TOPBAR -->
+  <div class="topbar">
+    <div>
+      <div class="page-title">يهلا مؤيد! 👋🏼 كيف الطلبات اليوم؟</div>
+      <div class="page-subtitle">متصل بقاعدة البيانات مباشرة 🔴</div>
+    </div>
+    <div class="topbar-actions">
+      <button class="theme-toggle" id="themeBtn" onclick="toggleTheme()" title="تبديل الوضع">🌙</button>
+      <div class="btn-notif">
+        🔔
+        <span class="notif-dot"></span>
+      </div>
+      <button class="btn-primary">➕ إضافة وجبة</button>
+    </div>
+  </div>
+
+  <!-- STATS -->
+  <div class="stats-grid">
+    <div class="stat-card red">
+      <span class="stat-emoji">🛒</span>
+      <div class="stat-number" id="stat-orders-count">0</div>
+      <div class="stat-label">طلب (آخر 10)</div>
+      <div class="stat-change up">مباشر 🔴</div>
+    </div>
+    <div class="stat-card orange">
+      <span class="stat-emoji">💰</span>
+      <div class="stat-number" id="stat-revenue">0</div>
+      <div class="stat-label">إيرادات (د.أ)</div>
+      <div class="stat-change up">مباشر 🔴</div>
+    </div>
+    <div class="stat-card green">
+      <span class="stat-emoji">🛵</span>
+      <div class="stat-number" id="stat-delivered">0</div>
+      <div class="stat-label">توصيلة مكتملة</div>
+      <div class="stat-change up">مباشر 🔴</div>
+    </div>
+    <div class="stat-card blue">
+      <span class="stat-emoji">🧑‍🍳</span>
+      <div class="stat-number" id="stat-users-count">0</div>
+      <div class="stat-label">مستخدم مسجّل</div>
+      <div class="stat-change up" id="stat-meals-wrap">🍽️ <span id="stat-meals-count">0</span> وجبة متاحة</div>
+    </div>
+  </div>
+
+  <!-- MID ROW -->
+  <div class="mid-row">
+    <!-- ORDERS TABLE -->
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title">🛒 آخر الطلبات</div>
+        <button class="card-action">عرض الكل ←</button>
+      </div>
+      <table>
+        <thead>
+          <tr>
+            <th>رقم الطلب</th>
+            <th>الزبون</th>
+            <th>الوجبة</th>
+            <th>المبلغ</th>
+            <th>الحالة</th>
+          </tr>
+        </thead>
+        <tbody id="orders-tbody">
+          <tr><td colspan="5" style="text-align:center;padding:30px;color:var(--cream30)">جاري التحميل...</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- ACTIVITY -->
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title">⚡ نشاط مباشر</div>
+        <span style="width:8px;height:8px;border-radius:50%;background:var(--green);box-shadow:0 0 8px var(--green);display:inline-block;"></span>
+      </div>
+      <div class="activity-list">
+        <div class="empty-state">📡 النشاط المباشر رح يفعّل لما يصير عندنا طلبات حقيقية</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- BOTTOM ROW -->
+  <div class="bottom-row">
+
+    <!-- TOP MEALS -->
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title">🏆 أكثر الوجبات طلباً</div>
+        <button class="card-action">هاد الأسبوع</button>
+      </div>
+      <div id="top-meals-list">
+        <div class="empty-state">جاري التحميل...</div>
+      </div>
+    </div>
+
+    <!-- DRIVERS -->
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title">🛵 السائقين الآن</div>
+        <button class="card-action">إدارة الكل</button>
+      </div>
+      <div id="drivers-list">
+        <div class="empty-state">جاري التحميل...</div>
+      </div>
+    </div>
+
+    <!-- STORES -->
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title">🏪 المتاجر الشريكة</div>
+        <button class="card-action">إدارة</button>
+      </div>
+      <div id="stores-list">
+        <div class="empty-state">جاري التحميل...</div>
+      </div>
+    </div>
+
+  </div>
+</main>
+
+</div>
+
+<script>
+  function toggleTheme() {
+    const body = document.body;
+    const btn  = document.getElementById('themeBtn');
+    body.classList.toggle('light');
+    btn.textContent = body.classList.contains('light') ? '🌙' : '☀️';
+    localStorage.setItem('akleto-theme', body.classList.contains('light') ? 'light' : 'dark');
+  }
+  // حفظ التفضيل
+  if (localStorage.getItem('akleto-theme') === 'light') {
+    document.body.classList.add('light');
+    document.addEventListener('DOMContentLoaded', () => {
+      document.getElementById('themeBtn').textContent = '🌙';
+    });
+  }
+</script>
+</body>
+</html>

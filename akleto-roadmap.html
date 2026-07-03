@@ -1,0 +1,386 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>خطة عمل أكليتو — من الصفر للتطبيق النهائي</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@500;700;900&family=Cairo:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --cream:#FDF8F3;
+    --cream-deep:#F6EDE2;
+    --maroon:#A23E48;
+    --maroon-deep:#7C2E37;
+    --peach:#F5A65B;
+    --olive:#65743A;
+    --ink:#2B1E1A;
+    --ink-soft:#6E5A52;
+    --line:#E7D9C9;
+  }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  body{
+    background:var(--cream);
+    color:var(--ink);
+    font-family:'Cairo', sans-serif;
+    line-height:1.7;
+    padding-bottom:80px;
+  }
+  h1,h2,h3,.eyebrow{font-family:'Tajawal', sans-serif;}
+
+  /* ===== Hero ===== */
+  .hero{
+    position:relative;
+    padding:56px 24px 44px;
+    background:
+      radial-gradient(circle at 85% -10%, rgba(245,166,91,0.35), transparent 55%),
+      linear-gradient(180deg, var(--maroon) 0%, var(--maroon-deep) 100%);
+    color:var(--cream);
+    border-radius:0 0 28px 28px;
+    overflow:hidden;
+  }
+  .hero::after{
+    content:"";
+    position:absolute;
+    left:-40px; bottom:-60px;
+    width:220px; height:220px;
+    border:2px dashed rgba(253,248,243,0.25);
+    border-radius:50%;
+  }
+  .eyebrow{
+    font-size:13px;
+    letter-spacing:.04em;
+    color:var(--peach);
+    font-weight:700;
+    margin-bottom:10px;
+  }
+  h1{
+    font-size:28px;
+    font-weight:900;
+    max-width:600px;
+    margin-bottom:14px;
+  }
+  .hero p{
+    max-width:560px;
+    color:rgba(253,248,243,0.85);
+    font-size:15px;
+    margin-bottom:26px;
+  }
+
+  .overall-bar-wrap{
+    background:rgba(253,248,243,0.14);
+    border-radius:14px;
+    padding:16px;
+    max-width:420px;
+  }
+  .overall-bar-label{
+    display:flex; justify-content:space-between;
+    font-size:13px; font-weight:600; margin-bottom:8px;
+  }
+  .overall-bar-track{
+    height:10px; border-radius:6px;
+    background:rgba(253,248,243,0.2);
+    overflow:hidden;
+  }
+  .overall-bar-fill{
+    height:100%; border-radius:6px;
+    background:linear-gradient(90deg, var(--peach), #ffd8a8);
+    width:0%;
+    transition:width 1.1s cubic-bezier(.4,0,.2,1);
+  }
+
+  /* ===== Route / Timeline (signature element) ===== */
+  .route{
+    max-width:760px;
+    margin:44px auto 0;
+    padding:0 20px;
+    position:relative;
+  }
+  .route::before{
+    content:"";
+    position:absolute;
+    top:8px; bottom:40px;
+    right:39px;
+    width:2px;
+    background-image:repeating-linear-gradient(180deg, var(--maroon) 0 8px, transparent 8px 16px);
+    opacity:.5;
+  }
+
+  .phase{
+    position:relative;
+    padding-right:80px;
+    margin-bottom:34px;
+  }
+  .phase-marker{
+    position:absolute;
+    right:22px; top:0;
+    width:34px; height:34px;
+    border-radius:50%;
+    display:flex; align-items:center; justify-content:center;
+    font-family:'Tajawal', sans-serif;
+    font-weight:900;
+    font-size:14px;
+    color:var(--cream);
+    background:var(--ink-soft);
+    border:3px solid var(--cream);
+    box-shadow:0 0 0 2px var(--line);
+    z-index:2;
+  }
+  .phase.done .phase-marker{ background:var(--maroon); }
+  .phase.progress .phase-marker{ background:var(--peach); color:var(--ink); }
+  .phase.todo .phase-marker{ background:#D8CDC2; color:#8a7c72; }
+
+  .phase-card{
+    background:#fff;
+    border:1px solid var(--line);
+    border-radius:16px;
+    padding:18px 20px;
+  }
+  .phase-head{
+    display:flex; align-items:flex-start; justify-content:space-between;
+    gap:12px; margin-bottom:6px;
+  }
+  .phase-title{
+    font-size:16px; font-weight:700;
+  }
+  .phase-status{
+    font-size:11px; font-weight:700;
+    padding:4px 10px; border-radius:20px;
+    white-space:nowrap;
+    align-self:flex-start;
+  }
+  .phase.done .phase-status{ background:rgba(101,116,58,0.12); color:var(--olive); }
+  .phase.progress .phase-status{ background:rgba(245,166,91,0.2); color:#9c5e1c; }
+  .phase.todo .phase-status{ background:#F0EAE3; color:var(--ink-soft); }
+
+  .phase-pct{
+    font-family:'Tajawal', sans-serif;
+    font-weight:900;
+    font-size:13px;
+    color:var(--ink-soft);
+    margin-bottom:10px;
+  }
+  .mini-bar-track{
+    height:6px; border-radius:4px; background:var(--cream-deep);
+    overflow:hidden; margin-bottom:14px;
+  }
+  .mini-bar-fill{ height:100%; border-radius:4px; background:var(--maroon); }
+  .phase.progress .mini-bar-fill{ background:var(--peach); }
+  .phase.todo .mini-bar-fill{ background:#D8CDC2; }
+
+  .tasks{ list-style:none; display:flex; flex-direction:column; gap:8px; }
+  .task{
+    display:flex; align-items:flex-start; gap:10px;
+    font-size:14px; color:var(--ink-soft);
+  }
+  .task .box{
+    flex:0 0 auto;
+    width:18px; height:18px; border-radius:6px;
+    border:2px solid var(--line);
+    display:flex; align-items:center; justify-content:center;
+    margin-top:2px;
+    font-size:11px; color:#fff;
+  }
+  .task.checked .box{ background:var(--olive); border-color:var(--olive); }
+  .task.checked span.label{ color:var(--ink); }
+  .task.active .box{ border-color:var(--peach); background:#fff3e2; }
+  .task-note{
+    display:inline-block;
+    margin-right:6px;
+    font-size:11px;
+    color:var(--maroon);
+    background:rgba(162,62,72,0.08);
+    padding:1px 8px;
+    border-radius:20px;
+  }
+
+  /* ===== Footer note ===== */
+  .footer-note{
+    max-width:760px;
+    margin:40px auto 0;
+    padding:18px 22px;
+    background:var(--cream-deep);
+    border-radius:16px;
+    border:1px dashed var(--line);
+    font-size:13px;
+    color:var(--ink-soft);
+  }
+  .footer-note b{ color:var(--maroon); }
+
+  @media(max-width:480px){
+    .route::before{ right:29px; }
+    .phase{ padding-right:64px; }
+    .phase-marker{ right:14px; width:30px; height:30px; font-size:12px; }
+  }
+</style>
+</head>
+<body>
+
+<header class="hero">
+  <div class="eyebrow">خارطة طريق المشروع</div>
+  <h1>أكليتو — من الفكرة إلى التطبيق النهائي</h1>
+  <p>تتبّع مراحل بناء منصة توصيل مكوّنات الوجبات في الأردن، خطوة بخطوة، من التأسيس التقني وحتى الإطلاق التجريبي.</p>
+  <div class="overall-bar-wrap">
+    <div class="overall-bar-label">
+      <span>نسبة الإنجاز الكلية</span>
+      <span id="overallPct">0%</span>
+    </div>
+    <div class="overall-bar-track"><div class="overall-bar-fill" id="overallFill"></div></div>
+  </div>
+</header>
+
+<main class="route" id="route"></main>
+
+<div class="footer-note">
+  <b>ملاحظة:</b> هاي الصفحة بتنعدّل يدوياً كل ما تخلص مهمة جديدة. آخر تحديث يعكس إنجاز تطبيق الزبون والأدمن، وباقي المراحل لسا ما بلشت.
+</div>
+
+<script>
+const phases = [
+  {
+    title: "المرحلة 1: التأسيس والبنية التحتية",
+    status: "منتهية",
+    state: "done",
+    tasks: [
+      {t:"تحديد فكرة المشروع وخوارزمية الدمج الذكي", done:true},
+      {t:"الهوية البصرية (ألوان، خطوط، RTL)", done:true},
+      {t:"إنشاء مشروع Firebase (akleto-prod)", done:true},
+      {t:"تفعيل Firestore + Email/Password Auth", done:true},
+      {t:"تصميم Schema لكل الـ Collections", done:true},
+      {t:"تعبئة بيانات تجريبية (5 وجبات، 25 مكوّن، 37 ربط)", done:true},
+    ]
+  },
+  {
+    title: "المرحلة 2: تطبيق الزبون",
+    status: "شبه منتهية",
+    state: "progress",
+    tasks: [
+      {t:"شاشة الرئيسية (عرض الوجبات من Firebase)", done:true},
+      {t:"شاشة تفاصيل الوجبة (عدد الأشخاص)", done:true},
+      {t:"شاشة السلة (خوارزمية الدمج الذكي)", done:true},
+      {t:"شاشة تأكيد الطلب (حفظ في Firestore)", done:true},
+      {t:"شاشة تسجيل الدخول / إنشاء حساب", done:true},
+      {t:"اختبار الدمج الذكي بسيناريوهات متعددة", done:false, active:true},
+    ]
+  },
+  {
+    title: "المرحلة 3: لوحة الأدمن",
+    status: "قيد العمل",
+    state: "progress",
+    tasks: [
+      {t:"Auth gate + Dark/Light mode", done:true},
+      {t:"اتصال Firebase Real-time", done:true},
+      {t:"ربط الطلبات الحقيقية القادمة من تطبيق الزبون", done:true},
+      {t:"إدارة حالة الطلب (تجهيز / بالطريق / تسليم)", done:false},
+      {t:"إدارة المتاجر الشريكة (إضافة وتعديل)", done:false},
+      {t:"تقارير أساسية (عدد الطلبات، أكثر وجبة طلباً)", done:false},
+    ]
+  },
+  {
+    title: "المرحلة 4: تطبيق المتجر الشريك",
+    status: "لم يبدأ",
+    state: "todo",
+    tasks: [
+      {t:"تصميم الشاشات في Figma", done:false},
+      {t:"شاشة استلام الطلبات الجديدة", done:false},
+      {t:"شاشة تجهيز المكونات (Checklist)", done:false},
+      {t:"تحديث حالة الطلب لـ «جاهز للتوصيل»", done:false},
+      {t:"سجل الطلبات السابقة", done:false},
+    ]
+  },
+  {
+    title: "المرحلة 5: بيانات حقيقية",
+    status: "لم يبدأ",
+    state: "todo",
+    tasks: [
+      {t:"إضافة 2-3 متاجر شريكة فعلية بعمّان", done:false},
+      {t:"توسيع القائمة إلى 10-15 وجبة", done:false},
+      {t:"مراجعة الأسعار والكميات الحقيقية", done:false},
+    ]
+  },
+  {
+    title: "المرحلة 6: اختبار داخلي",
+    status: "لم يبدأ",
+    state: "todo",
+    tasks: [
+      {t:"دعوة ~20 مستخدم تجريبي", done:false},
+      {t:"تشغيل دورة كاملة (طلب → أدمن → متجر → توصيل يدوي)", done:false},
+      {t:"جمع ملاحظات وتصحيح الأخطاء", done:false},
+    ]
+  },
+  {
+    title: "المرحلة 7: تطبيق السائق",
+    status: "بعد الـ MVP",
+    state: "todo",
+    tasks: [
+      {t:"تصميم الشاشات", done:false},
+      {t:"استلام طلب التوصيل", done:false},
+      {t:"تتبع الموقع (اختياري لاحقاً)", done:false},
+      {t:"تأكيد التسليم", done:false},
+    ]
+  },
+  {
+    title: "المرحلة 8: الإطلاق التجريبي المحدود",
+    status: "لم يبدأ",
+    state: "todo",
+    tasks: [
+      {t:"ربط دومين من GoDaddy", done:false},
+      {t:"نشر PWA أو تجهيز نسخة FlutterFlow", done:false},
+      {t:"حملة تسويقية محدودة (100-300 دينار/شهر)", done:false},
+    ]
+  },
+  {
+    title: "المرحلة 9: ما بعد MVP",
+    status: "مستقبلي",
+    state: "todo",
+    tasks: [
+      {t:"الدفع الإلكتروني", done:false},
+      {t:"برنامج الولاء", done:false},
+      {t:"التوسع لأسواق عربية أخرى", done:false},
+    ]
+  },
+];
+
+const route = document.getElementById('route');
+let totalTasks = 0, totalDone = 0;
+
+phases.forEach((p, i) => {
+  const doneCount = p.tasks.filter(t=>t.done).length;
+  const pct = Math.round((doneCount / p.tasks.length) * 100);
+  totalTasks += p.tasks.length;
+  totalDone += doneCount;
+
+  const el = document.createElement('div');
+  el.className = `phase ${p.state}`;
+  el.innerHTML = `
+    <div class="phase-marker">${i+1}</div>
+    <div class="phase-card">
+      <div class="phase-head">
+        <div class="phase-title">${p.title}</div>
+        <div class="phase-status">${p.status}</div>
+      </div>
+      <div class="phase-pct">${pct}% مكتمل — ${doneCount} من ${p.tasks.length} مهام</div>
+      <div class="mini-bar-track"><div class="mini-bar-fill" style="width:${pct}%"></div></div>
+      <ul class="tasks">
+        ${p.tasks.map(t => `
+          <li class="task ${t.done ? 'checked' : ''} ${t.active ? 'active' : ''}">
+            <span class="box">${t.done ? '✓' : ''}</span>
+            <span class="label">${t.t}</span>
+            ${t.active ? '<span class="task-note">التالي</span>' : ''}
+          </li>
+        `).join('')}
+      </ul>
+    </div>
+  `;
+  route.appendChild(el);
+});
+
+const overallPct = Math.round((totalDone/totalTasks)*100);
+requestAnimationFrame(()=>{
+  document.getElementById('overallFill').style.width = overallPct + '%';
+  document.getElementById('overallPct').textContent = overallPct + '%';
+});
+</script>
+
+</body>
+</html>

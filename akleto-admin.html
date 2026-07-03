@@ -335,6 +335,64 @@ window.addEventListener('DOMContentLoaded', () => {
     }
   };
 
+  /* ══════════════ إضافة مكوّن جديد ══════════════ */
+
+  window.openAddIngredientModal = () => {
+    document.getElementById('ingredientForm').reset();
+    document.getElementById('ingredientFormError').style.display = 'none';
+    document.getElementById('addIngredientOverlay').classList.add('open');
+  };
+
+  window.closeAddIngredientModal = () => {
+    document.getElementById('addIngredientOverlay').classList.remove('open');
+  };
+
+  window.saveIngredient = async (ev) => {
+    ev.preventDefault();
+    const errBox = document.getElementById('ingredientFormError');
+    errBox.style.display = 'none';
+
+    const name_ar         = document.getElementById('if-name').value.trim();
+    const unit             = document.getElementById('if-unit').value;
+    const category          = document.getElementById('if-category').value;
+    const price_per_unit     = parseFloat(document.getElementById('if-price').value) || 0;
+
+    if (!name_ar) {
+      errBox.textContent = 'لازم تكتب اسم المكوّن';
+      errBox.style.display = 'block';
+      return;
+    }
+
+    const saveBtn = document.getElementById('if-save-btn');
+    saveBtn.disabled = true;
+    saveBtn.textContent = 'جاري الحفظ...';
+
+    try {
+      const newRef = await addDoc(collection(db, 'ingredients'), {
+        name_ar, unit, category, price_per_unit,
+        is_active: true,
+        created_at: serverTimestamp()
+      });
+
+      // حدّث الكاش المحلي فوراً
+      ingredientsCache.push({ id: newRef.id, name_ar, unit, category, price_per_unit, is_active: true });
+
+      closeAddIngredientModal();
+
+      // إذا نافذة إضافة الوجبة مفتوحة، حدّث قائمة المكونات فيها
+      if (document.getElementById('addMealOverlay').classList.contains('open')) {
+        renderIngredientRows();
+      }
+    } catch(e) {
+      console.error('save ingredient error', e);
+      errBox.textContent = 'صار خطأ بالحفظ — جرب مرة ثانية';
+      errBox.style.display = 'block';
+    } finally {
+      saveBtn.disabled = false;
+      saveBtn.textContent = 'حفظ المكوّن ✓';
+    }
+  };
+
 });
 </script>
 <style>
@@ -1133,6 +1191,9 @@ window.addEventListener('DOMContentLoaded', () => {
   }
   .btn-add-ing:hover { border-color: var(--orange); color: var(--orange); }
 
+  .ing-actions-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .ing-actions-row .btn-add-ing { margin-top: 0; }
+
   .btn-secondary {
     background: var(--cream10);
     color: var(--cream);
@@ -1288,7 +1349,7 @@ window.addEventListener('DOMContentLoaded', () => {
       <span class="nav-icon">🍖</span>
       <span>الوجبات</span>
     </div>
-    <div class="nav-item">
+    <div class="nav-item" onclick="openAddIngredientModal()">
       <span class="nav-icon">🧅</span>
       <span>المكونات</span>
     </div>
@@ -1523,7 +1584,10 @@ window.addEventListener('DOMContentLoaded', () => {
         <div class="form-group">
           <label>المكونات — الكمية للشخص الواحد (خوارزمية الدمج الذكي بتستخدمها)</label>
           <div id="ingredientRows"></div>
-          <button type="button" class="btn-add-ing" onclick="addIngredientRow()">➕ ضيف مكوّن</button>
+          <div class="ing-actions-row">
+            <button type="button" class="btn-add-ing" onclick="addIngredientRow()">➕ ضيف مكوّن</button>
+            <button type="button" class="btn-add-ing" onclick="openAddIngredientModal()">🧅 مكوّن جديد</button>
+          </div>
         </div>
 
       </div>
@@ -1531,6 +1595,66 @@ window.addEventListener('DOMContentLoaded', () => {
       <div class="modal-footer">
         <button type="button" class="btn-secondary" onclick="closeAddMealModal()">إلغاء</button>
         <button type="submit" class="btn-primary" id="mf-save-btn">حفظ الوجبة ✓</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- ══════ MODAL: إضافة مكوّن ══════ -->
+<div class="modal-overlay" id="addIngredientOverlay">
+  <div class="modal-card" style="max-width:420px;">
+    <div class="modal-header">
+      <div class="modal-title">🧅 إضافة مكوّن جديد</div>
+      <button type="button" class="modal-close" onclick="closeAddIngredientModal()">✕</button>
+    </div>
+
+    <form id="ingredientForm" onsubmit="saveIngredient(event)">
+      <div class="modal-body">
+
+        <div class="modal-error" id="ingredientFormError"></div>
+
+        <div class="form-group">
+          <label>اسم المكوّن</label>
+          <input type="text" id="if-name" placeholder="مثال: بصل" required />
+        </div>
+
+        <div class="form-row" style="grid-template-columns:1fr 1fr;">
+          <div class="form-group">
+            <label>وحدة القياس</label>
+            <select id="if-unit">
+              <option value="g">غرام (g)</option>
+              <option value="kg">كيلو (kg)</option>
+              <option value="ml">مل (ml)</option>
+              <option value="l">لتر (l)</option>
+              <option value="حبة">حبة</option>
+              <option value="tbsp">معلقة كبيرة</option>
+              <option value="tsp">معلقة صغيرة</option>
+              <option value="cup">كوب</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>التصنيف</label>
+            <select id="if-category">
+              <option value="vegetables">🥦 خضروات</option>
+              <option value="meat">🥩 لحوم</option>
+              <option value="dairy">🧀 ألبان</option>
+              <option value="spices">🧂 بهارات وتوابل</option>
+              <option value="grains">🌾 حبوب ومعكرونة</option>
+              <option value="other">📦 أخرى</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label>سعر تقريبي للوحدة (د.أ) — اختياري</label>
+          <input type="number" id="if-price" min="0" step="0.01" placeholder="0.50" />
+        </div>
+
+      </div>
+
+      <div class="modal-footer">
+        <button type="button" class="btn-secondary" onclick="closeAddIngredientModal()">إلغاء</button>
+        <button type="submit" class="btn-primary" id="if-save-btn">حفظ المكوّن ✓</button>
       </div>
     </form>
   </div>

@@ -7,7 +7,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;900&family=Tajawal:wght@400;500;700;800&display=swap" rel="stylesheet">
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-import { getFirestore, collection, getDocs, query, orderBy, limit, onSnapshot, addDoc, writeBatch, doc, serverTimestamp, getDocFromServer }
+import { getFirestore, initializeFirestore, collection, getDocs, query, orderBy, limit, onSnapshot, addDoc, writeBatch, doc, serverTimestamp, getDocFromServer }
   from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, signOut }
   from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
@@ -24,7 +24,7 @@ const firebaseConfig = {
 };
 
 const app     = initializeApp(firebaseConfig);
-const db      = getFirestore(app);
+const db      = initializeFirestore(app, { experimentalAutoDetectLongPolling: true });
 const auth    = getAuth(app);
 const storage = getStorage(app);
 

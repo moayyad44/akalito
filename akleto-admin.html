@@ -1224,6 +1224,7 @@ window.addEventListener('DOMContentLoaded', () => {
     align-items: center;
     justify-content: center;
     padding: 20px;
+    touch-action: none;
   }
 
   .modal-overlay.open { display: flex; }
@@ -1274,11 +1275,7 @@ window.addEventListener('DOMContentLoaded', () => {
     min-height: 0;
     -webkit-overflow-scrolling: touch;
     overscroll-behavior: contain;
-  }
-
-  html.modal-lock, body.modal-lock {
-    overflow: hidden;
-    overscroll-behavior: none;
+    touch-action: pan-y;
   }
 
 
@@ -1290,6 +1287,7 @@ window.addEventListener('DOMContentLoaded', () => {
     inset: 0;
     background: var(--bg);
     z-index: 400;
+    touch-action: none;
   }
   .fullscreen-page.open { display: flex; }
 
@@ -1328,6 +1326,7 @@ window.addEventListener('DOMContentLoaded', () => {
     overflow-y: auto;
     -webkit-overflow-scrolling: touch;
     overscroll-behavior: contain;
+    touch-action: pan-y;
     padding: 20px;
     max-width: 640px;
     width: 100%;

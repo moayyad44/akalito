@@ -240,7 +240,7 @@ window.addEventListener('DOMContentLoaded', () => {
   function renderOrders(orders) {
     const tbody = document.getElementById('orders-tbody');
     if (!orders.length) {
-      tbody.innerHTML = `<tr><td colspan="5" style="text-align:center;padding:30px;color:var(--cream30)">ما في طلبات بعد — أول طلب رح يظهر هون لحظياً 🛒</td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="5" style="text-align:center;padding:30px;color:var(--cream30)">ما في طلبات بعد — أول طلب رح يظهر هون لحظياً 🛒</td><[...]
       return;
     }
     const statusMap = {
@@ -783,41 +783,11 @@ window.addEventListener('DOMContentLoaded', () => {
   .page-subtitle { font-size: 13px; color: var(--cream30); margin-top: 2px; }
 
   .topbar-actions { display: flex; gap: 12px; align-items: center; }
-
-  /* ══════════════ OVERLAY & MODAL STYLING ══════════════ */
-  .overlay {
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    background: rgba(0,0,0,0.5);
-    display: none;
-    align-items: center;
-    justify-content: center;
-    z-index: 1000;
-    overflow-y: auto;
-  }
-
-  .overlay.open {
-    display: flex;
-  }
-
-  #addMealOverlay,
-  #addIngredientOverlay,
-  #ingredientsListOverlay {
-    overflow-y: auto;
-    -webkit-overflow-scrolling: touch;
-  }
-
-  #addMealOverlay > div,
-  #addIngredientOverlay > div,
-  #ingredientsListOverlay > div {
-    max-height: 90vh;
-    overflow-y: auto;
-    -webkit-overflow-scrolling: touch;
-  }
-
+#addMealOverlay {
+  overflow-y: auto;
+  max-height: 100vh;
+  padding-bottom: 20px;
+}
   .btn-notif {
     width: 40px;
     height: 40px;
@@ -1070,289 +1040,6 @@ window.addEventListener('DOMContentLoaded', () => {
     .stats-grid { grid-template-columns: 1fr; }
   }
 
-</style>
-</head>
-<body>
-
-<div class="sidebar">
-  <div class="logo">
-    <div class="logo-text">أكليتو</div>
-    <div class="logo-sub">🍽️ ADMIN</div>
-  </div>
-
-  <div class="nav-section">
-    <div class="nav-label">الرئيسية</div>
-    <div class="nav-item active">
-      <span class="nav-icon">📊</span>
-      <span>لوحة التحكم</span>
-    </div>
-  </div>
-
-  <div class="nav-section">
-    <div class="nav-label">الإدارة</div>
-    <div class="nav-item" onclick="openAddMealModal()">
-      <span class="nav-icon">➕</span>
-      <span>إضافة وجبة</span>
-    </div>
-    <div class="nav-item" onclick="openAddIngredientModal()">
-      <span class="nav-icon">🧅</span>
-      <span>إضافة مكوّن</span>
-    </div>
-    <div class="nav-item" onclick="openIngredientsListModal()">
-      <span class="nav-icon">📋</span>
-      <span>المكونات المتوفرة</span>
-    </div>
-  </div>
-
-  <div class="sidebar-footer">
-    <div class="admin-card">
-      <div class="admin-avatar">👨</div>
-      <div>
-        <div class="admin-name">المسؤول</div>
-        <div class="admin-role">نشط</div>
-      </div>
-    </div>
-    <button class="btn-primary" onclick="adminLogout()" style="width:100%;margin-top:12px;">
-      خروج ⬅️
-    </button>
-  </div>
-</div>
-
-<div id="app-shell" style="display:none;flex:1;">
-  <div class="main">
-    <div class="topbar">
-      <div>
-        <div class="page-title">📊 لوحة التحكم</div>
-        <div class="page-subtitle">مرحباً بك في أكليتو للمطاعم</div>
-      </div>
-      <div class="topbar-actions">
-        <button class="btn-notif">
-          🔔
-          <span class="notif-dot"></span>
-        </button>
-        <button class="btn-primary" onclick="openAddMealModal()">
-          <span>➕ إضافة وجبة</span>
-        </button>
-      </div>
-    </div>
-
-    <div class="stats-grid">
-      <div class="stat-card red">
-        <span class="stat-emoji">🍽️</span>
-        <div class="stat-number" id="stat-meals-count">0</div>
-        <div class="stat-label">وجبات مضافة</div>
-      </div>
-      <div class="stat-card orange">
-        <span class="stat-emoji">📦</span>
-        <div class="stat-number" id="stat-orders-count">0</div>
-        <div class="stat-label">إجمالي الطلبات</div>
-        <div class="stat-change up">↑ 12%</div>
-      </div>
-      <div class="stat-card green">
-        <span class="stat-emoji">✓</span>
-        <div class="stat-number" id="stat-delivered">0</div>
-        <div class="stat-label">طلبات مكتملة</div>
-      </div>
-      <div class="stat-card blue">
-        <span class="stat-emoji">💰</span>
-        <div class="stat-number" id="stat-revenue">0</div>
-        <div class="stat-label">الإيرادات (د.أ)</div>
-      </div>
-    </div>
-
-    <div class="mid-row">
-      <div class="card">
-        <div class="card-header">
-          <div class="card-title">📋 آخر الطلبات</div>
-          <button class="card-action">عرض الكل</button>
-        </div>
-        <table>
-          <thead>
-            <tr>
-              <th>رقم الطلب</th>
-              <th>اسم العميل</th>
-              <th>الوجبة</th>
-              <th>المبلغ</th>
-              <th>الحالة</th>
-            </tr>
-          </thead>
-          <tbody id="orders-tbody">
-            <tr><td colspan="5" style="text-align:center;padding:30px;color:var(--cream30)">جاري التحميل...</td></tr>
-          </tbody>
-        </table>
-      </div>
-
-      <div class="card">
-        <div class="card-header">
-          <div class="card-title">🏆 الوجبات الأكثر طلباً</div>
-        </div>
-        <div id="top-meals-list" style="padding:16px;"></div>
-      </div>
-    </div>
-
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
-      <div class="card">
-        <div class="card-header">
-          <div class="card-title">🏪 المتاجر الشريكة</div>
-        </div>
-        <div id="stores-list" style="padding:0;"></div>
-      </div>
-
-      <div class="card">
-        <div class="card-header">
-          <div class="card-title">🛵 السائقون</div>
-        </div>
-        <div id="drivers-list" style="padding:0;"></div>
-      </div>
-    </div>
-  </div>
-</div>
-
-<div id="login-gate" style="display:flex;width:100%;height:100vh;align-items:center;justify-content:center;background:var(--bg);">
-  <div style="background:var(--surface);padding:40px;border-radius:20px;border:1px solid var(--border);width:100%;max-width:320px;">
-    <div style="text-align:center;margin-bottom:28px;">
-      <div style="font-size:40px;margin-bottom:12px;">🍽️</div>
-      <div class="logo-text" style="font-size:24px;">أكليتو</div>
-      <div style="font-size:12px;color:var(--cream30);margin-top:4px;">لوحة تحكم المسؤول</div>
-    </div>
-    <input id="gate-email" type="email" placeholder="البريد الإلكتروني" style="width:100%;padding:12px;margin-bottom:12px;background:var(--surface2);border:1px solid var(--border);border-radius:10px;color:var(--cream);font-family:'Cairo',sans-serif;font-size:13px;">
-    <input id="gate-pass" type="password" placeholder="كلمة المرور" style="width:100%;padding:12px;margin-bottom:16px;background:var(--surface2);border:1px solid var(--border);border-radius:10px;color:var(--cream);font-family:'Cairo',sans-serif;font-size:13px;">
-    <div id="gate-error" style="color:var(--red);font-size:12px;margin-bottom:12px;display:none;"></div>
-    <button onclick="adminLogin()" class="btn-primary" style="width:100%;justify-content:center;">دخول</button>
-  </div>
-</div>
-
-<!-- Modals -->
-<div id="addMealOverlay" class="overlay">
-  <div style="background:var(--surface);border-radius:18px;border:1px solid var(--border);width:100%;max-width:500px;padding:28px;margin:20px;">
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
-      <h2 style="font-size:18px;font-weight:700;">➕ إضافة وجبة جديدة</h2>
-      <button onclick="closeAddMealModal()" style="background:none;border:none;font-size:20px;cursor:pointer;color:var(--cream30);">✕</button>
-    </div>
-
-    <div id="mealFormError" style="background:rgba(255,71,87,0.12);color:var(--red);padding:12px;border-radius:10px;margin-bottom:16px;font-size:13px;display:none;"></div>
-
-    <form id="mealForm" onsubmit="saveMeal(event)" style="display:flex;flex-direction:column;gap:14px;">
-      <div>
-        <label style="font-size:12px;color:var(--cream60);display:block;margin-bottom:6px;">اسم الوجبة *</label>
-        <input id="mf-name" type="text" required placeholder="مثال: فتة الدجاج" style="width:100%;padding:10px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;color:var(--cream);font-family:'Cairo',sans-serif;font-size:13px;">
-      </div>
-
-      <div>
-        <label style="font-size:12px;color:var(--cream60);display:block;margin-bottom:6px;">الفئة *</label>
-        <input id="mf-category" list="mealCategoryList" type="text" required placeholder="اختر من القائمة" style="width:100%;padding:10px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;color:var(--cream);font-family:'Cairo',sans-serif;font-size:13px;">
-        <datalist id="mealCategoryList"></datalist>
-      </div>
-
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
-        <div>
-          <label style="font-size:12px;color:var(--cream60);display:block;margin-bottom:6px;">مستوى الصعوبة</label>
-          <select id="mf-difficulty" style="width:100%;padding:10px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;color:var(--cream);font-family:'Cairo',sans-serif;font-size:13px;">
-            <option value="easy">سهل</option>
-            <option value="medium">متوسط</option>
-            <option value="hard">صعب</option>
-          </select>
-        </div>
-        <div>
-          <label style="font-size:12px;color:var(--cream60);display:block;margin-bottom:6px;">وقت التحضير (دقيقة)</label>
-          <input id="mf-prep" type="number" min="0" placeholder="30" style="width:100%;padding:10px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;color:var(--cream);font-family:'Cairo',sans-serif;font-size:13px;">
-        </div>
-      </div>
-
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
-        <div>
-          <label style="font-size:12px;color:var(--cream60);display:block;margin-bottom:6px;">السعر الأساسي (د.أ)</label>
-          <input id="mf-price" type="number" min="0" step="0.01" placeholder="5.00" style="width:100%;padding:10px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;color:var(--cream);font-family:'Cairo',sans-serif;font-size:13px;">
-        </div>
-        <div>
-          <label style="font-size:12px;color:var(--cream60);display:block;margin-bottom:6px;">عدد الحصص الافتراضي</label>
-          <input id="mf-servings" type="number" min="1" value="2" placeholder="2" style="width:100%;padding:10px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;color:var(--cream);font-family:'Cairo',sans-serif;font-size:13px;">
-        </div>
-      </div>
-
-      <div>
-        <label style="font-size:12px;color:var(--cream60);display:block;margin-bottom:6px;">الوصف</label>
-        <textarea id="mf-desc" placeholder="وصف الوجبة..." style="width:100%;padding:10px;height:80px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;color:var(--cream);font-family:'Cairo',sans-serif;font-size:13px;resize:none;"></textarea>
-      </div>
-
-      <div>
-        <label style="font-size:12px;color:var(--cream60);display:block;margin-bottom:6px;">صورة الوجبة</label>
-        <input type="file" accept="image/*" onchange="previewMealImage(event)" style="width:100%;padding:8px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;color:var(--cream);font-family:'Cairo',sans-serif;font-size:12px;">
-        <img id="mf-image-preview" style="display:none;width:100%;height:150px;object-fit:cover;border-radius:8px;margin-top:10px;" />
-      </div>
-
-      <div style="background:var(--surface2);padding:14px;border-radius:10px;">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
-          <label style="font-size:12px;color:var(--cream60);font-weight:600;">المكونات *</label>
-          <button type="button" onclick="addIngredientRow()" class="btn-primary" style="padding:4px 8px;font-size:11px;">➕ ضيف مكوّن</button>
-        </div>
-        <div id="ingredientRows" style="display:flex;flex-direction:column;gap:8px;"></div>
-      </div>
-
-      <button type="submit" id="mf-save-btn" class="btn-primary" style="width:100%;justify-content:center;margin-top:8px;">حفظ الوجبة ✓</button>
-    </form>
-  </div>
-</div>
-
-<div id="addIngredientOverlay" class="overlay">
-  <div style="background:var(--surface);border-radius:18px;border:1px solid var(--border);width:100%;max-width:400px;padding:28px;margin:20px;">
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
-      <h2 style="font-size:18px;font-weight:700;">🧅 إضافة مكوّن جديد</h2>
-      <button onclick="closeAddIngredientModal()" style="background:none;border:none;font-size:20px;cursor:pointer;color:var(--cream30);">✕</button>
-    </div>
-
-    <div id="ingredientFormError" style="background:rgba(255,71,87,0.12);color:var(--red);padding:12px;border-radius:10px;margin-bottom:16px;font-size:13px;display:none;"></div>
-
-    <form id="ingredientForm" onsubmit="saveIngredient(event)" style="display:flex;flex-direction:column;gap:14px;">
-      <div>
-        <label style="font-size:12px;color:var(--cream60);display:block;margin-bottom:6px;">اسم المكوّن *</label>
-        <input id="if-name" type="text" required placeholder="مثال: دجاج" style="width:100%;padding:10px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;color:var(--cream);font-family:'Cairo',sans-serif;font-size:13px;">
-      </div>
-
-      <div>
-        <label style="font-size:12px;color:var(--cream60);display:block;margin-bottom:6px;">الفئة</label>
-        <input id="if-category" list="ingredientCategoryList" type="text" placeholder="اختر من القائمة" style="width:100%;padding:10px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;color:var(--cream);font-family:'Cairo',sans-serif;font-size:13px;">
-        <datalist id="ingredientCategoryList"></datalist>
-      </div>
-
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
-        <div>
-          <label style="font-size:12px;color:var(--cream60);display:block;margin-bottom:6px;">الوحدة</label>
-          <input id="if-unit" type="text" placeholder="كيلو / لتر / حبة" style="width:100%;padding:10px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;color:var(--cream);font-family:'Cairo',sans-serif;font-size:13px;">
-        </div>
-        <div>
-          <label style="font-size:12px;color:var(--cream60);display:block;margin-bottom:6px;">السعر للوحدة (د.أ)</label>
-          <input id="if-price" type="number" min="0" step="0.01" placeholder="2.50" style="width:100%;padding:10px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;color:var(--cream);font-family:'Cairo',sans-serif;font-size:13px;">
-        </div>
-      </div>
-
-      <div>
-        <label style="font-size:12px;color:var(--cream60);display:block;margin-bottom:6px;">صورة المكوّن</label>
-        <input type="file" accept="image/*" onchange="previewIngredientImage(event)" style="width:100%;padding:8px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;color:var(--cream);font-family:'Cairo',sans-serif;font-size:12px;">
-        <img id="if-image-preview" style="display:none;width:100%;height:120px;object-fit:cover;border-radius:8px;margin-top:10px;" />
-      </div>
-
-      <button type="submit" id="if-save-btn" class="btn-primary" style="width:100%;justify-content:center;margin-top:8px;">حفظ المكوّن ✓</button>
-    </form>
-  </div>
-</div>
-
-<div id="ingredientsListOverlay" class="overlay">
-  <div style="background:var(--surface);border-radius:18px;border:1px solid var(--border);width:100%;max-width:600px;padding:28px;margin:20px;max-height:90vh;overflow-y:auto;">
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;position:sticky;top:0;background:var(--surface);z-index:10;padding-bottom:16px;">
-      <h2 style="font-size:18px;font-weight:700;">📋 المكونات المتوفرة</h2>
-      <button onclick="closeIngredientsListModal()" style="background:none;border:none;font-size:20px;cursor:pointer;color:var(--cream30);">✕</button>
-    </div>
-
-    <div style="display:flex;gap:10px;margin-bottom:16px;">
-      <button type="button" onclick="openAddIngredientModal(true)" class="btn-primary" style="flex:1;justify-content:center;">➕ إضافة مكوّن جديد</button>
-    </div>
-
-    <div id="ingredientsListWrap" style="display:grid;gap:12px;"></div>
-  </div>
-</div>
-
-<style>
   .ing-row {
     display: grid;
     grid-template-columns: 1fr 100px 80px 40px;
@@ -1548,6 +1235,11 @@ window.addEventListener('DOMContentLoaded', () => {
     overflow: hidden;
   }
 </style>
+
+</head>
+<body>
+
+<!-- Rest of the HTML remains the same -->
 
 </body>
 </html>

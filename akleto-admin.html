@@ -1268,6 +1268,14 @@ window.addEventListener('DOMContentLoaded', () => {
   }
   .modal-close:hover { background: var(--red-glow); color: var(--red); }
 
+  .modal-card form {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-height: 0;
+    overflow: hidden;
+  }
+
   .modal-body {
     padding: 20px 22px;
     overflow-y: auto;

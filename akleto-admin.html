@@ -1221,10 +1221,12 @@ window.addEventListener('DOMContentLoaded', () => {
     inset: 0;
     background: rgba(0,0,0,0.55);
     z-index: 450;
-    align-items: center;
+    align-items: flex-start;
     justify-content: center;
     padding: 20px;
-    touch-action: none;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    touch-action: pan-y;
   }
 
   .modal-overlay.open { display: flex; }
@@ -1236,6 +1238,8 @@ window.addEventListener('DOMContentLoaded', () => {
     width: 100%;
     max-width: 560px;
     max-height: 90vh;
+    max-height: 90dvh;
+    margin: auto 0;
     display: flex;
     flex-direction: column;
     overflow: hidden;
@@ -1613,7 +1617,7 @@ window.addEventListener('DOMContentLoaded', () => {
     table { min-width: 560px; }
 
     .form-row { grid-template-columns: 1fr; gap: 12px; }
-    .modal-card { max-height: 95vh; border-radius: 16px; }
+    .modal-card { max-height: 95vh; max-height: 95dvh; border-radius: 16px; }
     .ing-row { grid-template-columns: 1fr 70px 32px; }
     .ing-unit { display: none; }
   }

@@ -46,6 +46,26 @@ async function uploadImage(file, folder) {
   return await getDownloadURL(sref);
 }
 
+/* منع تمرير الخلفية لما تكون أي نافذة/شاشة مفتوحة (يدعم التعشيش) */
+let _savedScrollY = 0;
+let _lockCount = 0;
+function lockBodyScroll() {
+  if (_lockCount === 0) {
+    _savedScrollY = window.scrollY || document.documentElement.scrollTop || 0;
+    document.body.style.top = `-${_savedScrollY}px`;
+    document.body.classList.add('modal-lock');
+  }
+  _lockCount++;
+}
+function unlockBodyScroll() {
+  _lockCount = Math.max(0, _lockCount - 1);
+  if (_lockCount === 0) {
+    document.body.classList.remove('modal-lock');
+    document.body.style.top = '';
+    window.scrollTo(0, _savedScrollY);
+  }
+}
+
 /* تنبيه صغير يظهر ويختفي */
 function showToast(message, isError) {
   let toast = document.getElementById('akleto-toast');
@@ -266,10 +286,12 @@ window.addEventListener('DOMContentLoaded', () => {
     populateCategoryList('mealCategoryList', knownMealCategories);
     renderIngredientRows();
     document.getElementById('addMealOverlay').classList.add('open');
+    lockBodyScroll();
   };
 
   window.closeAddMealModal = () => {
     document.getElementById('addMealOverlay').classList.remove('open');
+    unlockBodyScroll();
   };
 
   window.previewMealImage = (ev) => {
@@ -355,10 +377,16 @@ window.addEventListener('DOMContentLoaded', () => {
     saveBtn.textContent = 'جاري الحفظ...';
 
     try {
-      // ارفع الصورة إذا موجودة
+      // ارفع الصورة إذا موجودة (بدون ما توقف حفظ الوجبة لو فشل الرفع)
       let image_url = '';
+      let imageWarning = false;
       if (mealImageFile) {
-        image_url = await uploadImage(mealImageFile, 'meals');
+        try {
+          image_url = await uploadImage(mealImageFile, 'meals');
+        } catch(imgErr) {
+          console.error('image upload error', imgErr);
+          imageWarning = true;
+        }
       }
 
       // ١. أضف الوجبة
@@ -385,7 +413,7 @@ window.addEventListener('DOMContentLoaded', () => {
       if (category && !knownMealCategories.includes(category)) knownMealCategories.push(category);
 
       closeAddMealModal();
-      showToast('تم حفظ الوجبة بنجاح ✅');
+      showToast(imageWarning ? 'تم حفظ الوجبة ✅ (بدون صورة — تحقق من إعدادات Storage)' : 'تم حفظ الوجبة بنجاح ✅');
       loadDashboard(); // تحديث العدادات والقوائم
     } catch(e) {
       console.error('save meal error', e);
@@ -412,10 +440,12 @@ window.addEventListener('DOMContentLoaded', () => {
     saveBtn.textContent = 'حفظ المكوّن ✓';
     populateCategoryList('ingredientCategoryList', knownIngredientCategories);
     document.getElementById('addIngredientOverlay').classList.add('open');
+    lockBodyScroll();
   };
 
   window.closeAddIngredientModal = () => {
     document.getElementById('addIngredientOverlay').classList.remove('open');
+    unlockBodyScroll();
   };
 
   window.previewIngredientImage = (ev) => {
@@ -449,8 +479,14 @@ window.addEventListener('DOMContentLoaded', () => {
 
     try {
       let image_url = '';
+      let imageWarning = false;
       if (ingredientImageFile) {
-        image_url = await uploadImage(ingredientImageFile, 'ingredients');
+        try {
+          image_url = await uploadImage(ingredientImageFile, 'ingredients');
+        } catch(imgErr) {
+          console.error('image upload error', imgErr);
+          imageWarning = true;
+        }
       }
 
       const newRef = await addDoc(collection(db, 'ingredients'), {
@@ -464,7 +500,7 @@ window.addEventListener('DOMContentLoaded', () => {
       if (category && !knownIngredientCategories.includes(category)) knownIngredientCategories.push(category);
 
       closeAddIngredientModal();
-      showToast('تم حفظ المكوّن بنجاح ✅');
+      showToast(imageWarning ? 'تم حفظ المكوّن ✅ (بدون صورة — تحقق من إعدادات Storage)' : 'تم حفظ المكوّن بنجاح ✅');
 
       // إذا نافذة إضافة الوجبة مفتوحة، حدّث قائمة المكونات فيها
       if (document.getElementById('addMealOverlay').classList.contains('open')) {
@@ -493,6 +529,7 @@ window.addEventListener('DOMContentLoaded', () => {
     const wrap = document.getElementById('ingredientsListWrap');
     wrap.innerHTML = `<div class="empty-state" style="padding:14px 0;">جاري التحميل...</div>`;
     document.getElementById('ingredientsListOverlay').classList.add('open');
+    lockBodyScroll();
 
     if (!ingredientsCache.length) {
       try {
@@ -505,6 +542,7 @@ window.addEventListener('DOMContentLoaded', () => {
 
   window.closeIngredientsListModal = () => {
     document.getElementById('ingredientsListOverlay').classList.remove('open');
+    unlockBodyScroll();
   };
 
   function renderIngredientsList() {
@@ -1226,6 +1264,79 @@ window.addEventListener('DOMContentLoaded', () => {
     overflow-y: auto;
     flex: 1;
     min-height: 0;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
+  }
+
+  body.modal-lock {
+    overflow: hidden;
+    position: fixed;
+    width: 100%;
+  }
+
+  /* ═══════════════ شاشة كاملة (Full-screen page) ═══════════════ */
+  .fullscreen-page {
+    display: none;
+    flex-direction: column;
+    position: fixed;
+    inset: 0;
+    background: var(--bg);
+    z-index: 400;
+  }
+  .fullscreen-page.open { display: flex; }
+
+  .fullscreen-header {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+    background: var(--surface);
+  }
+
+  .fullscreen-back {
+    width: 38px;
+    height: 38px;
+    border-radius: 12px;
+    background: var(--cream10);
+    border: none;
+    color: var(--cream);
+    font-size: 17px;
+    cursor: pointer;
+    flex-shrink: 0;
+  }
+  .fullscreen-back:hover { background: var(--red-glow); color: var(--red); }
+
+  .fullscreen-title {
+    font-family: 'Tajawal', sans-serif;
+    font-size: 17px;
+    font-weight: 700;
+  }
+
+  .fullscreen-body {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
+    padding: 20px;
+    max-width: 640px;
+    width: 100%;
+    margin: 0 auto;
+  }
+
+  .fullscreen-footer {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+    padding: 16px 20px;
+    border-top: 1px solid var(--border);
+    flex-shrink: 0;
+    background: var(--surface);
+    max-width: 640px;
+    width: 100%;
+    margin: 0 auto;
   }
 
   .modal-footer {
@@ -1808,66 +1919,64 @@ window.addEventListener('DOMContentLoaded', () => {
   </div>
 </div>
 
-<!-- ══════ MODAL: إضافة مكوّن ══════ -->
-<div class="modal-overlay" id="addIngredientOverlay">
-  <div class="modal-card" style="max-width:420px;">
-    <div class="modal-header">
-      <div class="modal-title">🧅 إضافة مكوّن جديد</div>
-      <button type="button" class="modal-close" onclick="closeAddIngredientModal()">✕</button>
+<!-- ══════ شاشة كاملة: إضافة مكوّن ══════ -->
+<div class="fullscreen-page" id="addIngredientOverlay">
+  <div class="fullscreen-header">
+    <button type="button" class="fullscreen-back" onclick="closeAddIngredientModal()">→</button>
+    <div class="fullscreen-title">🧅 إضافة مكوّن جديد</div>
+  </div>
+
+  <form id="ingredientForm" onsubmit="saveIngredient(event)" style="display:flex; flex-direction:column; flex:1; min-height:0;">
+    <div class="fullscreen-body">
+
+      <div class="modal-error" id="ingredientFormError"></div>
+
+      <div class="form-group">
+        <label>اسم المكوّن</label>
+        <input type="text" id="if-name" placeholder="مثال: بصل" required />
+      </div>
+
+      <div class="form-row" style="grid-template-columns:1fr 1fr;">
+        <div class="form-group">
+          <label>وحدة القياس</label>
+          <select id="if-unit">
+            <option value="g">غرام (g)</option>
+            <option value="kg">كيلو (kg)</option>
+            <option value="ml">مل (ml)</option>
+            <option value="l">لتر (l)</option>
+            <option value="حبة">حبة</option>
+            <option value="tbsp">معلقة كبيرة</option>
+            <option value="tsp">معلقة صغيرة</option>
+            <option value="cup">كوب</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>التصنيف (اختر أو اكتب تصنيف جديد)</label>
+          <input type="text" id="if-category" list="ingredientCategoryList" placeholder="مثال: خضروات" />
+          <datalist id="ingredientCategoryList"></datalist>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label>سعر تقريبي للوحدة (د.أ) — اختياري</label>
+        <input type="number" id="if-price" min="0" step="0.01" placeholder="0.50" />
+      </div>
+
+      <div class="form-group">
+        <label>صورة المكوّن</label>
+        <div class="image-upload-box">
+          <img id="if-image-preview" class="image-preview" />
+          <input type="file" id="if-image" accept="image/*" onchange="previewIngredientImage(event)" />
+        </div>
+      </div>
+
     </div>
 
-    <form id="ingredientForm" onsubmit="saveIngredient(event)">
-      <div class="modal-body">
-
-        <div class="modal-error" id="ingredientFormError"></div>
-
-        <div class="form-group">
-          <label>اسم المكوّن</label>
-          <input type="text" id="if-name" placeholder="مثال: بصل" required />
-        </div>
-
-        <div class="form-row" style="grid-template-columns:1fr 1fr;">
-          <div class="form-group">
-            <label>وحدة القياس</label>
-            <select id="if-unit">
-              <option value="g">غرام (g)</option>
-              <option value="kg">كيلو (kg)</option>
-              <option value="ml">مل (ml)</option>
-              <option value="l">لتر (l)</option>
-              <option value="حبة">حبة</option>
-              <option value="tbsp">معلقة كبيرة</option>
-              <option value="tsp">معلقة صغيرة</option>
-              <option value="cup">كوب</option>
-            </select>
-          </div>
-          <div class="form-group">
-            <label>التصنيف (اختر أو اكتب تصنيف جديد)</label>
-            <input type="text" id="if-category" list="ingredientCategoryList" placeholder="مثال: خضروات" />
-            <datalist id="ingredientCategoryList"></datalist>
-          </div>
-        </div>
-
-        <div class="form-group">
-          <label>سعر تقريبي للوحدة (د.أ) — اختياري</label>
-          <input type="number" id="if-price" min="0" step="0.01" placeholder="0.50" />
-        </div>
-
-        <div class="form-group">
-          <label>صورة المكوّن</label>
-          <div class="image-upload-box">
-            <img id="if-image-preview" class="image-preview" />
-            <input type="file" id="if-image" accept="image/*" onchange="previewIngredientImage(event)" />
-          </div>
-        </div>
-
-      </div>
-
-      <div class="modal-footer">
-        <button type="button" class="btn-secondary" onclick="closeAddIngredientModal()">إلغاء</button>
-        <button type="submit" class="btn-primary" id="if-save-btn">حفظ المكوّن ✓</button>
-      </div>
-    </form>
-  </div>
+    <div class="fullscreen-footer">
+      <button type="button" class="btn-secondary" onclick="closeAddIngredientModal()">إلغاء</button>
+      <button type="submit" class="btn-primary" id="if-save-btn">حفظ المكوّن ✓</button>
+    </div>
+  </form>
 </div>
 
 <!-- ══════ MODAL: قائمة المكونات المتوفرة ══════ -->

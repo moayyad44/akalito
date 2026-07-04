@@ -7,7 +7,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;900&family=Tajawal:wght@400;500;700;800&display=swap" rel="stylesheet">
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-import { getFirestore, collection, getDocs, query, orderBy, limit, onSnapshot, addDoc, writeBatch, doc, serverTimestamp }
+import { getFirestore, collection, getDocs, query, orderBy, limit, onSnapshot, addDoc, writeBatch, doc, serverTimestamp, getDocFromServer }
   from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, signOut }
   from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
@@ -418,6 +418,15 @@ window.addEventListener('DOMContentLoaded', () => {
       });
       await withTimeout(batch.commit(), 15000, 'انتهت مهلة الحفظ — تأكد من الإنترنت');
 
+      // تحقق فعلي من السيرفر إن الوجبة انكتبت
+      const verifySnap = await withTimeout(
+        getDocFromServer(mealRef),
+        15000, 'تعذر التأكد من وصول الحفظ للسيرفر — تحقق من الشبكة'
+      );
+      if (!verifySnap.exists()) {
+        throw Object.assign(new Error('الحفظ ما وصل فعلياً للسيرفر — جرب من واي فاي أو شبكة أخرى'), { code: 'not-persisted' });
+      }
+
       if (category && !knownMealCategories.includes(category)) knownMealCategories.push(category);
 
       closeAddMealModal();
@@ -427,6 +436,8 @@ window.addEventListener('DOMContentLoaded', () => {
       console.error('save meal error', e);
       let msg = 'صار خطأ بالحفظ — جرب مرة ثانية';
       if (e && e.code === 'timeout') {
+        msg = e.message;
+      } else if (e && e.code === 'not-persisted') {
         msg = e.message;
       } else if (e && e.code === 'permission-denied') {
         msg = 'ما عندك صلاحية للكتابة — تحقق من Firestore Rules';
@@ -514,6 +525,15 @@ window.addEventListener('DOMContentLoaded', () => {
         15000, 'انتهت مهلة الحفظ — تأكد من الإنترنت'
       );
 
+      // تحقق فعلي من السيرفر إن الكتابة وصلت (مش بس اعتماد على رد محلي)
+      const verifySnap = await withTimeout(
+        getDocFromServer(newRef),
+        15000, 'تعذر التأكد من وصول الحفظ للسيرفر — تحقق من الشبكة'
+      );
+      if (!verifySnap.exists()) {
+        throw Object.assign(new Error('الحفظ ما وصل فعلياً للسيرفر — جرب من واي فاي أو شبكة أخرى'), { code: 'not-persisted' });
+      }
+
       // حدّث الكاش المحلي فوراً
       ingredientsCache.push({ id: newRef.id, name_ar, unit, category, price_per_unit, image_url, is_active: true });
       if (category && !knownIngredientCategories.includes(category)) knownIngredientCategories.push(category);
@@ -534,6 +554,8 @@ window.addEventListener('DOMContentLoaded', () => {
       console.error('save ingredient error', e);
       let msg = 'صار خطأ بالحفظ — جرب مرة ثانية';
       if (e && e.code === 'timeout') {
+        msg = e.message;
+      } else if (e && e.code === 'not-persisted') {
         msg = e.message;
       } else if (e && e.code === 'permission-denied') {
         msg = 'ما عندك صلاحية للكتابة — تحقق من Firestore Rules';

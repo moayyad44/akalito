@@ -3,6 +3,9 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
 <title>أكليتو — لوحة التحكم</title>
 <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;900&family=Tajawal:wght@400;500;700;800&display=swap" rel="stylesheet">
 <script type="module">
@@ -33,6 +36,8 @@ let mealIngredientRows = []; // rows in the add-meal modal: {ingredientId, qty}
 let mealImageFile = null;
 let ingredientImageFile = null;
 let returnToIngredientsList = false;
+let isSavingMeal = false;
+let isSavingIngredient = false;
 let knownMealCategories = ['meat','chicken','vegetarian','legumes','breakfast'];
 let knownIngredientCategories = ['vegetables','meat','dairy','spices','grains','other'];
 
@@ -355,6 +360,7 @@ window.addEventListener('DOMContentLoaded', () => {
 
   window.saveMeal = async (ev) => {
     ev.preventDefault();
+    if (isSavingMeal) return; // منع أي استدعاء مزدوج مهما كان السبب
     const errBox = document.getElementById('mealFormError');
     errBox.style.display = 'none';
 
@@ -378,6 +384,7 @@ window.addEventListener('DOMContentLoaded', () => {
     }
 
     const saveBtn = document.getElementById('mf-save-btn');
+    isSavingMeal = true;
     saveBtn.disabled = true;
     saveBtn.textContent = 'جاري الحفظ...';
 
@@ -448,6 +455,7 @@ window.addEventListener('DOMContentLoaded', () => {
       errBox.style.display = 'block';
       showToast(msg + ' ❌', true);
     } finally {
+      isSavingMeal = false;
       saveBtn.disabled = false;
       saveBtn.textContent = 'حفظ الوجبة ✓';
     }
@@ -486,6 +494,7 @@ window.addEventListener('DOMContentLoaded', () => {
 
   window.saveIngredient = async (ev) => {
     ev.preventDefault();
+    if (isSavingIngredient) return; // منع أي استدعاء مزدوج مهما كان السبب
     const errBox = document.getElementById('ingredientFormError');
     errBox.style.display = 'none';
 
@@ -501,6 +510,7 @@ window.addEventListener('DOMContentLoaded', () => {
     }
 
     const saveBtn = document.getElementById('if-save-btn');
+    isSavingIngredient = true;
     saveBtn.disabled = true;
     saveBtn.textContent = 'جاري الحفظ...';
 
@@ -566,6 +576,7 @@ window.addEventListener('DOMContentLoaded', () => {
       errBox.style.display = 'block';
       showToast(msg + ' ❌', true);
     } finally {
+      isSavingIngredient = false;
       saveBtn.disabled = false;
       saveBtn.textContent = 'حفظ المكوّن ✓';
     }

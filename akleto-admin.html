@@ -42,8 +42,16 @@ async function uploadImage(file, folder) {
   const safeName = Date.now() + '_' + file.name.replace(/[^a-zA-Z0-9.\-_]/g, '');
   const path = `${folder}/${safeName}`;
   const sref = storageRef(storage, path);
-  await uploadBytes(sref, file);
-  return await getDownloadURL(sref);
+  await withTimeout(uploadBytes(sref, file), 15000, 'انتهت مهلة رفع الصورة');
+  return await withTimeout(getDownloadURL(sref), 15000, 'انتهت مهلة رفع الصورة');
+}
+
+/* يمنع أي عملية من التعليق للأبد — لو ما اكتملت خلال المهلة، بيرفض بخطأ واضح */
+function withTimeout(promise, ms, message) {
+  return Promise.race([
+    promise,
+    new Promise((_, reject) => setTimeout(() => reject(Object.assign(new Error(message), { code: 'timeout' })), ms))
+  ]);
 }
 
 /* منع تمرير الخلفية لما تكون أي نافذة/شاشة مفتوحة (يدعم التعشيش) */
@@ -387,13 +395,16 @@ window.addEventListener('DOMContentLoaded', () => {
       }
 
       // ١. أضف الوجبة
-      const mealRef = await addDoc(collection(db, 'meals'), {
-        name_ar, category, difficulty, prep_time_min, base_price,
-        servings_default, description, image_url,
-        is_active: true,
-        order_count: 0,
-        created_at: serverTimestamp()
-      });
+      const mealRef = await withTimeout(
+        addDoc(collection(db, 'meals'), {
+          name_ar, category, difficulty, prep_time_min, base_price,
+          servings_default, description, image_url,
+          is_active: true,
+          order_count: 0,
+          created_at: serverTimestamp()
+        }),
+        15000, 'انتهت مهلة الحفظ — تأكد من الإنترنت'
+      );
 
       // ٢. أضف روابط المكونات (meal_ingredients) بدفعة واحدة
       const batch = writeBatch(db);
@@ -405,7 +416,7 @@ window.addEventListener('DOMContentLoaded', () => {
           quantity_per_person: row.qty
         });
       });
-      await batch.commit();
+      await withTimeout(batch.commit(), 15000, 'انتهت مهلة الحفظ — تأكد من الإنترنت');
 
       if (category && !knownMealCategories.includes(category)) knownMealCategories.push(category);
 
@@ -415,7 +426,9 @@ window.addEventListener('DOMContentLoaded', () => {
     } catch(e) {
       console.error('save meal error', e);
       let msg = 'صار خطأ بالحفظ — جرب مرة ثانية';
-      if (e && e.code === 'permission-denied') {
+      if (e && e.code === 'timeout') {
+        msg = e.message;
+      } else if (e && e.code === 'permission-denied') {
         msg = 'ما عندك صلاحية للكتابة — تحقق من Firestore Rules';
       } else if (e && e.code) {
         msg = 'خطأ: ' + e.code;
@@ -492,11 +505,14 @@ window.addEventListener('DOMContentLoaded', () => {
         }
       }
 
-      const newRef = await addDoc(collection(db, 'ingredients'), {
-        name_ar, unit, category, price_per_unit, image_url,
-        is_active: true,
-        created_at: serverTimestamp()
-      });
+      const newRef = await withTimeout(
+        addDoc(collection(db, 'ingredients'), {
+          name_ar, unit, category, price_per_unit, image_url,
+          is_active: true,
+          created_at: serverTimestamp()
+        }),
+        15000, 'انتهت مهلة الحفظ — تأكد من الإنترنت'
+      );
 
       // حدّث الكاش المحلي فوراً
       ingredientsCache.push({ id: newRef.id, name_ar, unit, category, price_per_unit, image_url, is_active: true });
@@ -517,7 +533,9 @@ window.addEventListener('DOMContentLoaded', () => {
     } catch(e) {
       console.error('save ingredient error', e);
       let msg = 'صار خطأ بالحفظ — جرب مرة ثانية';
-      if (e && e.code === 'permission-denied') {
+      if (e && e.code === 'timeout') {
+        msg = e.message;
+      } else if (e && e.code === 'permission-denied') {
         msg = 'ما عندك صلاحية للكتابة — تحقق من Firestore Rules';
       } else if (e && e.code) {
         msg = 'خطأ: ' + e.code;

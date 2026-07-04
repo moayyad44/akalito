@@ -783,7 +783,11 @@ window.addEventListener('DOMContentLoaded', () => {
   .page-subtitle { font-size: 13px; color: var(--cream30); margin-top: 2px; }
 
   .topbar-actions { display: flex; gap: 12px; align-items: center; }
-
+#addMealOverlay {
+  overflow-y: auto;
+  max-height: 100vh;
+  padding-bottom: 20px;
+}
   .btn-notif {
     width: 40px;
     height: 40px;

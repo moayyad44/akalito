@@ -28,15 +28,14 @@ const db      = getFirestore(app);
 const auth    = getAuth(app);
 const storage = getStorage(app);
 
-let ingredientsCache = []; // {id, name_ar, unit, category, image_url}
-let mealIngredientRows = []; // rows in the add-meal modal: {ingredientId, qty}
+let ingredientsCache = [];
+let mealIngredientRows = [];
 let mealImageFile = null;
 let ingredientImageFile = null;
 let returnToIngredientsList = false;
 let knownMealCategories = ['meat','chicken','vegetarian','legumes','breakfast'];
 let knownIngredientCategories = ['vegetables','meat','dairy','spices','grains','other'];
 
-/* رفع صورة إلى Firebase Storage وإرجاع الرابط */
 async function uploadImage(file, folder) {
   if (!file) return '';
   const safeName = Date.now() + '_' + file.name.replace(/[^a-zA-Z0-9.\-_]/g, '');
@@ -46,7 +45,6 @@ async function uploadImage(file, folder) {
   return await getDownloadURL(sref);
 }
 
-/* منع تمرير الخلفية لما تكون أي نافذة/شاشة مفتوحة (يدعم التعشيش) */
 let _savedScrollY = 0;
 let _lockCount = 0;
 function lockBodyScroll() {
@@ -66,7 +64,6 @@ function unlockBodyScroll() {
   }
 }
 
-/* تنبيه صغير يظهر ويختفي */
 function showToast(message, isError) {
   let toast = document.getElementById('akleto-toast');
   if (!toast) {
@@ -79,7 +76,6 @@ function showToast(message, isError) {
   clearTimeout(window._toastTimer);
   window._toastTimer = setTimeout(() => { toast.className = 'akleto-toast'; }, 2500);
 }
-
 
 window.addEventListener('DOMContentLoaded', () => {
 
@@ -117,29 +113,22 @@ window.addEventListener('DOMContentLoaded', () => {
   }
 
   async function loadDashboard() {
-    // ── الوجبات: عدد + الأكثر طلباً ──
     try {
       const mealsSnap = await getDocs(collection(db, 'meals'));
       const meals = [];
       mealsSnap.forEach(d => meals.push({ id: d.id, ...d.data() }));
-
       document.getElementById('stat-meals-count').textContent = meals.length;
-
-      // رتب حسب order_count تنازلياً
       const topMeals = [...meals].sort((a,b) => (b.order_count||0) - (a.order_count||0)).slice(0,5);
       renderTopMeals(topMeals);
-
     } catch(e) {
       console.error('meals load error', e);
     }
 
-    // ── المكونات (للاستخدام بنموذج إضافة وجبة) ──
     try {
       const ingSnap = await getDocs(collection(db, 'ingredients'));
       ingredientsCache = ingSnap.docs.map(d => ({ id: d.id, ...d.data() }));
     } catch(e) { console.error('ingredients load error', e); }
 
-    // ── المتاجر ──
     try {
       const storesSnap = await getDocs(collection(db, 'stores'));
       const stores = [];
@@ -147,7 +136,6 @@ window.addEventListener('DOMContentLoaded', () => {
       renderStores(stores);
     } catch(e) { console.error('stores load error', e); }
 
-    // ── السائقين ──
     try {
       const driversSnap = await getDocs(collection(db, 'drivers'));
       const drivers = [];
@@ -155,7 +143,6 @@ window.addEventListener('DOMContentLoaded', () => {
       renderDrivers(drivers);
     } catch(e) { console.error('drivers load error', e); }
 
-    // ── الطلبات (live) ──
     try {
       const ordersQ = query(collection(db, 'orders'), orderBy('created_at','desc'), limit(10));
       onSnapshot(ordersQ, snap => {
@@ -169,7 +156,6 @@ window.addEventListener('DOMContentLoaded', () => {
       });
     } catch(e) { console.error('orders load error', e); }
 
-    // ── المستخدمين (عدد) ──
     try {
       const usersSnap = await getDocs(collection(db, 'users'));
       document.getElementById('stat-users-count').textContent = usersSnap.size;
@@ -240,7 +226,7 @@ window.addEventListener('DOMContentLoaded', () => {
   function renderOrders(orders) {
     const tbody = document.getElementById('orders-tbody');
     if (!orders.length) {
-      tbody.innerHTML = `<tr><td colspan="5" style="text-align:center;padding:30px;color:var(--cream30)">ما في طلبات بعد — أول طلب رح يظهر هون لحظياً 🛒</td><[...]
+      tbody.innerHTML = `<tr><td colspan="5" style="text-align:center;padding:30px;color:var(--cream30)">ما في طلبات بعد — أول طلب رح يظهر هون لحظياً 🛒</td></tr>`;
       return;
     }
     const statusMap = {
@@ -271,8 +257,6 @@ window.addEventListener('DOMContentLoaded', () => {
     const delivered = orders.filter(o => o.status === 'delivered').length;
     document.getElementById('stat-delivered').textContent = delivered;
   }
-
-  /* ══════════════ إضافة وجبة جديدة ══════════════ */
 
   window.openAddMealModal = () => {
     mealIngredientRows = [];
@@ -377,7 +361,6 @@ window.addEventListener('DOMContentLoaded', () => {
     saveBtn.textContent = 'جاري الحفظ...';
 
     try {
-      // ارفع الصورة إذا موجودة (بدون ما توقف حفظ الوجبة لو فشل الرفع)
       let image_url = '';
       let imageWarning = false;
       if (mealImageFile) {
@@ -389,7 +372,6 @@ window.addEventListener('DOMContentLoaded', () => {
         }
       }
 
-      // ١. أضف الوجبة
       const mealRef = await addDoc(collection(db, 'meals'), {
         name_ar, category, difficulty, prep_time_min, base_price,
         servings_default, description, image_url,
@@ -398,7 +380,6 @@ window.addEventListener('DOMContentLoaded', () => {
         created_at: serverTimestamp()
       });
 
-      // ٢. أضف روابط المكونات (meal_ingredients) بدفعة واحدة
       const batch = writeBatch(db);
       mealIngredientRows.forEach(row => {
         const linkRef = doc(collection(db, 'meal_ingredients'));
@@ -414,7 +395,7 @@ window.addEventListener('DOMContentLoaded', () => {
 
       closeAddMealModal();
       showToast(imageWarning ? 'تم حفظ الوجبة ✅ (بدون صورة — تحقق من إعدادات Storage)' : 'تم حفظ الوجبة بنجاح ✅');
-      loadDashboard(); // تحديث العدادات والقوائم
+      loadDashboard();
     } catch(e) {
       console.error('save meal error', e);
       errBox.textContent = 'صار خطأ بالحفظ — جرب مرة ثانية';
@@ -425,9 +406,6 @@ window.addEventListener('DOMContentLoaded', () => {
       saveBtn.textContent = 'حفظ الوجبة ✓';
     }
   };
-
-
-  /* ══════════════ إضافة مكوّن جديد ══════════════ */
 
   window.openAddIngredientModal = (returnToList) => {
     returnToIngredientsList = !!returnToList;
@@ -495,19 +473,16 @@ window.addEventListener('DOMContentLoaded', () => {
         created_at: serverTimestamp()
       });
 
-      // حدّث الكاش المحلي فوراً
       ingredientsCache.push({ id: newRef.id, name_ar, unit, category, price_per_unit, image_url, is_active: true });
       if (category && !knownIngredientCategories.includes(category)) knownIngredientCategories.push(category);
 
       closeAddIngredientModal();
       showToast(imageWarning ? 'تم حفظ المكوّن ✅ (بدون صورة — تحقق من إعدادات Storage)' : 'تم حفظ المكوّن بنجاح ✅');
 
-      // إذا نافذة إضافة الوجبة مفتوحة، حدّث قائمة المكونات فيها
       if (document.getElementById('addMealOverlay').classList.contains('open')) {
         renderIngredientRows();
       }
 
-      // إذا جاي من شاشة "المكونات المتوفرة"، ارجعله عليها بعد التحديث
       if (returnToIngredientsList) {
         returnToIngredientsList = false;
         openIngredientsListModal();
@@ -522,8 +497,6 @@ window.addEventListener('DOMContentLoaded', () => {
       saveBtn.textContent = 'حفظ المكوّن ✓';
     }
   };
-
-  /* ══════════════ قائمة المكونات المتوفرة ══════════════ */
 
   window.openIngredientsListModal = async () => {
     const wrap = document.getElementById('ingredientsListWrap');
@@ -571,7 +544,6 @@ window.addEventListener('DOMContentLoaded', () => {
 });
 </script>
 <style>
-  /* ══ DARK MODE (default) ══ */
   :root {
     --bg:        #130609;
     --surface:   #1E0C10;
@@ -591,7 +563,6 @@ window.addEventListener('DOMContentLoaded', () => {
     --cream10:   rgba(253,248,243,0.07);
   }
 
-  /* ══ LIGHT MODE ══ */
   body.light {
     --bg:        #FDF8F3;
     --surface:   #FFFFFF;
@@ -611,7 +582,6 @@ window.addEventListener('DOMContentLoaded', () => {
     --cream10:   rgba(44,24,16,0.06);
   }
 
-  /* ══ THEME TOGGLE BUTTON ══ */
   .theme-toggle {
     width: 40px;
     height: 40px;
@@ -639,7 +609,6 @@ window.addEventListener('DOMContentLoaded', () => {
     transition: background 0.3s, color 0.3s;
   }
 
-  /* ═══════════════ SIDEBAR ═══════════════ */
   .sidebar {
     width: 240px;
     min-height: 100vh;
@@ -757,7 +726,6 @@ window.addEventListener('DOMContentLoaded', () => {
   .admin-name { font-size: 13px; font-weight: 600; }
   .admin-role { font-size: 11px; color: var(--cream30); }
 
-  /* ═══════════════ MAIN ═══════════════ */
   .main {
     margin-left: 0;
     margin-right: 240px;
@@ -766,7 +734,6 @@ window.addEventListener('DOMContentLoaded', () => {
     min-height: 100vh;
   }
 
-  /* ═══════════════ TOPBAR ═══════════════ */
   .topbar {
     display: flex;
     align-items: center;
@@ -783,11 +750,7 @@ window.addEventListener('DOMContentLoaded', () => {
   .page-subtitle { font-size: 13px; color: var(--cream30); margin-top: 2px; }
 
   .topbar-actions { display: flex; gap: 12px; align-items: center; }
-#addMealOverlay {
-  overflow-y: auto;
-  max-height: 100vh;
-  padding-bottom: 20px;
-}
+
   .btn-notif {
     width: 40px;
     height: 40px;
@@ -835,7 +798,6 @@ window.addEventListener('DOMContentLoaded', () => {
 
   .btn-primary:hover { transform: translateY(-1px); box-shadow: 0 6px 24px var(--red-glow); }
 
-  /* ═══════════════ STATS GRID ═══════════════ */
   .stats-grid {
     display: grid;
     grid-template-columns: repeat(4, 1fr);
@@ -904,7 +866,6 @@ window.addEventListener('DOMContentLoaded', () => {
   .stat-change.up   { color: var(--green); }
   .stat-change.down { color: var(--red); }
 
-  /* ═══════════════ MIDDLE ROW ═══════════════ */
   .mid-row {
     display: grid;
     grid-template-columns: 1fr 360px;
@@ -912,7 +873,6 @@ window.addEventListener('DOMContentLoaded', () => {
     margin-bottom: 20px;
   }
 
-  /* ═══════════════ ORDERS TABLE ═══════════════ */
   .card {
     background: var(--surface);
     border: 1px solid var(--border);
@@ -994,7 +954,6 @@ window.addEventListener('DOMContentLoaded', () => {
 
   .status-dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
 
-  /* ═══════════════ ACTIVITY PANEL ═══════════════ */
   .activity-list { padding: 8px 0; }
 
   .activity-item {
@@ -1028,7 +987,6 @@ window.addEventListener('DOMContentLoaded', () => {
     font-size: 13px;
   }
 
-  /* ════════════ RESPONSIVE ════════════ */
   @media (max-width: 1200px) {
     .stats-grid { grid-template-columns: repeat(2, 1fr); }
     .mid-row { grid-template-columns: 1fr; }
@@ -1051,8 +1009,7 @@ window.addEventListener('DOMContentLoaded', () => {
     border-radius: 8px;
   }
 
-  .ing-row select,
-  .ing-row input {
+  .ing-row select, .ing-row input {
     background: var(--surface2);
     border: 1px solid var(--border);
     border-radius: 6px;
@@ -1234,12 +1191,296 @@ window.addEventListener('DOMContentLoaded', () => {
   .modal-lock {
     overflow: hidden;
   }
-</style>
 
+  .overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0,0,0,0.5);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+  }
+
+  .overlay.open {
+    display: flex;
+  }
+</style>
 </head>
 <body>
 
-<!-- Rest of the HTML remains the same -->
+<div class="sidebar">
+  <div class="logo">
+    <div class="logo-text">أكليتو</div>
+    <div class="logo-sub">🍽️ ADMIN</div>
+  </div>
+
+  <div class="nav-section">
+    <div class="nav-label">الرئيسية</div>
+    <div class="nav-item active">
+      <span class="nav-icon">📊</span>
+      <span>لوحة التحكم</span>
+    </div>
+  </div>
+
+  <div class="nav-section">
+    <div class="nav-label">الإدارة</div>
+    <div class="nav-item" onclick="openAddMealModal()">
+      <span class="nav-icon">➕</span>
+      <span>إضافة وجبة</span>
+    </div>
+    <div class="nav-item" onclick="openAddIngredientModal()">
+      <span class="nav-icon">🧅</span>
+      <span>إضافة مكوّن</span>
+    </div>
+    <div class="nav-item" onclick="openIngredientsListModal()">
+      <span class="nav-icon">📋</span>
+      <span>المكونات المتوفرة</span>
+    </div>
+  </div>
+
+  <div class="sidebar-footer">
+    <div class="admin-card">
+      <div class="admin-avatar">👨</div>
+      <div>
+        <div class="admin-name">المسؤول</div>
+        <div class="admin-role">نشط</div>
+      </div>
+    </div>
+    <button class="btn-primary" onclick="adminLogout()" style="width:100%;margin-top:12px;">خروج ⬅️</button>
+  </div>
+</div>
+
+<div id="app-shell" style="display:none;flex:1;">
+  <div class="main">
+    <div class="topbar">
+      <div>
+        <div class="page-title">📊 لوحة التحكم</div>
+        <div class="page-subtitle">مرحباً بك في أكليتو للمطاعم</div>
+      </div>
+      <div class="topbar-actions">
+        <button class="btn-notif">🔔<span class="notif-dot"></span></button>
+        <button class="btn-primary" onclick="openAddMealModal()"><span>➕ إضافة وجبة</span></button>
+      </div>
+    </div>
+
+    <div class="stats-grid">
+      <div class="stat-card red">
+        <span class="stat-emoji">🍽️</span>
+        <div class="stat-number" id="stat-meals-count">0</div>
+        <div class="stat-label">وجبات مضافة</div>
+      </div>
+      <div class="stat-card orange">
+        <span class="stat-emoji">📦</span>
+        <div class="stat-number" id="stat-orders-count">0</div>
+        <div class="stat-label">إجمالي الطلبات</div>
+        <div class="stat-change up">↑ 12%</div>
+      </div>
+      <div class="stat-card green">
+        <span class="stat-emoji">✓</span>
+        <div class="stat-number" id="stat-delivered">0</div>
+        <div class="stat-label">طلبات مكتملة</div>
+      </div>
+      <div class="stat-card blue">
+        <span class="stat-emoji">💰</span>
+        <div class="stat-number" id="stat-revenue">0</div>
+        <div class="stat-label">الإيرادات (د.أ)</div>
+      </div>
+    </div>
+
+    <div class="mid-row">
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">📋 آخر الطلبات</div>
+          <button class="card-action">عرض الكل</button>
+        </div>
+        <table>
+          <thead>
+            <tr>
+              <th>رقم الطلب</th>
+              <th>اسم العميل</th>
+              <th>الوجبة</th>
+              <th>المبلغ</th>
+              <th>الحالة</th>
+            </tr>
+          </thead>
+          <tbody id="orders-tbody">
+            <tr><td colspan="5" style="text-align:center;padding:30px;color:var(--cream30)">جاري التحميل...</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">🏆 الوجبات الأكثر طلباً</div>
+        </div>
+        <div id="top-meals-list" style="padding:16px;"></div>
+      </div>
+    </div>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">🏪 المتاجر الشريكة</div>
+        </div>
+        <div id="stores-list" style="padding:0;"></div>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">🛵 السائقون</div>
+        </div>
+        <div id="drivers-list" style="padding:0;"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="login-gate" style="display:flex;width:100%;height:100vh;align-items:center;justify-content:center;background:var(--bg);">
+  <div style="background:var(--surface);padding:40px;border-radius:20px;border:1px solid var(--border);width:100%;max-width:320px;">
+    <div style="text-align:center;margin-bottom:28px;">
+      <div style="font-size:40px;margin-bottom:12px;">🍽️</div>
+      <div class="logo-text" style="font-size:24px;">أكليتو</div>
+      <div style="font-size:12px;color:var(--cream30);margin-top:4px;">لوحة تحكم المسؤول</div>
+    </div>
+    <input id="gate-email" type="email" placeholder="البريد الإلكتروني" style="width:100%;padding:12px;margin-bottom:12px;background:var(--surface2);border:1px solid var(--border);border-radius:10px;color:var(--cream);font-family:'Cairo',sans-serif;font-size:13px;">
+    <input id="gate-pass" type="password" placeholder="كلمة المرور" style="width:100%;padding:12px;margin-bottom:16px;background:var(--surface2);border:1px solid var(--border);border-radius:10px;color:var(--cream);font-family:'Cairo',sans-serif;font-size:13px;">
+    <div id="gate-error" style="color:var(--red);font-size:12px;margin-bottom:12px;display:none;"></div>
+    <button onclick="adminLogin()" class="btn-primary" style="width:100%;justify-content:center;">دخول</button>
+  </div>
+</div>
+
+<div id="addMealOverlay" class="overlay">
+  <div style="background:var(--surface);border-radius:18px;border:1px solid var(--border);width:100%;max-width:500px;padding:28px;margin:20px;max-height:90vh;overflow-y:auto;">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
+      <h2 style="font-size:18px;font-weight:700;">➕ إضافة وجبة جديدة</h2>
+      <button onclick="closeAddMealModal()" style="background:none;border:none;font-size:20px;cursor:pointer;color:var(--cream30);">✕</button>
+    </div>
+
+    <div id="mealFormError" style="background:rgba(255,71,87,0.12);color:var(--red);padding:12px;border-radius:10px;margin-bottom:16px;font-size:13px;display:none;"></div>
+
+    <form id="mealForm" onsubmit="saveMeal(event)" style="display:flex;flex-direction:column;gap:14px;">
+      <div>
+        <label style="font-size:12px;color:var(--cream60);display:block;margin-bottom:6px;">اسم الوجبة *</label>
+        <input id="mf-name" type="text" required placeholder="مثال: فتة الدجاج" style="width:100%;padding:10px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;color:var(--cream);font-family:'Cairo',sans-serif;font-size:13px;">
+      </div>
+
+      <div>
+        <label style="font-size:12px;color:var(--cream60);display:block;margin-bottom:6px;">الفئة *</label>
+        <input id="mf-category" list="mealCategoryList" type="text" required placeholder="اختر من القائمة" style="width:100%;padding:10px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;color:var(--cream);font-family:'Cairo',sans-serif;font-size:13px;">
+        <datalist id="mealCategoryList"></datalist>
+      </div>
+
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+        <div>
+          <label style="font-size:12px;color:var(--cream60);display:block;margin-bottom:6px;">مستوى الصعوبة</label>
+          <select id="mf-difficulty" style="width:100%;padding:10px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;color:var(--cream);font-family:'Cairo',sans-serif;font-size:13px;">
+            <option value="easy">سهل</option>
+            <option value="medium">متوسط</option>
+            <option value="hard">صعب</option>
+          </select>
+        </div>
+        <div>
+          <label style="font-size:12px;color:var(--cream60);display:block;margin-bottom:6px;">وقت التحضير (دقيقة)</label>
+          <input id="mf-prep" type="number" min="0" placeholder="30" style="width:100%;padding:10px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;color:var(--cream);font-family:'Cairo',sans-serif;font-size:13px;">
+        </div>
+      </div>
+
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+        <div>
+          <label style="font-size:12px;color:var(--cream60);display:block;margin-bottom:6px;">السعر الأساسي (د.أ)</label>
+          <input id="mf-price" type="number" min="0" step="0.01" placeholder="5.00" style="width:100%;padding:10px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;color:var(--cream);font-family:'Cairo',sans-serif;font-size:13px;">
+        </div>
+        <div>
+          <label style="font-size:12px;color:var(--cream60);display:block;margin-bottom:6px;">عدد الحصص الافتراضي</label>
+          <input id="mf-servings" type="number" min="1" value="2" placeholder="2" style="width:100%;padding:10px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;color:var(--cream);font-family:'Cairo',sans-serif;font-size:13px;">
+        </div>
+      </div>
+
+      <div>
+        <label style="font-size:12px;color:var(--cream60);display:block;margin-bottom:6px;">الوصف</label>
+        <textarea id="mf-desc" placeholder="وصف الوجبة..." style="width:100%;padding:10px;height:80px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;color:var(--cream);font-family:'Cairo',sans-serif;font-size:13px;resize:none;"></textarea>
+      </div>
+
+      <div>
+        <label style="font-size:12px;color:var(--cream60);display:block;margin-bottom:6px;">صورة الوجبة</label>
+        <input type="file" accept="image/*" onchange="previewMealImage(event)" style="width:100%;padding:8px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;color:var(--cream);font-family:'Cairo',sans-serif;font-size:12px;">
+        <img id="mf-image-preview" style="display:none;width:100%;height:150px;object-fit:cover;border-radius:8px;margin-top:10px;" />
+      </div>
+
+      <div style="background:var(--surface2);padding:14px;border-radius:10px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+          <label style="font-size:12px;color:var(--cream60);font-weight:600;">المكونات *</label>
+          <button type="button" onclick="addIngredientRow()" class="btn-primary" style="padding:4px 8px;font-size:11px;">➕ ضيف مكوّن</button>
+        </div>
+        <div id="ingredientRows" style="display:flex;flex-direction:column;gap:8px;"></div>
+      </div>
+
+      <button type="submit" id="mf-save-btn" class="btn-primary" style="width:100%;justify-content:center;margin-top:8px;">حفظ الوجبة ✓</button>
+    </form>
+  </div>
+</div>
+
+<div id="addIngredientOverlay" class="overlay">
+  <div style="background:var(--surface);border-radius:18px;border:1px solid var(--border);width:100%;max-width:400px;padding:28px;margin:20px;max-height:90vh;overflow-y:auto;">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
+      <h2 style="font-size:18px;font-weight:700;">🧅 إضافة مكوّن جديد</h2>
+      <button onclick="closeAddIngredientModal()" style="background:none;border:none;font-size:20px;cursor:pointer;color:var(--cream30);">✕</button>
+    </div>
+
+    <div id="ingredientFormError" style="background:rgba(255,71,87,0.12);color:var(--red);padding:12px;border-radius:10px;margin-bottom:16px;font-size:13px;display:none;"></div>
+
+    <form id="ingredientForm" onsubmit="saveIngredient(event)" style="display:flex;flex-direction:column;gap:14px;">
+      <div>
+        <label style="font-size:12px;color:var(--cream60);display:block;margin-bottom:6px;">اسم المكوّن *</label>
+        <input id="if-name" type="text" required placeholder="مثال: دجاج" style="width:100%;padding:10px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;color:var(--cream);font-family:'Cairo',sans-serif;font-size:13px;">
+      </div>
+
+      <div>
+        <label style="font-size:12px;color:var(--cream60);display:block;margin-bottom:6px;">الفئة</label>
+        <input id="if-category" list="ingredientCategoryList" type="text" placeholder="اختر من القائمة" style="width:100%;padding:10px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;color:var(--cream);font-family:'Cairo',sans-serif;font-size:13px;">
+        <datalist id="ingredientCategoryList"></datalist>
+      </div>
+
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+        <div>
+          <label style="font-size:12px;color:var(--cream60);display:block;margin-bottom:6px;">الوحدة</label>
+          <input id="if-unit" type="text" placeholder="كيلو / لتر / حبة" style="width:100%;padding:10px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;color:var(--cream);font-family:'Cairo',sans-serif;font-size:13px;">
+        </div>
+        <div>
+          <label style="font-size:12px;color:var(--cream60);display:block;margin-bottom:6px;">السعر للوحدة (د.أ)</label>
+          <input id="if-price" type="number" min="0" step="0.01" placeholder="2.50" style="width:100%;padding:10px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;color:var(--cream);font-family:'Cairo',sans-serif;font-size:13px;">
+        </div>
+      </div>
+
+      <div>
+        <label style="font-size:12px;color:var(--cream60);display:block;margin-bottom:6px;">صورة المكوّن</label>
+        <input type="file" accept="image/*" onchange="previewIngredientImage(event)" style="width:100%;padding:8px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;color:var(--cream);font-family:'Cairo',sans-serif;font-size:12px;">
+        <img id="if-image-preview" style="display:none;width:100%;height:120px;object-fit:cover;border-radius:8px;margin-top:10px;" />
+      </div>
+
+      <button type="submit" id="if-save-btn" class="btn-primary" style="width:100%;justify-content:center;margin-top:8px;">حفظ المكوّن ✓</button>
+    </form>
+  </div>
+</div>
+
+<div id="ingredientsListOverlay" class="overlay">
+  <div style="background:var(--surface);border-radius:18px;border:1px solid var(--border);width:100%;max-width:600px;padding:28px;margin:20px;max-height:90vh;overflow-y:auto;">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;position:sticky;top:0;background:var(--surface);z-index:10;padding-bottom:16px;">
+      <h2 style="font-size:18px;font-weight:700;">📋 المكونات المتوفرة</h2>
+      <button onclick="closeIngredientsListModal()" style="background:none;border:none;font-size:20px;cursor:pointer;color:var(--cream30);">✕</button>
+    </div>
+
+    <div style="display:flex;gap:10px;margin-bottom:16px;">
+      <button type="button" onclick="openAddIngredientModal(true)" class="btn-primary" style="flex:1;justify-content:center;">➕ إضافة مكوّن جديد</button>
+    </div>
+
+    <div id="ingredientsListWrap" style="display:grid;gap:12px;"></div>
+  </div>
+</div>
 
 </body>
 </html>

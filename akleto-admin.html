@@ -414,9 +414,15 @@ window.addEventListener('DOMContentLoaded', () => {
       loadDashboard(); // تحديث العدادات والقوائم
     } catch(e) {
       console.error('save meal error', e);
-      errBox.textContent = 'صار خطأ بالحفظ — جرب مرة ثانية';
+      let msg = 'صار خطأ بالحفظ — جرب مرة ثانية';
+      if (e && e.code === 'permission-denied') {
+        msg = 'ما عندك صلاحية للكتابة — تحقق من Firestore Rules';
+      } else if (e && e.code) {
+        msg = 'خطأ: ' + e.code;
+      }
+      errBox.textContent = msg;
       errBox.style.display = 'block';
-      showToast('صار خطأ بحفظ الوجبة ❌', true);
+      showToast(msg + ' ❌', true);
     } finally {
       saveBtn.disabled = false;
       saveBtn.textContent = 'حفظ الوجبة ✓';
@@ -510,9 +516,15 @@ window.addEventListener('DOMContentLoaded', () => {
       }
     } catch(e) {
       console.error('save ingredient error', e);
-      errBox.textContent = 'صار خطأ بالحفظ — جرب مرة ثانية';
+      let msg = 'صار خطأ بالحفظ — جرب مرة ثانية';
+      if (e && e.code === 'permission-denied') {
+        msg = 'ما عندك صلاحية للكتابة — تحقق من Firestore Rules';
+      } else if (e && e.code) {
+        msg = 'خطأ: ' + e.code;
+      }
+      errBox.textContent = msg;
       errBox.style.display = 'block';
-      showToast('صار خطأ بحفظ المكوّن ❌', true);
+      showToast(msg + ' ❌', true);
     } finally {
       saveBtn.disabled = false;
       saveBtn.textContent = 'حفظ المكوّن ✓';
@@ -1208,7 +1220,7 @@ window.addEventListener('DOMContentLoaded', () => {
     position: fixed;
     inset: 0;
     background: rgba(0,0,0,0.55);
-    z-index: 300;
+    z-index: 450;
     align-items: center;
     justify-content: center;
     padding: 20px;

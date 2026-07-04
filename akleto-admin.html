@@ -783,11 +783,41 @@ window.addEventListener('DOMContentLoaded', () => {
   .page-subtitle { font-size: 13px; color: var(--cream30); margin-top: 2px; }
 
   .topbar-actions { display: flex; gap: 12px; align-items: center; }
-#addMealOverlay {
-  overflow-y: auto;
-  max-height: 100vh;
-  padding-bottom: 20px;
-}
+
+  /* ══════════════ OVERLAY & MODAL STYLING ══════════════ */
+  .overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0,0,0,0.5);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+    overflow-y: auto;
+  }
+
+  .overlay.open {
+    display: flex;
+  }
+
+  #addMealOverlay,
+  #addIngredientOverlay,
+  #ingredientsListOverlay {
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  #addMealOverlay > div,
+  #addIngredientOverlay > div,
+  #ingredientsListOverlay > div {
+    max-height: 90vh;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
   .btn-notif {
     width: 40px;
     height: 40px;
@@ -1002,780 +1032,145 @@ window.addEventListener('DOMContentLoaded', () => {
     align-items: flex-start;
     gap: 12px;
     padding: 14px 20px;
-    border-bottom: 1px solid var(--border);
-    transition: background 0.15s;
+    border-bottom: 1px solid var(--cream10);
   }
 
-  .activity-item:last-child { border-bottom: none; }
-  .activity-item:hover { background: var(--cream10); }
-
-  .activity-icon {
-    width: 38px;
-    height: 38px;
-    border-radius: 12px;
+  .activity-avatar {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: var(--orange-glow);
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 18px;
-    flex-shrink: 0;
-  }
-
-  .activity-icon.order    { background: rgba(255,71,87,0.15); }
-  .activity-icon.store    { background: rgba(255,165,2,0.15); }
-  .activity-icon.driver   { background: rgba(46,213,115,0.15); }
-  .activity-icon.user     { background: rgba(69,183,255,0.15); }
-
-  .activity-text { font-size: 13px; line-height: 1.5; flex: 1; }
-  .activity-text strong { color: var(--cream); }
-  .activity-time { font-size: 11px; color: var(--cream30); margin-top: 2px; }
-
-  /* ═══════════════ BOTTOM ROW ═══════════════ */
-  .bottom-row {
-    display: grid;
-    grid-template-columns: 1fr 1fr 1fr;
-    gap: 16px;
-  }
-
-  /* ═══════════════ MEAL PERF ═══════════════ */
-  .meal-item {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    padding: 14px 20px;
-    border-bottom: 1px solid var(--border);
-  }
-
-  .meal-item:last-child { border-bottom: none; }
-
-  .meal-rank {
-    font-family: 'Tajawal', sans-serif;
-    font-size: 18px;
-    font-weight: 800;
-    width: 28px;
-    text-align: center;
-    flex-shrink: 0;
-  }
-
-  .meal-rank.r1 { color: var(--orange); text-shadow: 0 0 12px var(--orange-glow); }
-  .meal-rank.r2 { color: var(--cream60); }
-  .meal-rank.r3 { color: var(--cream30); }
-
-  .meal-emoji { font-size: 28px; flex-shrink: 0; }
-
-  .meal-info { flex: 1; }
-  .meal-name { font-size: 13px; font-weight: 600; }
-  .meal-orders { font-size: 11px; color: var(--cream30); margin-top: 2px; }
-
-  .meal-bar-wrap { width: 80px; }
-  .meal-bar-bg { height: 6px; background: var(--border); border-radius: 3px; overflow: hidden; }
-  .meal-bar-fill { height: 100%; border-radius: 3px; background: linear-gradient(90deg, var(--red), var(--orange)); }
-
-  /* ═══════════════ DRIVERS ═══════════════ */
-  .driver-item {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    padding: 12px 20px;
-    border-bottom: 1px solid var(--border);
-  }
-
-  .driver-item:last-child { border-bottom: none; }
-
-  .driver-avatar {
-    width: 36px;
-    height: 36px;
-    border-radius: 10px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-weight: 700;
     font-size: 14px;
     flex-shrink: 0;
   }
 
-  .driver-name { font-size: 13px; font-weight: 600; }
-  .driver-zone { font-size: 11px; color: var(--cream30); margin-top: 1px; }
+  .activity-info { flex: 1; min-width: 0; }
+  .activity-title { font-size: 13px; font-weight: 600; color: var(--cream); margin-bottom: 2px; }
+  .activity-time { font-size: 11px; color: var(--cream30); }
 
-  .driver-status-dot {
-    width: 10px;
-    height: 10px;
-    border-radius: 50%;
-    margin-right: auto;
-    flex-shrink: 0;
-  }
-
-  .driver-status-dot.online  { background: var(--green); box-shadow: 0 0 8px var(--green); }
-  .driver-status-dot.busy    { background: var(--orange); box-shadow: 0 0 8px var(--orange); }
-  .driver-status-dot.offline { background: var(--cream30); }
-
-  .driver-trips { font-size: 12px; font-weight: 700; color: var(--cream60); }
-
-  /* ═══════════════ STORES ═══════════════ */
-  .store-item {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    padding: 14px 20px;
-    border-bottom: 1px solid var(--border);
-  }
-
-  .store-item:last-child { border-bottom: none; }
-  .store-emoji { font-size: 26px; }
-  .store-name { font-size: 13px; font-weight: 600; flex: 1; }
-  .store-orders { font-size: 11px; color: var(--cream30); }
-  .store-score {
-    font-size: 13px;
-    font-weight: 700;
-    color: var(--green);
-  }
-
-  /* ═══════════════ SCROLLBAR ═══════════════ */
   .empty-state {
-    padding: 36px 20px;
     text-align: center;
+    padding: 40px 20px;
     color: var(--cream30);
     font-size: 13px;
   }
 
-  /* ══ LOGIN GATE ══ */
-  #login-gate {
-    position: fixed;
-    inset: 0;
-    background: var(--bg);
-    display: none;
-    align-items: center;
-    justify-content: center;
-    z-index: 999;
-    font-family: 'Cairo', sans-serif;
-  }
-  .gate-card {
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: 20px;
-    padding: 32px 28px;
-    width: 100%;
-    max-width: 360px;
-  }
-  .gate-logo {
-    font-family: 'Tajawal', sans-serif;
-    font-size: 28px;
-    font-weight: 800;
-    text-align: center;
-    background: linear-gradient(135deg, var(--red), var(--orange));
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
-    margin-bottom: 4px;
-  }
-  .gate-sub { text-align:center; font-size:12px; color:var(--cream30); margin-bottom:24px; }
-  .gate-field { margin-bottom: 14px; }
-  .gate-field label { display:block; font-size:12px; color:var(--cream60); margin-bottom:6px; }
-  .gate-field input {
-    width: 100%;
-    padding: 11px 14px;
-    border-radius: 10px;
-    border: 1px solid var(--border);
-    background: var(--bg);
-    color: var(--cream);
-    font-family: 'Cairo', sans-serif;
-    font-size: 13px;
-    outline: none;
-  }
-  .gate-field input:focus { border-color: var(--red); }
-  .gate-btn {
-    width: 100%;
-    padding: 12px;
-    border-radius: 10px;
-    border: none;
-    background: linear-gradient(135deg, var(--red), #c0392b);
-    color: white;
-    font-family: 'Cairo', sans-serif;
-    font-weight: 700;
-    font-size: 14px;
-    cursor: pointer;
-    margin-top: 6px;
-  }
-  .gate-error {
-    display: none;
-    background: rgba(255,71,87,0.12);
-    color: var(--red);
-    font-size: 12px;
-    padding: 8px 12px;
-    border-radius: 8px;
-    margin-bottom: 12px;
-    text-align: center;
-  }
-
-  ::-webkit-scrollbar { width: 6px; }
-  ::-webkit-scrollbar-track { background: var(--bg); }
-  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
-
-  /* ═══════════════ MODAL: إضافة وجبة ═══════════════ */
-  .modal-overlay {
-    display: none;
-    position: fixed;
-    inset: 0;
-    background: rgba(0,0,0,0.55);
-    z-index: 300;
-    align-items: center;
-    justify-content: center;
-    padding: 20px;
-  }
-
-  .modal-overlay.open { display: flex; }
-
-  .modal-card {
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: 20px;
-    width: 100%;
-    max-width: 560px;
-    max-height: 90vh;
-    display: flex;
-    flex-direction: column;
-    overflow: hidden;
-  }
-
-  .modal-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 18px 22px;
-    border-bottom: 1px solid var(--border);
-    flex-shrink: 0;
-  }
-
-  .modal-title {
-    font-family: 'Tajawal', sans-serif;
-    font-size: 17px;
-    font-weight: 700;
-  }
-
-  .modal-close {
-    width: 32px;
-    height: 32px;
-    border-radius: 10px;
-    background: var(--cream10);
-    border: none;
-    color: var(--cream);
-    font-size: 15px;
-    cursor: pointer;
-  }
-  .modal-close:hover { background: var(--red-glow); color: var(--red); }
-
-  .modal-body {
-    padding: 20px 22px;
-    overflow-y: auto;
-    flex: 1;
-    min-height: 0;
-    -webkit-overflow-scrolling: touch;
-    overscroll-behavior: contain;
-  }
-
-  body.modal-lock {
-    overflow: hidden;
-    position: fixed;
-    width: 100%;
-  }
-
-  /* ═══════════════ شاشة كاملة (Full-screen page) ═══════════════ */
-  .fullscreen-page {
-    display: none;
-    flex-direction: column;
-    position: fixed;
-    inset: 0;
-    background: var(--bg);
-    z-index: 400;
-  }
-  .fullscreen-page.open { display: flex; }
-
-  .fullscreen-header {
-    display: flex;
-    align-items: center;
-    gap: 14px;
-    padding: 16px 20px;
-    border-bottom: 1px solid var(--border);
-    flex-shrink: 0;
-    background: var(--surface);
-  }
-
-  .fullscreen-back {
-    width: 38px;
-    height: 38px;
-    border-radius: 12px;
-    background: var(--cream10);
-    border: none;
-    color: var(--cream);
-    font-size: 17px;
-    cursor: pointer;
-    flex-shrink: 0;
-  }
-  .fullscreen-back:hover { background: var(--red-glow); color: var(--red); }
-
-  .fullscreen-title {
-    font-family: 'Tajawal', sans-serif;
-    font-size: 17px;
-    font-weight: 700;
-  }
-
-  .fullscreen-body {
-    flex: 1;
-    min-height: 0;
-    overflow-y: auto;
-    -webkit-overflow-scrolling: touch;
-    overscroll-behavior: contain;
-    padding: 20px;
-    max-width: 640px;
-    width: 100%;
-    margin: 0 auto;
-  }
-
-  .fullscreen-footer {
-    display: flex;
-    justify-content: flex-end;
-    gap: 10px;
-    padding: 16px 20px;
-    border-top: 1px solid var(--border);
-    flex-shrink: 0;
-    background: var(--surface);
-    max-width: 640px;
-    width: 100%;
-    margin: 0 auto;
-  }
-
-  .modal-footer {
-    display: flex;
-    justify-content: flex-end;
-    gap: 10px;
-    padding: 16px 22px;
-    border-top: 1px solid var(--border);
-    flex-shrink: 0;
-  }
-
-  .modal-error {
-    display: none;
-    background: var(--red-glow);
-    color: var(--red);
-    font-size: 12px;
-    padding: 10px 14px;
-    border-radius: 10px;
-    margin-bottom: 14px;
-  }
-
-  .form-group { margin-bottom: 16px; }
-  .form-row { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; }
-  .form-row .form-group { margin-bottom: 0; }
-
-  .form-group label {
-    display: block;
-    font-size: 12px;
-    color: var(--cream60);
-    margin-bottom: 6px;
-    font-weight: 600;
-  }
-
-  .form-group input,
-  .form-group select,
-  .form-group textarea {
-    width: 100%;
-    background: var(--bg);
-    border: 1px solid var(--border);
-    border-radius: 10px;
-    padding: 10px 12px;
-    color: var(--cream);
-    font-family: 'Cairo', sans-serif;
-    font-size: 13px;
-    outline: none;
-    transition: border-color 0.2s;
-  }
-
-  .form-group input:focus,
-  .form-group select:focus,
-  .form-group textarea:focus { border-color: var(--orange); }
-
-  .form-group textarea { resize: vertical; }
-
-  .ing-row {
-    display: grid;
-    grid-template-columns: 1fr 90px 40px 32px;
-    gap: 8px;
-    align-items: center;
-    margin-bottom: 8px;
-  }
-
-  .ing-row select,
-  .ing-row input {
-    background: var(--bg);
-    border: 1px solid var(--border);
-    border-radius: 10px;
-    padding: 8px 10px;
-    color: var(--cream);
-    font-family: 'Cairo', sans-serif;
-    font-size: 12px;
-    outline: none;
-  }
-
-  .ing-unit { font-size: 11px; color: var(--cream30); text-align: center; }
-
-  .ing-remove {
-    width: 32px;
-    height: 32px;
-    border-radius: 8px;
-    background: var(--red-glow);
-    color: var(--red);
-    border: none;
-    cursor: pointer;
-    font-size: 13px;
-  }
-  .ing-remove:hover { background: var(--red); color: white; }
-
-  .btn-add-ing {
-    background: var(--cream10);
-    border: 1px dashed var(--border);
-    color: var(--cream60);
-    border-radius: 10px;
-    padding: 9px 14px;
-    font-family: 'Cairo', sans-serif;
-    font-size: 12px;
-    font-weight: 600;
-    cursor: pointer;
-    width: 100%;
-    margin-top: 4px;
-  }
-  .btn-add-ing:hover { border-color: var(--orange); color: var(--orange); }
-
-  .ing-actions-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
-  .ing-actions-row .btn-add-ing { margin-top: 0; }
-
-  .btn-secondary {
-    background: var(--cream10);
-    color: var(--cream);
-    border: 1px solid var(--border);
-    padding: 10px 20px;
-    border-radius: 12px;
-    font-family: 'Cairo', sans-serif;
-    font-size: 13px;
-    font-weight: 600;
-    cursor: pointer;
-  }
-  .btn-secondary:hover { background: var(--surface2); }
-
-  #akleto-toast {
-    position: fixed;
-    bottom: -80px;
-    left: 50%;
-    transform: translateX(-50%);
-    background: var(--green, #3a8f5a);
-    color: white;
-    padding: 12px 22px;
-    border-radius: 12px;
-    font-family: 'Cairo', sans-serif;
-    font-size: 13px;
-    font-weight: 600;
-    box-shadow: 0 8px 24px rgba(0,0,0,0.35);
-    z-index: 500;
-    transition: bottom 0.3s ease;
-  }
-  #akleto-toast.show { bottom: 30px; }
-  #akleto-toast.show.error { background: var(--red, #cc3344); }
-
-  .image-upload-box {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-  }
-  .image-preview {
-    width: 56px;
-    height: 56px;
-    border-radius: 12px;
-    background: var(--bg);
-    border: 1px solid var(--border);
-    object-fit: cover;
-    flex-shrink: 0;
-    display: none;
-  }
-  .image-preview.show { display: block; }
-  .image-upload-box input[type="file"] {
-    flex: 1;
-    font-size: 12px;
-    color: var(--cream60);
-  }
-
-  .ingredient-list-item {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    padding: 10px 8px;
-    border-bottom: 1px solid var(--border);
-  }
-  .ingredient-list-item:last-child { border-bottom: none; }
-  .ing-thumb {
-    width: 40px;
-    height: 40px;
-    border-radius: 10px;
-    object-fit: cover;
-    background: var(--bg);
-    border: 1px solid var(--border);
-    flex-shrink: 0;
-    font-size: 18px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-  }
-  .ing-info { flex: 1; min-width: 0; }
-  .ing-info .ing-name { font-size: 13px; font-weight: 700; color: var(--cream); }
-  .ing-info .ing-meta { font-size: 11px; color: var(--cream30); margin-top: 2px; }
-
-  /* ═══════════════ RESPONSIVE / MOBILE ═══════════════ */
-
-  /* زر القائمة (يظهر فقط على الموبايل) */
-  .menu-toggle {
-    display: none;
-    width: 40px;
-    height: 40px;
-    border-radius: 12px;
-    background: var(--surface);
-    border: 1px solid var(--border);
-    align-items: center;
-    justify-content: center;
-    font-size: 18px;
-    cursor: pointer;
-    flex-shrink: 0;
-    color: var(--cream);
-  }
-
-  .sidebar-overlay {
-    display: none;
-    position: fixed;
-    inset: 0;
-    background: rgba(0,0,0,0.5);
-    z-index: 99;
-  }
-
-  .sidebar-overlay.open { display: block; }
-
-  /* ── تابلت: عمودين بدل ٤ ── */
-  @media (max-width: 1100px) {
+  /* ════════════ RESPONSIVE ════════════ */
+  @media (max-width: 1200px) {
     .stats-grid { grid-template-columns: repeat(2, 1fr); }
     .mid-row { grid-template-columns: 1fr; }
-    .bottom-row { grid-template-columns: 1fr 1fr; }
   }
 
-  /* ── موبايل: سايدبار يتحول لقائمة منسدلة (drawer) ── */
-  @media (max-width: 860px) {
-    .sidebar {
-      transform: translateX(100%);
-      transition: transform 0.25s ease;
-      z-index: 200;
-      box-shadow: -10px 0 30px rgba(0,0,0,0.35);
-    }
-    .sidebar.open { transform: translateX(0); }
-
-    .main {
-      margin-right: 0;
-      padding: 18px 16px 90px;
-    }
-
-    .menu-toggle { display: flex; }
-
-    .topbar {
-      flex-wrap: wrap;
-      gap: 12px;
-      margin-bottom: 22px;
-    }
-
-    .topbar-actions { flex-wrap: wrap; }
-
-    .page-title { font-size: 19px; }
-    .page-subtitle { font-size: 12px; }
-
-    .btn-primary .btn-primary-label { display: none; }
-
-    .stats-grid { grid-template-columns: 1fr 1fr; gap: 12px; }
-    .stat-card { padding: 16px 14px; border-radius: 14px; }
-    .stat-number { font-size: 22px; }
-
-    .bottom-row { grid-template-columns: 1fr; }
-
-    /* جدول الطلبات بيصير قابل للتمرير أفقياً */
-    .table-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
-    table { min-width: 560px; }
-
-    .form-row { grid-template-columns: 1fr; gap: 12px; }
-    .modal-card { max-height: 95vh; border-radius: 16px; }
-    .ing-row { grid-template-columns: 1fr 70px 32px; }
-    .ing-unit { display: none; }
-  }
-
-  /* ── موبايل صغير ── */
-  @media (max-width: 480px) {
-    .stats-grid { grid-template-columns: 1fr 1fr; }
-    .stat-emoji { font-size: 20px; }
-    .stat-number { font-size: 20px; }
-    .stat-label { font-size: 11px; }
-    .card-header { padding: 16px; }
-    .card-title { font-size: 14px; }
-    .main { padding: 16px 12px 90px; }
-    .logo-text { font-size: 24px; }
+  @media (max-width: 768px) {
+    .sidebar { width: 0; z-index: 1001; }
+    .main { margin-right: 0; padding: 16px; }
+    .stats-grid { grid-template-columns: 1fr; }
   }
 
 </style>
 </head>
 <body>
 
-<!-- ══════ LOGIN GATE ══════ -->
-<div id="login-gate">
-  <div class="gate-card">
-    <div class="gate-logo">أكليتو 🍽️</div>
-    <div class="gate-sub">دخول لوحة التحكم</div>
-    <div class="gate-error" id="gate-error"></div>
-    <div class="gate-field">
-      <label>الإيميل</label>
-      <input type="email" id="gate-email" placeholder="admin@akleto.jo" />
-    </div>
-    <div class="gate-field">
-      <label>كلمة المرور</label>
-      <input type="password" id="gate-pass" onkeydown="if(event.key==='Enter')adminLogin()" />
-    </div>
-    <button class="gate-btn" onclick="adminLogin()">دخول</button>
-  </div>
-</div>
-
-<div id="app-shell" style="display:none;width:100%;">
-
-<!-- ══════ SIDEBAR OVERLAY (موبايل) ══════ -->
-<div class="sidebar-overlay" id="sidebarOverlay" onclick="closeSidebar()"></div>
-
-<!-- ══════ SIDEBAR ══════ -->
-<aside class="sidebar" id="sidebar">
+<div class="sidebar">
   <div class="logo">
-    <div class="logo-text">أكليتو 🍽️</div>
-    <div class="logo-sub">لوحة التحكم — ADMIN</div>
+    <div class="logo-text">أكليتو</div>
+    <div class="logo-sub">🍽️ ADMIN</div>
   </div>
 
   <div class="nav-section">
     <div class="nav-label">الرئيسية</div>
     <div class="nav-item active">
       <span class="nav-icon">📊</span>
-      <span>نظرة عامة</span>
+      <span>لوحة التحكم</span>
     </div>
-    <div class="nav-item">
-      <span class="nav-icon">🛒</span>
-      <span>الطلبات</span>
-      <span class="nav-badge">12</span>
+  </div>
+
+  <div class="nav-section">
+    <div class="nav-label">الإدارة</div>
+    <div class="nav-item" onclick="openAddMealModal()">
+      <span class="nav-icon">➕</span>
+      <span>إضافة وجبة</span>
     </div>
-    <div class="nav-item">
-      <span class="nav-icon">🍖</span>
-      <span>الوجبات</span>
+    <div class="nav-item" onclick="openAddIngredientModal()">
+      <span class="nav-icon">🧅</span>
+      <span>إضافة مكوّن</span>
     </div>
     <div class="nav-item" onclick="openIngredientsListModal()">
-      <span class="nav-icon">🧅</span>
-      <span>المكونات</span>
-    </div>
-  </div>
-
-  <div class="nav-section">
-    <div class="nav-label">المستخدمون</div>
-    <div class="nav-item">
-      <span class="nav-icon">👤</span>
-      <span>الزبائن</span>
-    </div>
-    <div class="nav-item">
-      <span class="nav-icon">🛵</span>
-      <span>السائقين</span>
-    </div>
-    <div class="nav-item">
-      <span class="nav-icon">🏪</span>
-      <span>المتاجر الشريكة</span>
-    </div>
-  </div>
-
-  <div class="nav-section">
-    <div class="nav-label">الإعدادات</div>
-    <div class="nav-item">
-      <span class="nav-icon">📣</span>
-      <span>الإشعارات</span>
-    </div>
-    <div class="nav-item">
-      <span class="nav-icon">⚙️</span>
-      <span>الإعدادات</span>
+      <span class="nav-icon">📋</span>
+      <span>المكونات المتوفرة</span>
     </div>
   </div>
 
   <div class="sidebar-footer">
     <div class="admin-card">
-      <div class="admin-avatar">م</div>
+      <div class="admin-avatar">👨</div>
       <div>
-        <div class="admin-name">مؤيد</div>
-        <div class="admin-role">مدير المنصة 👑</div>
+        <div class="admin-name">المسؤول</div>
+        <div class="admin-role">نشط</div>
       </div>
-      <button onclick="adminLogout()" title="خروج" style="margin-right:auto;background:none;border:none;color:var(--cream30);cursor:pointer;font-size:16px;">⏻</button>
     </div>
+    <button class="btn-primary" onclick="adminLogout()" style="width:100%;margin-top:12px;">
+      خروج ⬅️
+    </button>
   </div>
-</aside>
+</div>
 
-<!-- ══════ MAIN ══════ -->
-<main class="main">
-
-  <!-- TOPBAR -->
-  <div class="topbar">
-    <div>
-      <div class="page-title">يهلا مؤيد! 👋🏼 كيف الطلبات اليوم؟</div>
-      <div class="page-subtitle">متصل بقاعدة البيانات مباشرة 🔴</div>
-    </div>
-    <div class="topbar-actions">
-      <button class="menu-toggle" id="menuBtn" onclick="toggleSidebar()" title="القائمة">☰</button>
-      <button class="theme-toggle" id="themeBtn" onclick="toggleTheme()" title="تبديل الوضع">🌙</button>
-      <div class="btn-notif">
-        🔔
-        <span class="notif-dot"></span>
+<div id="app-shell" style="display:none;flex:1;">
+  <div class="main">
+    <div class="topbar">
+      <div>
+        <div class="page-title">📊 لوحة التحكم</div>
+        <div class="page-subtitle">مرحباً بك في أكليتو للمطاعم</div>
       </div>
-      <button class="btn-primary" onclick="openAddMealModal()">➕ <span class="btn-primary-label">إضافة وجبة</span></button>
-    </div>
-  </div>
-
-  <!-- STATS -->
-  <div class="stats-grid">
-    <div class="stat-card red">
-      <span class="stat-emoji">🛒</span>
-      <div class="stat-number" id="stat-orders-count">0</div>
-      <div class="stat-label">طلب (آخر 10)</div>
-      <div class="stat-change up">مباشر 🔴</div>
-    </div>
-    <div class="stat-card orange">
-      <span class="stat-emoji">💰</span>
-      <div class="stat-number" id="stat-revenue">0</div>
-      <div class="stat-label">إيرادات (د.أ)</div>
-      <div class="stat-change up">مباشر 🔴</div>
-    </div>
-    <div class="stat-card green">
-      <span class="stat-emoji">🛵</span>
-      <div class="stat-number" id="stat-delivered">0</div>
-      <div class="stat-label">توصيلة مكتملة</div>
-      <div class="stat-change up">مباشر 🔴</div>
-    </div>
-    <div class="stat-card blue">
-      <span class="stat-emoji">🧑‍🍳</span>
-      <div class="stat-number" id="stat-users-count">0</div>
-      <div class="stat-label">مستخدم مسجّل</div>
-      <div class="stat-change up" id="stat-meals-wrap">🍽️ <span id="stat-meals-count">0</span> وجبة متاحة</div>
-    </div>
-  </div>
-
-  <!-- MID ROW -->
-  <div class="mid-row">
-    <!-- ORDERS TABLE -->
-    <div class="card">
-      <div class="card-header">
-        <div class="card-title">🛒 آخر الطلبات</div>
-        <button class="card-action">عرض الكل ←</button>
+      <div class="topbar-actions">
+        <button class="btn-notif">
+          🔔
+          <span class="notif-dot"></span>
+        </button>
+        <button class="btn-primary" onclick="openAddMealModal()">
+          <span>➕ إضافة وجبة</span>
+        </button>
       </div>
-      <div class="table-scroll">
+    </div>
+
+    <div class="stats-grid">
+      <div class="stat-card red">
+        <span class="stat-emoji">🍽️</span>
+        <div class="stat-number" id="stat-meals-count">0</div>
+        <div class="stat-label">وجبات مضافة</div>
+      </div>
+      <div class="stat-card orange">
+        <span class="stat-emoji">📦</span>
+        <div class="stat-number" id="stat-orders-count">0</div>
+        <div class="stat-label">إجمالي الطلبات</div>
+        <div class="stat-change up">↑ 12%</div>
+      </div>
+      <div class="stat-card green">
+        <span class="stat-emoji">✓</span>
+        <div class="stat-number" id="stat-delivered">0</div>
+        <div class="stat-label">طلبات مكتملة</div>
+      </div>
+      <div class="stat-card blue">
+        <span class="stat-emoji">💰</span>
+        <div class="stat-number" id="stat-revenue">0</div>
+        <div class="stat-label">الإيرادات (د.أ)</div>
+      </div>
+    </div>
+
+    <div class="mid-row">
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">📋 آخر الطلبات</div>
+          <button class="card-action">عرض الكل</button>
+        </div>
         <table>
           <thead>
             <tr>
               <th>رقم الطلب</th>
-              <th>الزبون</th>
+              <th>اسم العميل</th>
               <th>الوجبة</th>
               <th>المبلغ</th>
               <th>الحالة</th>
@@ -1786,250 +1181,373 @@ window.addEventListener('DOMContentLoaded', () => {
           </tbody>
         </table>
       </div>
+
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">🏆 الوجبات الأكثر طلباً</div>
+        </div>
+        <div id="top-meals-list" style="padding:16px;"></div>
+      </div>
     </div>
 
-    <!-- ACTIVITY -->
-    <div class="card">
-      <div class="card-header">
-        <div class="card-title">⚡ نشاط مباشر</div>
-        <span style="width:8px;height:8px;border-radius:50%;background:var(--green);box-shadow:0 0 8px var(--green);display:inline-block;"></span>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">🏪 المتاجر الشريكة</div>
+        </div>
+        <div id="stores-list" style="padding:0;"></div>
       </div>
-      <div class="activity-list">
-        <div class="empty-state">📡 النشاط المباشر رح يفعّل لما يصير عندنا طلبات حقيقية</div>
+
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">🛵 السائقون</div>
+        </div>
+        <div id="drivers-list" style="padding:0;"></div>
       </div>
     </div>
   </div>
-
-  <!-- BOTTOM ROW -->
-  <div class="bottom-row">
-
-    <!-- TOP MEALS -->
-    <div class="card">
-      <div class="card-header">
-        <div class="card-title">🏆 أكثر الوجبات طلباً</div>
-        <button class="card-action">هاد الأسبوع</button>
-      </div>
-      <div id="top-meals-list">
-        <div class="empty-state">جاري التحميل...</div>
-      </div>
-    </div>
-
-    <!-- DRIVERS -->
-    <div class="card">
-      <div class="card-header">
-        <div class="card-title">🛵 السائقين الآن</div>
-        <button class="card-action">إدارة الكل</button>
-      </div>
-      <div id="drivers-list">
-        <div class="empty-state">جاري التحميل...</div>
-      </div>
-    </div>
-
-    <!-- STORES -->
-    <div class="card">
-      <div class="card-header">
-        <div class="card-title">🏪 المتاجر الشريكة</div>
-        <button class="card-action">إدارة</button>
-      </div>
-      <div id="stores-list">
-        <div class="empty-state">جاري التحميل...</div>
-      </div>
-    </div>
-
-  </div>
-</main>
-
 </div>
 
-<!-- ══════ MODAL: إضافة وجبة ══════ -->
-<div class="modal-overlay" id="addMealOverlay">
-  <div class="modal-card">
-    <div class="modal-header">
-      <div class="modal-title">➕ إضافة وجبة جديدة</div>
-      <button type="button" class="modal-close" onclick="closeAddMealModal()">✕</button>
+<div id="login-gate" style="display:flex;width:100%;height:100vh;align-items:center;justify-content:center;background:var(--bg);">
+  <div style="background:var(--surface);padding:40px;border-radius:20px;border:1px solid var(--border);width:100%;max-width:320px;">
+    <div style="text-align:center;margin-bottom:28px;">
+      <div style="font-size:40px;margin-bottom:12px;">🍽️</div>
+      <div class="logo-text" style="font-size:24px;">أكليتو</div>
+      <div style="font-size:12px;color:var(--cream30);margin-top:4px;">لوحة تحكم المسؤول</div>
+    </div>
+    <input id="gate-email" type="email" placeholder="البريد الإلكتروني" style="width:100%;padding:12px;margin-bottom:12px;background:var(--surface2);border:1px solid var(--border);border-radius:10px;color:var(--cream);font-family:'Cairo',sans-serif;font-size:13px;">
+    <input id="gate-pass" type="password" placeholder="كلمة المرور" style="width:100%;padding:12px;margin-bottom:16px;background:var(--surface2);border:1px solid var(--border);border-radius:10px;color:var(--cream);font-family:'Cairo',sans-serif;font-size:13px;">
+    <div id="gate-error" style="color:var(--red);font-size:12px;margin-bottom:12px;display:none;"></div>
+    <button onclick="adminLogin()" class="btn-primary" style="width:100%;justify-content:center;">دخول</button>
+  </div>
+</div>
+
+<!-- Modals -->
+<div id="addMealOverlay" class="overlay">
+  <div style="background:var(--surface);border-radius:18px;border:1px solid var(--border);width:100%;max-width:500px;padding:28px;margin:20px;">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
+      <h2 style="font-size:18px;font-weight:700;">➕ إضافة وجبة جديدة</h2>
+      <button onclick="closeAddMealModal()" style="background:none;border:none;font-size:20px;cursor:pointer;color:var(--cream30);">✕</button>
     </div>
 
-    <form id="mealForm" onsubmit="saveMeal(event)">
-      <div class="modal-body">
+    <div id="mealFormError" style="background:rgba(255,71,87,0.12);color:var(--red);padding:12px;border-radius:10px;margin-bottom:16px;font-size:13px;display:none;"></div>
 
-        <div class="modal-error" id="mealFormError"></div>
-
-        <div class="form-group">
-          <label>اسم الوجبة</label>
-          <input type="text" id="mf-name" placeholder="مثال: منسف" required />
-        </div>
-
-        <div class="form-row">
-          <div class="form-group">
-            <label>التصنيف (اختر أو اكتب تصنيف جديد)</label>
-            <input type="text" id="mf-category" list="mealCategoryList" placeholder="مثال: لحوم" />
-            <datalist id="mealCategoryList"></datalist>
-          </div>
-          <div class="form-group">
-            <label>مستوى الصعوبة</label>
-            <select id="mf-difficulty">
-              <option value="easy">🟢 سهل</option>
-              <option value="medium">🟡 متوسط</option>
-              <option value="hard">🔴 صعب</option>
-            </select>
-          </div>
-        </div>
-
-        <div class="form-row">
-          <div class="form-group">
-            <label>وقت التحضير (دقيقة)</label>
-            <input type="number" id="mf-prep" min="0" placeholder="30" />
-          </div>
-          <div class="form-group">
-            <label>السعر الأساسي (د.أ) — للشخص الواحد</label>
-            <input type="number" id="mf-price" min="0" step="0.01" placeholder="3.50" />
-          </div>
-          <div class="form-group">
-            <label>عدد الأشخاص الافتراضي</label>
-            <input type="number" id="mf-servings" min="1" value="2" />
-          </div>
-        </div>
-
-        <div class="form-group">
-          <label>وصف مختصر</label>
-          <textarea id="mf-desc" rows="2" placeholder="وصف قصير للوجبة..."></textarea>
-        </div>
-
-        <div class="form-group">
-          <label>صورة الوجبة</label>
-          <div class="image-upload-box">
-            <img id="mf-image-preview" class="image-preview" />
-            <input type="file" id="mf-image" accept="image/*" onchange="previewMealImage(event)" />
-          </div>
-        </div>
-
-
-        <div class="form-group">
-          <label>المكونات — الكمية للشخص الواحد (خوارزمية الدمج الذكي بتستخدمها)</label>
-          <div id="ingredientRows"></div>
-          <div class="ing-actions-row">
-            <button type="button" class="btn-add-ing" onclick="addIngredientRow()">➕ ضيف مكوّن</button>
-            <button type="button" class="btn-add-ing" onclick="openAddIngredientModal()">🧅 مكوّن جديد</button>
-          </div>
-        </div>
-
+    <form id="mealForm" onsubmit="saveMeal(event)" style="display:flex;flex-direction:column;gap:14px;">
+      <div>
+        <label style="font-size:12px;color:var(--cream60);display:block;margin-bottom:6px;">اسم الوجبة *</label>
+        <input id="mf-name" type="text" required placeholder="مثال: فتة الدجاج" style="width:100%;padding:10px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;color:var(--cream);font-family:'Cairo',sans-serif;font-size:13px;">
       </div>
 
-      <div class="modal-footer">
-        <button type="button" class="btn-secondary" onclick="closeAddMealModal()">إلغاء</button>
-        <button type="submit" class="btn-primary" id="mf-save-btn">حفظ الوجبة ✓</button>
+      <div>
+        <label style="font-size:12px;color:var(--cream60);display:block;margin-bottom:6px;">الفئة *</label>
+        <input id="mf-category" list="mealCategoryList" type="text" required placeholder="اختر من القائمة" style="width:100%;padding:10px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;color:var(--cream);font-family:'Cairo',sans-serif;font-size:13px;">
+        <datalist id="mealCategoryList"></datalist>
       </div>
+
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+        <div>
+          <label style="font-size:12px;color:var(--cream60);display:block;margin-bottom:6px;">مستوى الصعوبة</label>
+          <select id="mf-difficulty" style="width:100%;padding:10px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;color:var(--cream);font-family:'Cairo',sans-serif;font-size:13px;">
+            <option value="easy">سهل</option>
+            <option value="medium">متوسط</option>
+            <option value="hard">صعب</option>
+          </select>
+        </div>
+        <div>
+          <label style="font-size:12px;color:var(--cream60);display:block;margin-bottom:6px;">وقت التحضير (دقيقة)</label>
+          <input id="mf-prep" type="number" min="0" placeholder="30" style="width:100%;padding:10px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;color:var(--cream);font-family:'Cairo',sans-serif;font-size:13px;">
+        </div>
+      </div>
+
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+        <div>
+          <label style="font-size:12px;color:var(--cream60);display:block;margin-bottom:6px;">السعر الأساسي (د.أ)</label>
+          <input id="mf-price" type="number" min="0" step="0.01" placeholder="5.00" style="width:100%;padding:10px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;color:var(--cream);font-family:'Cairo',sans-serif;font-size:13px;">
+        </div>
+        <div>
+          <label style="font-size:12px;color:var(--cream60);display:block;margin-bottom:6px;">عدد الحصص الافتراضي</label>
+          <input id="mf-servings" type="number" min="1" value="2" placeholder="2" style="width:100%;padding:10px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;color:var(--cream);font-family:'Cairo',sans-serif;font-size:13px;">
+        </div>
+      </div>
+
+      <div>
+        <label style="font-size:12px;color:var(--cream60);display:block;margin-bottom:6px;">الوصف</label>
+        <textarea id="mf-desc" placeholder="وصف الوجبة..." style="width:100%;padding:10px;height:80px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;color:var(--cream);font-family:'Cairo',sans-serif;font-size:13px;resize:none;"></textarea>
+      </div>
+
+      <div>
+        <label style="font-size:12px;color:var(--cream60);display:block;margin-bottom:6px;">صورة الوجبة</label>
+        <input type="file" accept="image/*" onchange="previewMealImage(event)" style="width:100%;padding:8px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;color:var(--cream);font-family:'Cairo',sans-serif;font-size:12px;">
+        <img id="mf-image-preview" style="display:none;width:100%;height:150px;object-fit:cover;border-radius:8px;margin-top:10px;" />
+      </div>
+
+      <div style="background:var(--surface2);padding:14px;border-radius:10px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+          <label style="font-size:12px;color:var(--cream60);font-weight:600;">المكونات *</label>
+          <button type="button" onclick="addIngredientRow()" class="btn-primary" style="padding:4px 8px;font-size:11px;">➕ ضيف مكوّن</button>
+        </div>
+        <div id="ingredientRows" style="display:flex;flex-direction:column;gap:8px;"></div>
+      </div>
+
+      <button type="submit" id="mf-save-btn" class="btn-primary" style="width:100%;justify-content:center;margin-top:8px;">حفظ الوجبة ✓</button>
     </form>
   </div>
 </div>
 
-<!-- ══════ شاشة كاملة: إضافة مكوّن ══════ -->
-<div class="fullscreen-page" id="addIngredientOverlay">
-  <div class="fullscreen-header">
-    <button type="button" class="fullscreen-back" onclick="closeAddIngredientModal()">→</button>
-    <div class="fullscreen-title">🧅 إضافة مكوّن جديد</div>
-  </div>
+<div id="addIngredientOverlay" class="overlay">
+  <div style="background:var(--surface);border-radius:18px;border:1px solid var(--border);width:100%;max-width:400px;padding:28px;margin:20px;">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
+      <h2 style="font-size:18px;font-weight:700;">🧅 إضافة مكوّن جديد</h2>
+      <button onclick="closeAddIngredientModal()" style="background:none;border:none;font-size:20px;cursor:pointer;color:var(--cream30);">✕</button>
+    </div>
 
-  <form id="ingredientForm" onsubmit="saveIngredient(event)" style="display:flex; flex-direction:column; flex:1; min-height:0;">
-    <div class="fullscreen-body">
+    <div id="ingredientFormError" style="background:rgba(255,71,87,0.12);color:var(--red);padding:12px;border-radius:10px;margin-bottom:16px;font-size:13px;display:none;"></div>
 
-      <div class="modal-error" id="ingredientFormError"></div>
-
-      <div class="form-group">
-        <label>اسم المكوّن</label>
-        <input type="text" id="if-name" placeholder="مثال: بصل" required />
+    <form id="ingredientForm" onsubmit="saveIngredient(event)" style="display:flex;flex-direction:column;gap:14px;">
+      <div>
+        <label style="font-size:12px;color:var(--cream60);display:block;margin-bottom:6px;">اسم المكوّن *</label>
+        <input id="if-name" type="text" required placeholder="مثال: دجاج" style="width:100%;padding:10px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;color:var(--cream);font-family:'Cairo',sans-serif;font-size:13px;">
       </div>
 
-      <div class="form-row" style="grid-template-columns:1fr 1fr;">
-        <div class="form-group">
-          <label>وحدة القياس</label>
-          <select id="if-unit">
-            <option value="g">غرام (g)</option>
-            <option value="kg">كيلو (kg)</option>
-            <option value="ml">مل (ml)</option>
-            <option value="l">لتر (l)</option>
-            <option value="حبة">حبة</option>
-            <option value="tbsp">معلقة كبيرة</option>
-            <option value="tsp">معلقة صغيرة</option>
-            <option value="cup">كوب</option>
-          </select>
+      <div>
+        <label style="font-size:12px;color:var(--cream60);display:block;margin-bottom:6px;">الفئة</label>
+        <input id="if-category" list="ingredientCategoryList" type="text" placeholder="اختر من القائمة" style="width:100%;padding:10px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;color:var(--cream);font-family:'Cairo',sans-serif;font-size:13px;">
+        <datalist id="ingredientCategoryList"></datalist>
+      </div>
+
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+        <div>
+          <label style="font-size:12px;color:var(--cream60);display:block;margin-bottom:6px;">الوحدة</label>
+          <input id="if-unit" type="text" placeholder="كيلو / لتر / حبة" style="width:100%;padding:10px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;color:var(--cream);font-family:'Cairo',sans-serif;font-size:13px;">
         </div>
-        <div class="form-group">
-          <label>التصنيف (اختر أو اكتب تصنيف جديد)</label>
-          <input type="text" id="if-category" list="ingredientCategoryList" placeholder="مثال: خضروات" />
-          <datalist id="ingredientCategoryList"></datalist>
+        <div>
+          <label style="font-size:12px;color:var(--cream60);display:block;margin-bottom:6px;">السعر للوحدة (د.أ)</label>
+          <input id="if-price" type="number" min="0" step="0.01" placeholder="2.50" style="width:100%;padding:10px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;color:var(--cream);font-family:'Cairo',sans-serif;font-size:13px;">
         </div>
       </div>
 
-      <div class="form-group">
-        <label>سعر تقريبي للوحدة (د.أ) — اختياري</label>
-        <input type="number" id="if-price" min="0" step="0.01" placeholder="0.50" />
+      <div>
+        <label style="font-size:12px;color:var(--cream60);display:block;margin-bottom:6px;">صورة المكوّن</label>
+        <input type="file" accept="image/*" onchange="previewIngredientImage(event)" style="width:100%;padding:8px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;color:var(--cream);font-family:'Cairo',sans-serif;font-size:12px;">
+        <img id="if-image-preview" style="display:none;width:100%;height:120px;object-fit:cover;border-radius:8px;margin-top:10px;" />
       </div>
 
-      <div class="form-group">
-        <label>صورة المكوّن</label>
-        <div class="image-upload-box">
-          <img id="if-image-preview" class="image-preview" />
-          <input type="file" id="if-image" accept="image/*" onchange="previewIngredientImage(event)" />
-        </div>
-      </div>
-
-    </div>
-
-    <div class="fullscreen-footer">
-      <button type="button" class="btn-secondary" onclick="closeAddIngredientModal()">إلغاء</button>
-      <button type="submit" class="btn-primary" id="if-save-btn">حفظ المكوّن ✓</button>
-    </div>
-  </form>
-</div>
-
-<!-- ══════ MODAL: قائمة المكونات المتوفرة ══════ -->
-<div class="modal-overlay" id="ingredientsListOverlay">
-  <div class="modal-card" style="max-width:480px;">
-    <div class="modal-header">
-      <div class="modal-title">🧅 المكونات المتوفرة</div>
-      <button type="button" class="modal-close" onclick="closeIngredientsListModal()">✕</button>
-    </div>
-    <div class="modal-body">
-      <button type="button" class="btn-primary" style="width:100%;margin-bottom:16px;justify-content:center;"
-              onclick="closeIngredientsListModal(); openAddIngredientModal(true)">➕ إضافة مكوّن</button>
-      <div id="ingredientsListWrap"></div>
-    </div>
+      <button type="submit" id="if-save-btn" class="btn-primary" style="width:100%;justify-content:center;margin-top:8px;">حفظ المكوّن ✓</button>
+    </form>
   </div>
 </div>
 
-<script>
-  function toggleSidebar() {
-    document.getElementById('sidebar').classList.toggle('open');
-    document.getElementById('sidebarOverlay').classList.toggle('open');
-  }
-  function closeSidebar() {
-    document.getElementById('sidebar').classList.remove('open');
-    document.getElementById('sidebarOverlay').classList.remove('open');
-  }
-  // إغلاق القائمة تلقائياً عند اختيار عنصر (على الموبايل)
-  document.addEventListener('DOMContentLoaded', () => {
-    document.querySelectorAll('.nav-item').forEach(item => {
-      item.addEventListener('click', () => {
-        if (window.innerWidth <= 860) closeSidebar();
-      });
-    });
-  });
+<div id="ingredientsListOverlay" class="overlay">
+  <div style="background:var(--surface);border-radius:18px;border:1px solid var(--border);width:100%;max-width:600px;padding:28px;margin:20px;max-height:90vh;overflow-y:auto;">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;position:sticky;top:0;background:var(--surface);z-index:10;padding-bottom:16px;">
+      <h2 style="font-size:18px;font-weight:700;">📋 المكونات المتوفرة</h2>
+      <button onclick="closeIngredientsListModal()" style="background:none;border:none;font-size:20px;cursor:pointer;color:var(--cream30);">✕</button>
+    </div>
 
-  function toggleTheme() {
-    const body = document.body;
-    const btn  = document.getElementById('themeBtn');
-    body.classList.toggle('light');
-    btn.textContent = body.classList.contains('light') ? '🌙' : '☀️';
-    localStorage.setItem('akleto-theme', body.classList.contains('light') ? 'light' : 'dark');
+    <div style="display:flex;gap:10px;margin-bottom:16px;">
+      <button type="button" onclick="openAddIngredientModal(true)" class="btn-primary" style="flex:1;justify-content:center;">➕ إضافة مكوّن جديد</button>
+    </div>
+
+    <div id="ingredientsListWrap" style="display:grid;gap:12px;"></div>
+  </div>
+</div>
+
+<style>
+  .ing-row {
+    display: grid;
+    grid-template-columns: 1fr 100px 80px 40px;
+    gap: 8px;
+    align-items: center;
+    padding: 10px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
   }
-  // حفظ التفضيل
-  if (localStorage.getItem('akleto-theme') === 'light') {
-    document.body.classList.add('light');
-    document.addEventListener('DOMContentLoaded', () => {
-      document.getElementById('themeBtn').textContent = '🌙';
-    });
+
+  .ing-row select,
+  .ing-row input {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    color: var(--cream);
+    font-family: 'Cairo', sans-serif;
+    font-size: 12px;
+    padding: 8px;
   }
-</script>
+
+  .ing-unit {
+    font-size: 11px;
+    color: var(--cream60);
+    text-align: center;
+  }
+
+  .ing-remove {
+    background: rgba(255,71,87,0.12);
+    color: var(--red);
+    border: 1px solid rgba(255,71,87,0.25);
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 14px;
+    padding: 6px;
+    transition: all 0.2s;
+  }
+
+  .ing-remove:hover {
+    background: rgba(255,71,87,0.2);
+    border-color: rgba(255,71,87,0.4);
+  }
+
+  .ingredient-list-item {
+    display: flex;
+    gap: 12px;
+    padding: 12px;
+    background: var(--surface2);
+    border-radius: 10px;
+    align-items: center;
+  }
+
+  .ing-thumb {
+    width: 60px;
+    height: 60px;
+    border-radius: 8px;
+    object-fit: cover;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 32px;
+    flex-shrink: 0;
+  }
+
+  .ing-info {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .ing-name {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--cream);
+    margin-bottom: 4px;
+  }
+
+  .ing-meta {
+    font-size: 12px;
+    color: var(--cream60);
+  }
+
+  .meal-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px;
+    border-bottom: 1px solid var(--cream10);
+  }
+
+  .meal-rank {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 13px;
+    font-weight: 700;
+    flex-shrink: 0;
+  }
+
+  .meal-rank.r1 { background: rgba(255,165,2,0.2); color: var(--orange); }
+  .meal-rank.r2 { background: rgba(255,165,2,0.12); color: var(--orange); }
+  .meal-rank.r3 { background: rgba(253,248,243,0.1); color: var(--cream60); }
+
+  .meal-emoji { font-size: 20px; }
+
+  .meal-info { flex: 1; min-width: 0; }
+  .meal-name { font-size: 13px; font-weight: 600; color: var(--cream); }
+  .meal-orders { font-size: 11px; color: var(--cream60); margin-top: 2px; }
+
+  .meal-bar-wrap { width: 80px; height: 20px; background: var(--cream10); border-radius: 10px; overflow: hidden; }
+  .meal-bar-bg { width: 100%; height: 100%; }
+  .meal-bar-fill { height: 100%; background: linear-gradient(90deg, var(--orange), var(--red)); transition: width 0.3s; }
+
+  .store-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 14px 20px;
+    border-bottom: 1px solid var(--cream10);
+  }
+
+  .store-emoji { font-size: 20px; }
+  .store-name { font-size: 13px; font-weight: 600; color: var(--cream); }
+  .store-orders { font-size: 11px; color: var(--cream60); margin-top: 2px; }
+  .store-score { font-size: 12px; color: var(--orange); margin-right: auto; }
+
+  .driver-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 14px 20px;
+    border-bottom: 1px solid var(--cream10);
+  }
+
+  .driver-avatar {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+    font-weight: 700;
+  }
+
+  .driver-name { font-size: 13px; font-weight: 600; color: var(--cream); }
+  .driver-zone { font-size: 11px; color: var(--cream60); margin-top: 2px; }
+  .driver-status-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    margin-left: auto;
+    margin-right: 8px;
+  }
+
+  .driver-status-dot.online { background: var(--green); box-shadow: 0 0 8px var(--green-glow); }
+  .driver-status-dot.busy { background: var(--orange); box-shadow: 0 0 8px var(--orange-glow); }
+  .driver-status-dot.offline { background: var(--cream60); }
+
+  .driver-trips { font-size: 12px; color: var(--cream60); }
+
+  .akleto-toast {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    background: var(--green);
+    color: white;
+    padding: 14px 20px;
+    border-radius: 10px;
+    font-size: 13px;
+    font-weight: 600;
+    opacity: 0;
+    transform: translateY(20px);
+    transition: all 0.3s;
+    z-index: 2000;
+    box-shadow: 0 4px 20px rgba(46,213,115,0.3);
+  }
+
+  .akleto-toast.show {
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  .akleto-toast.error {
+    background: var(--red);
+    box-shadow: 0 4px 20px var(--red-glow);
+  }
+
+  .modal-lock {
+    overflow: hidden;
+  }
+</style>
+
 </body>
 </html>

@@ -11,6 +11,8 @@ import { getFirestore, collection, getDocs, query, orderBy, limit, onSnapshot, a
   from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, signOut }
   from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+import { getStorage, ref as storageRef, uploadBytes, getDownloadURL }
+  from "https://www.gstatic.com/firebasejs/10.12.0/firebase-storage.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyAefkYqFsvL9wQEZYnGkb_y47eYZacrs7U",
@@ -21,12 +23,43 @@ const firebaseConfig = {
   appId: "1:739001380275:web:41da29d05a75481df9efc6"
 };
 
-const app  = initializeApp(firebaseConfig);
-const db   = getFirestore(app);
-const auth = getAuth(app);
+const app     = initializeApp(firebaseConfig);
+const db      = getFirestore(app);
+const auth    = getAuth(app);
+const storage = getStorage(app);
 
-let ingredientsCache = []; // {id, name_ar, unit}
+let ingredientsCache = []; // {id, name_ar, unit, category, image_url}
 let mealIngredientRows = []; // rows in the add-meal modal: {ingredientId, qty}
+let mealImageFile = null;
+let ingredientImageFile = null;
+let returnToIngredientsList = false;
+let knownMealCategories = ['meat','chicken','vegetarian','legumes','breakfast'];
+let knownIngredientCategories = ['vegetables','meat','dairy','spices','grains','other'];
+
+/* رفع صورة إلى Firebase Storage وإرجاع الرابط */
+async function uploadImage(file, folder) {
+  if (!file) return '';
+  const safeName = Date.now() + '_' + file.name.replace(/[^a-zA-Z0-9.\-_]/g, '');
+  const path = `${folder}/${safeName}`;
+  const sref = storageRef(storage, path);
+  await uploadBytes(sref, file);
+  return await getDownloadURL(sref);
+}
+
+/* تنبيه صغير يظهر ويختفي */
+function showToast(message, isError) {
+  let toast = document.getElementById('akleto-toast');
+  if (!toast) {
+    toast = document.createElement('div');
+    toast.id = 'akleto-toast';
+    document.body.appendChild(toast);
+  }
+  toast.textContent = message;
+  toast.className = 'akleto-toast show' + (isError ? ' error' : '');
+  clearTimeout(window._toastTimer);
+  window._toastTimer = setTimeout(() => { toast.className = 'akleto-toast'; }, 2500);
+}
+
 
 window.addEventListener('DOMContentLoaded', () => {
 
@@ -223,8 +256,14 @@ window.addEventListener('DOMContentLoaded', () => {
 
   window.openAddMealModal = () => {
     mealIngredientRows = [];
+    mealImageFile = null;
     document.getElementById('mealForm').reset();
     document.getElementById('mealFormError').style.display = 'none';
+    document.getElementById('mf-image-preview').classList.remove('show');
+    const saveBtn = document.getElementById('mf-save-btn');
+    saveBtn.disabled = false;
+    saveBtn.textContent = 'حفظ الوجبة ✓';
+    populateCategoryList('mealCategoryList', knownMealCategories);
     renderIngredientRows();
     document.getElementById('addMealOverlay').classList.add('open');
   };
@@ -232,6 +271,20 @@ window.addEventListener('DOMContentLoaded', () => {
   window.closeAddMealModal = () => {
     document.getElementById('addMealOverlay').classList.remove('open');
   };
+
+  window.previewMealImage = (ev) => {
+    const file = ev.target.files[0];
+    if (!file) return;
+    mealImageFile = file;
+    const img = document.getElementById('mf-image-preview');
+    img.src = URL.createObjectURL(file);
+    img.classList.add('show');
+  };
+
+  function populateCategoryList(datalistId, categories) {
+    const dl = document.getElementById(datalistId);
+    dl.innerHTML = categories.map(c => `<option value="${c}"></option>`).join('');
+  }
 
   window.addIngredientRow = () => {
     if (!ingredientsCache.length) {
@@ -302,10 +355,16 @@ window.addEventListener('DOMContentLoaded', () => {
     saveBtn.textContent = 'جاري الحفظ...';
 
     try {
+      // ارفع الصورة إذا موجودة
+      let image_url = '';
+      if (mealImageFile) {
+        image_url = await uploadImage(mealImageFile, 'meals');
+      }
+
       // ١. أضف الوجبة
       const mealRef = await addDoc(collection(db, 'meals'), {
         name_ar, category, difficulty, prep_time_min, base_price,
-        servings_default, description,
+        servings_default, description, image_url,
         is_active: true,
         order_count: 0,
         created_at: serverTimestamp()
@@ -323,28 +382,49 @@ window.addEventListener('DOMContentLoaded', () => {
       });
       await batch.commit();
 
+      if (category && !knownMealCategories.includes(category)) knownMealCategories.push(category);
+
       closeAddMealModal();
+      showToast('تم حفظ الوجبة بنجاح ✅');
       loadDashboard(); // تحديث العدادات والقوائم
     } catch(e) {
       console.error('save meal error', e);
       errBox.textContent = 'صار خطأ بالحفظ — جرب مرة ثانية';
       errBox.style.display = 'block';
+      showToast('صار خطأ بحفظ الوجبة ❌', true);
     } finally {
       saveBtn.disabled = false;
       saveBtn.textContent = 'حفظ الوجبة ✓';
     }
   };
 
+
   /* ══════════════ إضافة مكوّن جديد ══════════════ */
 
-  window.openAddIngredientModal = () => {
+  window.openAddIngredientModal = (returnToList) => {
+    returnToIngredientsList = !!returnToList;
+    ingredientImageFile = null;
     document.getElementById('ingredientForm').reset();
     document.getElementById('ingredientFormError').style.display = 'none';
+    document.getElementById('if-image-preview').classList.remove('show');
+    const saveBtn = document.getElementById('if-save-btn');
+    saveBtn.disabled = false;
+    saveBtn.textContent = 'حفظ المكوّن ✓';
+    populateCategoryList('ingredientCategoryList', knownIngredientCategories);
     document.getElementById('addIngredientOverlay').classList.add('open');
   };
 
   window.closeAddIngredientModal = () => {
     document.getElementById('addIngredientOverlay').classList.remove('open');
+  };
+
+  window.previewIngredientImage = (ev) => {
+    const file = ev.target.files[0];
+    if (!file) return;
+    ingredientImageFile = file;
+    const img = document.getElementById('if-image-preview');
+    img.src = URL.createObjectURL(file);
+    img.classList.add('show');
   };
 
   window.saveIngredient = async (ev) => {
@@ -368,30 +448,87 @@ window.addEventListener('DOMContentLoaded', () => {
     saveBtn.textContent = 'جاري الحفظ...';
 
     try {
+      let image_url = '';
+      if (ingredientImageFile) {
+        image_url = await uploadImage(ingredientImageFile, 'ingredients');
+      }
+
       const newRef = await addDoc(collection(db, 'ingredients'), {
-        name_ar, unit, category, price_per_unit,
+        name_ar, unit, category, price_per_unit, image_url,
         is_active: true,
         created_at: serverTimestamp()
       });
 
       // حدّث الكاش المحلي فوراً
-      ingredientsCache.push({ id: newRef.id, name_ar, unit, category, price_per_unit, is_active: true });
+      ingredientsCache.push({ id: newRef.id, name_ar, unit, category, price_per_unit, image_url, is_active: true });
+      if (category && !knownIngredientCategories.includes(category)) knownIngredientCategories.push(category);
 
       closeAddIngredientModal();
+      showToast('تم حفظ المكوّن بنجاح ✅');
 
       // إذا نافذة إضافة الوجبة مفتوحة، حدّث قائمة المكونات فيها
       if (document.getElementById('addMealOverlay').classList.contains('open')) {
         renderIngredientRows();
       }
+
+      // إذا جاي من شاشة "المكونات المتوفرة"، ارجعله عليها بعد التحديث
+      if (returnToIngredientsList) {
+        returnToIngredientsList = false;
+        openIngredientsListModal();
+      }
     } catch(e) {
       console.error('save ingredient error', e);
       errBox.textContent = 'صار خطأ بالحفظ — جرب مرة ثانية';
       errBox.style.display = 'block';
+      showToast('صار خطأ بحفظ المكوّن ❌', true);
     } finally {
       saveBtn.disabled = false;
       saveBtn.textContent = 'حفظ المكوّن ✓';
     }
   };
+
+  /* ══════════════ قائمة المكونات المتوفرة ══════════════ */
+
+  window.openIngredientsListModal = async () => {
+    const wrap = document.getElementById('ingredientsListWrap');
+    wrap.innerHTML = `<div class="empty-state" style="padding:14px 0;">جاري التحميل...</div>`;
+    document.getElementById('ingredientsListOverlay').classList.add('open');
+
+    if (!ingredientsCache.length) {
+      try {
+        const snap = await getDocs(collection(db, 'ingredients'));
+        ingredientsCache = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      } catch(e) { console.error('load ingredients error', e); }
+    }
+    renderIngredientsList();
+  };
+
+  window.closeIngredientsListModal = () => {
+    document.getElementById('ingredientsListOverlay').classList.remove('open');
+  };
+
+  function renderIngredientsList() {
+    const wrap = document.getElementById('ingredientsListWrap');
+    if (!ingredientsCache.length) {
+      wrap.innerHTML = `<div class="empty-state" style="padding:14px 0;">ما في مكونات مضافة بعد</div>`;
+      return;
+    }
+    const catLabels = { vegetables:'خضروات', meat:'لحوم', dairy:'ألبان', spices:'بهارات', grains:'حبوب' };
+    wrap.innerHTML = ingredientsCache.map(ing => {
+      const thumb = ing.image_url
+        ? `<img class="ing-thumb" src="${ing.image_url}" />`
+        : `<div class="ing-thumb">🧅</div>`;
+      const catLabel = catLabels[ing.category] || ing.category || 'أخرى';
+      return `
+        <div class="ingredient-list-item">
+          ${thumb}
+          <div class="ing-info">
+            <div class="ing-name">${ing.name_ar || ''}</div>
+            <div class="ing-meta">${catLabel} · ${ing.unit || ''}${ing.price_per_unit ? ' · ' + ing.price_per_unit + ' د.أ' : ''}</div>
+          </div>
+        </div>`;
+    }).join('');
+  }
 
 });
 </script>
@@ -1088,6 +1225,7 @@ window.addEventListener('DOMContentLoaded', () => {
     padding: 20px 22px;
     overflow-y: auto;
     flex: 1;
+    min-height: 0;
   }
 
   .modal-footer {
@@ -1206,6 +1344,72 @@ window.addEventListener('DOMContentLoaded', () => {
     cursor: pointer;
   }
   .btn-secondary:hover { background: var(--surface2); }
+
+  #akleto-toast {
+    position: fixed;
+    bottom: -80px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: var(--green, #3a8f5a);
+    color: white;
+    padding: 12px 22px;
+    border-radius: 12px;
+    font-family: 'Cairo', sans-serif;
+    font-size: 13px;
+    font-weight: 600;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.35);
+    z-index: 500;
+    transition: bottom 0.3s ease;
+  }
+  #akleto-toast.show { bottom: 30px; }
+  #akleto-toast.show.error { background: var(--red, #cc3344); }
+
+  .image-upload-box {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .image-preview {
+    width: 56px;
+    height: 56px;
+    border-radius: 12px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    object-fit: cover;
+    flex-shrink: 0;
+    display: none;
+  }
+  .image-preview.show { display: block; }
+  .image-upload-box input[type="file"] {
+    flex: 1;
+    font-size: 12px;
+    color: var(--cream60);
+  }
+
+  .ingredient-list-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 8px;
+    border-bottom: 1px solid var(--border);
+  }
+  .ingredient-list-item:last-child { border-bottom: none; }
+  .ing-thumb {
+    width: 40px;
+    height: 40px;
+    border-radius: 10px;
+    object-fit: cover;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    flex-shrink: 0;
+    font-size: 18px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .ing-info { flex: 1; min-width: 0; }
+  .ing-info .ing-name { font-size: 13px; font-weight: 700; color: var(--cream); }
+  .ing-info .ing-meta { font-size: 11px; color: var(--cream30); margin-top: 2px; }
 
   /* ═══════════════ RESPONSIVE / MOBILE ═══════════════ */
 
@@ -1349,7 +1553,7 @@ window.addEventListener('DOMContentLoaded', () => {
       <span class="nav-icon">🍖</span>
       <span>الوجبات</span>
     </div>
-    <div class="nav-item" onclick="openAddIngredientModal()">
+    <div class="nav-item" onclick="openIngredientsListModal()">
       <span class="nav-icon">🧅</span>
       <span>المكونات</span>
     </div>
@@ -1542,14 +1746,9 @@ window.addEventListener('DOMContentLoaded', () => {
 
         <div class="form-row">
           <div class="form-group">
-            <label>التصنيف</label>
-            <select id="mf-category">
-              <option value="meat">🥩 لحوم</option>
-              <option value="chicken">🍗 دجاج</option>
-              <option value="vegetarian">🥗 نباتي</option>
-              <option value="legumes">🫘 بقوليات</option>
-              <option value="breakfast">🥚 فطور</option>
-            </select>
+            <label>التصنيف (اختر أو اكتب تصنيف جديد)</label>
+            <input type="text" id="mf-category" list="mealCategoryList" placeholder="مثال: لحوم" />
+            <datalist id="mealCategoryList"></datalist>
           </div>
           <div class="form-group">
             <label>مستوى الصعوبة</label>
@@ -1580,6 +1779,15 @@ window.addEventListener('DOMContentLoaded', () => {
           <label>وصف مختصر</label>
           <textarea id="mf-desc" rows="2" placeholder="وصف قصير للوجبة..."></textarea>
         </div>
+
+        <div class="form-group">
+          <label>صورة الوجبة</label>
+          <div class="image-upload-box">
+            <img id="mf-image-preview" class="image-preview" />
+            <input type="file" id="mf-image" accept="image/*" onchange="previewMealImage(event)" />
+          </div>
+        </div>
+
 
         <div class="form-group">
           <label>المكونات — الكمية للشخص الواحد (خوارزمية الدمج الذكي بتستخدمها)</label>
@@ -1633,21 +1841,23 @@ window.addEventListener('DOMContentLoaded', () => {
             </select>
           </div>
           <div class="form-group">
-            <label>التصنيف</label>
-            <select id="if-category">
-              <option value="vegetables">🥦 خضروات</option>
-              <option value="meat">🥩 لحوم</option>
-              <option value="dairy">🧀 ألبان</option>
-              <option value="spices">🧂 بهارات وتوابل</option>
-              <option value="grains">🌾 حبوب ومعكرونة</option>
-              <option value="other">📦 أخرى</option>
-            </select>
+            <label>التصنيف (اختر أو اكتب تصنيف جديد)</label>
+            <input type="text" id="if-category" list="ingredientCategoryList" placeholder="مثال: خضروات" />
+            <datalist id="ingredientCategoryList"></datalist>
           </div>
         </div>
 
         <div class="form-group">
           <label>سعر تقريبي للوحدة (د.أ) — اختياري</label>
           <input type="number" id="if-price" min="0" step="0.01" placeholder="0.50" />
+        </div>
+
+        <div class="form-group">
+          <label>صورة المكوّن</label>
+          <div class="image-upload-box">
+            <img id="if-image-preview" class="image-preview" />
+            <input type="file" id="if-image" accept="image/*" onchange="previewIngredientImage(event)" />
+          </div>
         </div>
 
       </div>
@@ -1657,6 +1867,21 @@ window.addEventListener('DOMContentLoaded', () => {
         <button type="submit" class="btn-primary" id="if-save-btn">حفظ المكوّن ✓</button>
       </div>
     </form>
+  </div>
+</div>
+
+<!-- ══════ MODAL: قائمة المكونات المتوفرة ══════ -->
+<div class="modal-overlay" id="ingredientsListOverlay">
+  <div class="modal-card" style="max-width:480px;">
+    <div class="modal-header">
+      <div class="modal-title">🧅 المكونات المتوفرة</div>
+      <button type="button" class="modal-close" onclick="closeIngredientsListModal()">✕</button>
+    </div>
+    <div class="modal-body">
+      <button type="button" class="btn-primary" style="width:100%;margin-bottom:16px;justify-content:center;"
+              onclick="closeIngredientsListModal(); openAddIngredientModal(true)">➕ إضافة مكوّن</button>
+      <div id="ingredientsListWrap"></div>
+    </div>
   </div>
 </div>
 

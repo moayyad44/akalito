@@ -199,17 +199,32 @@ window.addEventListener('DOMContentLoaded', () => {
       document.getElementById('ing-count').textContent = ingredientsCache.length;
 
       closeAddIngredientModal();
-      showToast(imageWarning ? 'تم حفظ المكوّن ✅ (بدون صورة — تحقق من إعدادات Storage)' : 'تم حفظ المكوّن بنجاح ✅');
+      
+      // رسالة نجاح محسّنة
+      if (imageWarning) {
+        showToast(`✅ تم حفظ المكوّن "${name_ar}" بنجاح!\n(لكن بدون صورة — تحقق من إعدادات Storage)`);
+      } else {
+        showToast(`✅ تم حفظ المكوّن "${name_ar}" بنجاح!`);
+      }
+      
       renderIngredientsList();
     } catch(e) {
       console.error('save ingredient error', e);
       let msg = 'صار خطأ بالحفظ — جرب مرة ثانية';
-      if (e && e.code === 'timeout') msg = e.message;
-      else if (e && e.code === 'permission-denied') msg = 'ما عندك صلاحية للكتابة — تحقق من Firestore Rules';
-      else if (e && e.code) msg = 'خطأ: ' + e.code;
+      
+      if (e && e.code === 'timeout') {
+        msg = e.message || 'انتهت مهلة الحفظ — تأكد من الإنترنت';
+      } else if (e && e.code === 'permission-denied') {
+        msg = '❌ ما عندك صلاحية للكتابة — تحقق من Firestore Rules';
+      } else if (e && e.message && e.message.includes('Permission denied')) {
+        msg = '❌ ما عندك صلاحية للكتابة — تحقق من Firestore Rules';
+      } else if (e && e.code) {
+        msg = `❌ خطأ: ${e.code}`;
+      }
+      
       errBox.textContent = msg;
       errBox.style.display = 'block';
-      showToast(msg + ' ❌', true);
+      showToast(msg, true);
     } finally {
       isSavingIngredient = false;
       saveBtn.disabled = false;

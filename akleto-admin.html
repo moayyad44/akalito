@@ -302,23 +302,39 @@ window.addEventListener('DOMContentLoaded', () => {
     mealIngredientRows[idx][field] = field === 'qty' ? parseFloat(value)||0 : value;
   };
 
+  // البحث باسم المكوّن بدل قائمة منسدلة طويلة — يتحدّث فقط لما الاسم يطابق مكوّن فعلي
+  window.updateIngredientRowByName = (idx, name) => {
+    const match = ingredientsCache.find(ing => (ing.name_ar || '').trim() === name.trim());
+    const unitSpan = document.getElementById('ing-unit-' + idx);
+    if (match) {
+      mealIngredientRows[idx].ingredientId = match.id;
+      if (unitSpan) unitSpan.textContent = match.unit || '';
+    } else if (unitSpan) {
+      unitSpan.textContent = '—';
+    }
+  };
+
+  function populateIngredientNamesDatalist() {
+    const dl = document.getElementById('ingredientNamesList');
+    if (dl) dl.innerHTML = ingredientsCache.map(ing => `<option value="${ing.name_ar || ''}"></option>`).join('');
+  }
+
   function renderIngredientRows() {
     const wrap = document.getElementById('ingredientRows');
+    populateIngredientNamesDatalist();
     if (!mealIngredientRows.length) {
       wrap.innerHTML = `<div class="empty-state" style="padding:14px 0;">ما ضفت مكونات بعد — دوس "➕ ضيف مكوّن"</div>`;
       return;
     }
     wrap.innerHTML = mealIngredientRows.map((row, idx) => {
-      const options = ingredientsCache.map(ing =>
-        `<option value="${ing.id}" ${ing.id===row.ingredientId?'selected':''}>${ing.name_ar||ing.id}</option>`
-      ).join('');
-      const unit = (ingredientsCache.find(i => i.id === row.ingredientId) || {}).unit || '';
+      const ing = ingredientsCache.find(i => i.id === row.ingredientId) || {};
       return `
         <div class="ing-row">
-          <select onchange="updateIngredientRow(${idx},'ingredientId',this.value)">${options}</select>
+          <input type="text" list="ingredientNamesList" value="${ing.name_ar || ''}" placeholder="اكتب اسم المكوّن..."
+                 oninput="updateIngredientRowByName(${idx}, this.value)" />
           <input type="number" min="0" step="0.01" value="${row.qty}" placeholder="الكمية للشخص الواحد"
                  onchange="updateIngredientRow(${idx},'qty',this.value)" />
-          <span class="ing-unit">${unit}</span>
+          <span class="ing-unit" id="ing-unit-${idx}">${ing.unit || ''}</span>
           <button type="button" class="ing-remove" onclick="removeIngredientRow(${idx})">✕</button>
         </div>`;
     }).join('');
@@ -334,7 +350,6 @@ window.addEventListener('DOMContentLoaded', () => {
     const category       = document.getElementById('mf-category').value;
     const difficulty      = document.getElementById('mf-difficulty').value;
     const prep_time_min   = parseInt(document.getElementById('mf-prep').value) || 0;
-    const base_price      = parseFloat(document.getElementById('mf-price').value) || 0;
     const servings_default= parseInt(document.getElementById('mf-servings').value) || 2;
     const description      = document.getElementById('mf-desc').value.trim();
 
@@ -370,7 +385,7 @@ window.addEventListener('DOMContentLoaded', () => {
       // ١. أضف الوجبة
       const mealRef = await withTimeout(
         addDoc(collection(db, 'meals'), {
-          name_ar, category, difficulty, prep_time_min, base_price,
+          name_ar, category, difficulty, prep_time_min,
           servings_default, description, image_url,
           is_active: true,
           order_count: 0,
@@ -606,10 +621,10 @@ window.addEventListener('DOMContentLoaded', () => {
 
   <div class="nav-section">
     <div class="nav-label">المستخدمون</div>
-    <div class="nav-item">
+    <a class="nav-item" href="akleto-admin-customers.html" style="text-decoration:none;color:inherit;">
       <span class="nav-icon">👤</span>
       <span>الزبائن</span>
-    </div>
+    </a>
     <div class="nav-item">
       <span class="nav-icon">🛵</span>
       <span>السائقين</span>
@@ -811,10 +826,6 @@ window.addEventListener('DOMContentLoaded', () => {
             <input type="number" id="mf-prep" min="0" placeholder="30" />
           </div>
           <div class="form-group">
-            <label>السعر الأساسي (د.أ) — للشخص الواحد</label>
-            <input type="number" id="mf-price" min="0" step="0.01" placeholder="3.50" />
-          </div>
-          <div class="form-group">
             <label>عدد الأشخاص الافتراضي</label>
             <input type="number" id="mf-servings" min="1" value="2" />
           </div>
@@ -837,6 +848,7 @@ window.addEventListener('DOMContentLoaded', () => {
         <div class="form-group">
           <label>المكونات — الكمية للشخص الواحد (خوارزمية الدمج الذكي بتستخدمها)</label>
           <div id="ingredientRows"></div>
+          <datalist id="ingredientNamesList"></datalist>
           <div class="ing-actions-row">
             <button type="button" class="btn-add-ing" onclick="addIngredientRow()">➕ ضيف مكوّن</button>
             <button type="button" class="btn-add-ing" onclick="openAddIngredientModal()">🧅 مكوّن جديد</button>

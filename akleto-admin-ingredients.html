@@ -168,48 +168,68 @@ window.addEventListener('DOMContentLoaded', () => {
     try {
       let image_url = '';
       let imageWarning = false;
+      
+      // رفع الصورة إن وجدت
       if (ingredientImageFile) {
         try {
           image_url = await uploadImage(ingredientImageFile, 'ingredients');
+          console.log('✅ تم رفع الصورة بنجاح:', image_url);
         } catch(imgErr) {
-          console.error('image upload error', imgErr);
+          console.error('❌ خطأ في رفع الصورة:', imgErr);
           imageWarning = true;
         }
       }
 
+      // حفظ المكون في Firestore
+      console.log('🔄 جاري حفظ المكون في Firestore...');
       const newRef = await withTimeout(
         addDoc(collection(db, 'ingredients'), {
-          name_ar, unit, category, price_per_unit, image_url,
+          name_ar, 
+          unit, 
+          category, 
+          price_per_unit, 
+          image_url,
           is_active: true,
           created_at: serverTimestamp()
         }),
         15000, 'انتهت مهلة الحفظ — تأكد من الإنترنت'
       );
 
-      // addDoc() نفسه ما بيتحل إلا بعد تأكيد فايرستور للكتابة — من هون المكوّن
-      // محفوظ فعلياً. التحقق التالي بونص بس، فشله ما يعني فشل الحفظ.
-      try {
-        await withTimeout(getDocFromServer(newRef), 8000, 'verify-timeout');
-      } catch(verifyErr) {
-        console.warn('ingredient verify (non-fatal)', verifyErr);
+      console.log('✅ تم حفظ المكون برقم:', newRef.id);
+
+      // تحديث الـ cache
+      ingredientsCache.push({ 
+        id: newRef.id, 
+        name_ar, 
+        unit, 
+        category, 
+        price_per_unit, 
+        image_url, 
+        is_active: true 
+      });
+      
+      if (category && !knownIngredientCategories.includes(category)) {
+        knownIngredientCategories.push(category);
       }
 
-      ingredientsCache.push({ id: newRef.id, name_ar, unit, category, price_per_unit, image_url, is_active: true });
-      if (category && !knownIngredientCategories.includes(category)) knownIngredientCategories.push(category);
+      // تحديث العداد
       document.getElementById('ing-count').textContent = ingredientsCache.length;
 
-      closeAddIngredientModal();
+      // إغلاق الـ modal
+      window.closeAddIngredientModal();
       
-      // رسالة نجاح محسّنة
+      // عرض رسالة النجاح
       if (imageWarning) {
-        showToast(`✅ تم حفظ المكوّن "${name_ar}" بنجاح!\n(لكن بدون صورة — تحقق من إعدادات Storage)`);
+        showToast(`✅ تم حفظ المكوّن "${name_ar}" بنجاح!\n(لكن بدون صورة — جرب رفع الصورة مرة ثانية)`);
       } else {
         showToast(`✅ تم حفظ المكوّن "${name_ar}" بنجاح!`);
       }
       
+      // تحديث القائمة
       renderIngredientsList();
+      
     } catch(e) {
-      console.error('save ingredient error', e);
+      console.error('❌ خطأ في حفظ المكون:', e);
       let msg = 'صار خطأ بالحفظ — جرب مرة ثانية';
       
       if (e && e.code === 'timeout') {
@@ -218,6 +238,8 @@ window.addEventListener('DOMContentLoaded', () => {
         msg = '❌ ما عندك صلاحية للكتابة — تحقق من Firestore Rules';
       } else if (e && e.message && e.message.includes('Permission denied')) {
         msg = '❌ ما عندك صلاحية للكتابة — تحقق من Firestore Rules';
+      } else if (e && e.message && e.message.includes('PERMISSION_DENIED')) {
+        msg = '❌ الصلاحيات ناقصة في Firestore — اتصل بالمسؤول';
       } else if (e && e.code) {
         msg = `❌ خطأ: ${e.code}`;
       }

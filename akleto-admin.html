@@ -423,15 +423,18 @@ window.addEventListener('DOMContentLoaded', () => {
           quantity_per_person: row.qty
         });
       });
-      await withTimeout(batch.commit(), 15000, 'انتهت مهلة الحفظ — تأكد من الإنترنت');
-
-      // تحقق فعلي من السيرفر إن الوجبة انكتبت
-      const verifySnap = await withTimeout(
-        getDocFromServer(mealRef),
-        15000, 'تعذر التأكد من وصول الحفظ للسيرفر — تحقق من الشبكة'
-      );
-      if (!verifySnap.exists()) {
-        throw Object.assign(new Error('الحفظ ما وصل فعلياً للسيرفر — جرب من واي فاي أو شبكة أخرى'), { code: 'not-persisted' });
+      await withTimeout(batch.commit(), 20000, 'انتهت مهلة الحفظ — تأكد من الإنترنت');
+      // ملاحظة مهمة: batch.commit() نفسه ما بيتحل (resolve) إلا بعد ما فايرستور
+      // يأكد الكتابة فعلياً — يعني من هون الوجبة والمكونات محفوظة. أي تحقق إضافي
+      // بعده هو "بونص" بس وما لازم اعتبار فشله = فشل العملية (هذا كان سبب ظهور
+      // رسالة فشل ثم نجاح، ولو المستخدم أعاد المحاولة كانت تصير وجبة مكررة).
+      let verifyWarning = false;
+      try {
+        const verifySnap = await withTimeout(getDocFromServer(mealRef), 8000, 'verify-timeout');
+        if (!verifySnap.exists()) verifyWarning = true;
+      } catch(verifyErr) {
+        console.warn('meal verify (non-fatal)', verifyErr);
+        verifyWarning = true;
       }
 
       if (category && !knownMealCategories.includes(category)) knownMealCategories.push(category);
@@ -535,13 +538,15 @@ window.addEventListener('DOMContentLoaded', () => {
         15000, 'انتهت مهلة الحفظ — تأكد من الإنترنت'
       );
 
-      // تحقق فعلي من السيرفر إن الكتابة وصلت (مش بس اعتماد على رد محلي)
-      const verifySnap = await withTimeout(
-        getDocFromServer(newRef),
-        15000, 'تعذر التأكد من وصول الحفظ للسيرفر — تحقق من الشبكة'
-      );
-      if (!verifySnap.exists()) {
-        throw Object.assign(new Error('الحفظ ما وصل فعلياً للسيرفر — جرب من واي فاي أو شبكة أخرى'), { code: 'not-persisted' });
+      // addDoc() نفسه ما بيتحل إلا بعد تأكيد فايرستور للكتابة — من هون المكوّن
+      // محفوظ فعلياً. التحقق التالي بونص بس، فشله ما يعني فشل الحفظ.
+      let verifyWarning = false;
+      try {
+        const verifySnap = await withTimeout(getDocFromServer(newRef), 8000, 'verify-timeout');
+        if (!verifySnap.exists()) verifyWarning = true;
+      } catch(verifyErr) {
+        console.warn('ingredient verify (non-fatal)', verifyErr);
+        verifyWarning = true;
       }
 
       // حدّث الكاش المحلي فوراً

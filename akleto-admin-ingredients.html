@@ -1,0 +1,415 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
+<title>أكليتو — المكونات</title>
+<link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;900&family=Tajawal:wght@400;500;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="admin-style.css">
+<script type="module">
+import {
+  db, auth, collection, getDocs, addDoc, deleteDoc, doc, serverTimestamp, getDocFromServer,
+  onAuthStateChanged, signInWithEmailAndPassword, signOut,
+  uploadImage, withTimeout
+} from "./firebase-init.js";
+
+let ingredientsCache = [];
+let ingredientImageFile = null;
+let isSavingIngredient = false;
+let knownIngredientCategories = ['vegetables','meat','dairy','spices','grains','other'];
+
+function showToast(message, isError) {
+  let toast = document.getElementById('akleto-toast');
+  if (!toast) {
+    toast = document.createElement('div');
+    toast.id = 'akleto-toast';
+    document.body.appendChild(toast);
+  }
+  toast.textContent = message;
+  toast.className = 'akleto-toast show' + (isError ? ' error' : '');
+  clearTimeout(window._toastTimer);
+  window._toastTimer = setTimeout(() => { toast.className = 'akleto-toast'; }, 2500);
+}
+
+let _lockCount = 0;
+function lockBodyScroll() {
+  if (_lockCount === 0) { document.documentElement.classList.add('modal-lock'); document.body.classList.add('modal-lock'); }
+  _lockCount++;
+}
+function unlockBodyScroll() {
+  _lockCount = Math.max(0, _lockCount - 1);
+  if (_lockCount === 0) { document.documentElement.classList.remove('modal-lock'); document.body.classList.remove('modal-lock'); }
+}
+
+window.addEventListener('DOMContentLoaded', () => {
+
+  onAuthStateChanged(auth, user => {
+    if (!user) {
+      window.location.href = 'akleto-admin.html';
+    } else {
+      document.getElementById('app-shell').style.display = 'flex';
+      loadIngredients();
+    }
+  });
+
+  window.adminLogout = () => signOut(auth);
+
+  async function loadIngredients() {
+    const wrap = document.getElementById('ingredientsListWrap');
+    wrap.innerHTML = `<div class="empty-state" style="padding:14px 0;">جاري التحميل...</div>`;
+    try {
+      const snap = await getDocs(collection(db, 'ingredients'));
+      ingredientsCache = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    } catch(e) {
+      console.error('load ingredients error', e);
+      wrap.innerHTML = `<div class="empty-state" style="padding:14px 0;">صار خطأ بتحميل المكونات — تحقق من الإنترنت</div>`;
+      return;
+    }
+    document.getElementById('ing-count').textContent = ingredientsCache.length;
+    renderIngredientsList();
+  }
+
+  function renderIngredientsList() {
+    const wrap = document.getElementById('ingredientsListWrap');
+    if (!ingredientsCache.length) {
+      wrap.innerHTML = `<div class="empty-state" style="padding:14px 0;">ما في مكونات مضافة بعد</div>`;
+      return;
+    }
+    const catLabels = { vegetables:'خضروات', meat:'لحوم', dairy:'ألبان', spices:'بهارات', grains:'حبوب' };
+    wrap.innerHTML = ingredientsCache.map(ing => {
+      const thumb = ing.image_url
+        ? `<img class="ing-thumb" src="${ing.image_url}" />`
+        : `<div class="ing-thumb">🧅</div>`;
+      const catLabel = catLabels[ing.category] || ing.category || 'أخرى';
+      return `
+        <div class="ingredient-list-item">
+          ${thumb}
+          <div class="ing-info">
+            <div class="ing-name">${ing.name_ar || ''}</div>
+            <div class="ing-meta">${catLabel} · ${ing.unit || ''}${ing.price_per_unit ? ' · ' + ing.price_per_unit + ' د.أ' : ''}</div>
+          </div>
+          <button type="button" class="ing-remove" title="حذف المكوّن" onclick="deleteIngredient('${ing.id}')">✕</button>
+        </div>`;
+    }).join('');
+  }
+
+  window.deleteIngredient = async (id) => {
+    const ing = ingredientsCache.find(i => i.id === id);
+    if (!confirm(`تأكيد حذف "${ing ? ing.name_ar : 'هذا المكوّن'}"؟\n\n⚠️ إذا كان مستخدم بوجبات موجودة، حذفه بيأثر عليها.`)) return;
+    try {
+      await withTimeout(deleteDoc(doc(db, 'ingredients', id)), 15000, 'انتهت مهلة الحذف — تأكد من الإنترنت');
+      ingredientsCache = ingredientsCache.filter(i => i.id !== id);
+      document.getElementById('ing-count').textContent = ingredientsCache.length;
+      renderIngredientsList();
+      showToast('تم حذف المكوّن ✅');
+    } catch(e) {
+      console.error('delete ingredient error', e);
+      showToast('صار خطأ بالحذف — جرب مرة ثانية ❌', true);
+    }
+  };
+
+  function populateCategoryList() {
+    document.getElementById('ingredientCategoryList').innerHTML =
+      knownIngredientCategories.map(c => `<option value="${c}"></option>`).join('');
+  }
+
+  window.openAddIngredientModal = () => {
+    ingredientImageFile = null;
+    document.getElementById('ingredientForm').reset();
+    document.getElementById('ingredientFormError').style.display = 'none';
+    document.getElementById('if-image-preview').classList.remove('show');
+    const saveBtn = document.getElementById('if-save-btn');
+    saveBtn.disabled = false;
+    saveBtn.textContent = 'حفظ المكوّن ✓';
+    populateCategoryList();
+    document.getElementById('addIngredientOverlay').classList.add('open');
+    lockBodyScroll();
+  };
+
+  window.closeAddIngredientModal = () => {
+    document.getElementById('addIngredientOverlay').classList.remove('open');
+    unlockBodyScroll();
+  };
+
+  window.previewIngredientImage = (ev) => {
+    const file = ev.target.files[0];
+    if (!file) return;
+    ingredientImageFile = file;
+    const img = document.getElementById('if-image-preview');
+    img.src = URL.createObjectURL(file);
+    img.classList.add('show');
+  };
+
+  window.saveIngredient = async (ev) => {
+    ev.preventDefault();
+    if (isSavingIngredient) return;
+    const errBox = document.getElementById('ingredientFormError');
+    errBox.style.display = 'none';
+
+    const name_ar     = document.getElementById('if-name').value.trim();
+    const unit         = document.getElementById('if-unit').value;
+    const category      = document.getElementById('if-category').value;
+    const price_per_unit = parseFloat(document.getElementById('if-price').value) || 0;
+
+    if (!name_ar) {
+      errBox.textContent = 'لازم تكتب اسم المكوّن';
+      errBox.style.display = 'block';
+      return;
+    }
+
+    const saveBtn = document.getElementById('if-save-btn');
+    isSavingIngredient = true;
+    saveBtn.disabled = true;
+    saveBtn.textContent = 'جاري الحفظ...';
+
+    try {
+      let image_url = '';
+      let imageWarning = false;
+      if (ingredientImageFile) {
+        try {
+          image_url = await uploadImage(ingredientImageFile, 'ingredients');
+        } catch(imgErr) {
+          console.error('image upload error', imgErr);
+          imageWarning = true;
+        }
+      }
+
+      const newRef = await withTimeout(
+        addDoc(collection(db, 'ingredients'), {
+          name_ar, unit, category, price_per_unit, image_url,
+          is_active: true,
+          created_at: serverTimestamp()
+        }),
+        15000, 'انتهت مهلة الحفظ — تأكد من الإنترنت'
+      );
+
+      // addDoc() نفسه ما بيتحل إلا بعد تأكيد فايرستور للكتابة — من هون المكوّن
+      // محفوظ فعلياً. التحقق التالي بونص بس، فشله ما يعني فشل الحفظ.
+      try {
+        await withTimeout(getDocFromServer(newRef), 8000, 'verify-timeout');
+      } catch(verifyErr) {
+        console.warn('ingredient verify (non-fatal)', verifyErr);
+      }
+
+      ingredientsCache.push({ id: newRef.id, name_ar, unit, category, price_per_unit, image_url, is_active: true });
+      if (category && !knownIngredientCategories.includes(category)) knownIngredientCategories.push(category);
+      document.getElementById('ing-count').textContent = ingredientsCache.length;
+
+      closeAddIngredientModal();
+      showToast(imageWarning ? 'تم حفظ المكوّن ✅ (بدون صورة — تحقق من إعدادات Storage)' : 'تم حفظ المكوّن بنجاح ✅');
+      renderIngredientsList();
+    } catch(e) {
+      console.error('save ingredient error', e);
+      let msg = 'صار خطأ بالحفظ — جرب مرة ثانية';
+      if (e && e.code === 'timeout') msg = e.message;
+      else if (e && e.code === 'permission-denied') msg = 'ما عندك صلاحية للكتابة — تحقق من Firestore Rules';
+      else if (e && e.code) msg = 'خطأ: ' + e.code;
+      errBox.textContent = msg;
+      errBox.style.display = 'block';
+      showToast(msg + ' ❌', true);
+    } finally {
+      isSavingIngredient = false;
+      saveBtn.disabled = false;
+      saveBtn.textContent = 'حفظ المكوّن ✓';
+    }
+  };
+
+});
+</script>
+</head>
+<body>
+
+<div id="app-shell" style="display:none;width:100%;">
+
+<!-- ══════ SIDEBAR OVERLAY (موبايل) ══════ -->
+<div class="sidebar-overlay" id="sidebarOverlay" onclick="closeSidebar()"></div>
+
+<!-- ══════ SIDEBAR ══════ -->
+<aside class="sidebar" id="sidebar">
+  <div class="logo">
+    <div class="logo-text">أكليتو 🍽️</div>
+    <div class="logo-sub">لوحة التحكم — ADMIN</div>
+  </div>
+
+  <div class="nav-section">
+    <div class="nav-label">الرئيسية</div>
+    <a class="nav-item" href="akleto-admin.html" style="text-decoration:none;color:inherit;">
+      <span class="nav-icon">📊</span>
+      <span>نظرة عامة</span>
+    </a>
+    <div class="nav-item">
+      <span class="nav-icon">🛒</span>
+      <span>الطلبات</span>
+    </div>
+    <div class="nav-item">
+      <span class="nav-icon">🍖</span>
+      <span>الوجبات</span>
+    </div>
+    <a class="nav-item active" href="akleto-admin-ingredients.html" style="text-decoration:none;color:inherit;">
+      <span class="nav-icon">🧅</span>
+      <span>المكونات</span>
+    </a>
+  </div>
+
+  <div class="nav-section">
+    <div class="nav-label">المستخدمون</div>
+    <div class="nav-item">
+      <span class="nav-icon">👤</span>
+      <span>الزبائن</span>
+    </div>
+    <div class="nav-item">
+      <span class="nav-icon">🛵</span>
+      <span>السائقين</span>
+    </div>
+    <div class="nav-item">
+      <span class="nav-icon">🏪</span>
+      <span>المتاجر الشريكة</span>
+    </div>
+  </div>
+
+  <div class="nav-section">
+    <div class="nav-label">الإعدادات</div>
+    <div class="nav-item">
+      <span class="nav-icon">📣</span>
+      <span>الإشعارات</span>
+    </div>
+    <div class="nav-item">
+      <span class="nav-icon">⚙️</span>
+      <span>الإعدادات</span>
+    </div>
+  </div>
+
+  <div class="sidebar-footer">
+    <div class="admin-card">
+      <div class="admin-avatar">م</div>
+      <div>
+        <div class="admin-name">مؤيد</div>
+        <div class="admin-role">مدير المنصة 👑</div>
+      </div>
+      <button onclick="adminLogout()" title="خروج" style="margin-right:auto;background:none;border:none;color:var(--cream30);cursor:pointer;font-size:16px;">⏻</button>
+    </div>
+  </div>
+</aside>
+
+<!-- ══════ MAIN ══════ -->
+<main class="main">
+
+  <!-- TOPBAR -->
+  <div class="topbar">
+    <div>
+      <div class="page-title">🧅 المكونات المتوفرة</div>
+      <div class="page-subtitle"><span id="ing-count">0</span> مكوّن بقاعدة البيانات</div>
+    </div>
+    <div class="topbar-actions">
+      <button class="menu-toggle" id="menuBtn" onclick="toggleSidebar()" title="القائمة">☰</button>
+      <button class="theme-toggle" id="themeBtn" onclick="toggleTheme()" title="تبديل الوضع">🌙</button>
+      <button class="btn-primary" onclick="openAddIngredientModal()">➕ <span class="btn-primary-label">إضافة مكوّن</span></button>
+    </div>
+  </div>
+
+  <div class="card">
+    <div id="ingredientsListWrap"></div>
+  </div>
+
+</main>
+
+</div>
+
+<!-- ══════ MODAL: إضافة مكوّن ══════ -->
+<div class="modal-overlay" id="addIngredientOverlay">
+  <div class="modal-card" style="max-width:420px;">
+    <div class="modal-header">
+      <div class="modal-title">🧅 إضافة مكوّن جديد</div>
+      <button type="button" class="modal-close" onclick="closeAddIngredientModal()">✕</button>
+    </div>
+
+    <form id="ingredientForm" onsubmit="saveIngredient(event)">
+      <div class="modal-body">
+
+        <div class="modal-error" id="ingredientFormError"></div>
+
+        <div class="form-group">
+          <label>اسم المكوّن</label>
+          <input type="text" id="if-name" placeholder="مثال: بصل" required />
+        </div>
+
+        <div class="form-row" style="grid-template-columns:1fr 1fr;">
+          <div class="form-group">
+            <label>وحدة القياس</label>
+            <select id="if-unit">
+              <option value="g">غرام (g)</option>
+              <option value="kg">كيلو (kg)</option>
+              <option value="ml">مل (ml)</option>
+              <option value="l">لتر (l)</option>
+              <option value="حبة">حبة</option>
+              <option value="tbsp">معلقة كبيرة</option>
+              <option value="tsp">معلقة صغيرة</option>
+              <option value="cup">كوب</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>التصنيف (اختر أو اكتب تصنيف جديد)</label>
+            <input type="text" id="if-category" list="ingredientCategoryList" placeholder="مثال: خضروات" />
+            <datalist id="ingredientCategoryList"></datalist>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label>سعر تقريبي للوحدة (د.أ) — اختياري</label>
+          <input type="number" id="if-price" min="0" step="0.01" placeholder="0.50" />
+        </div>
+
+        <div class="form-group">
+          <label>صورة المكوّن</label>
+          <div class="image-upload-box">
+            <img id="if-image-preview" class="image-preview" />
+            <input type="file" id="if-image" accept="image/*" onchange="previewIngredientImage(event)" />
+          </div>
+        </div>
+
+      </div>
+
+      <div class="modal-footer">
+        <button type="button" class="btn-secondary" onclick="closeAddIngredientModal()">إلغاء</button>
+        <button type="submit" class="btn-primary" id="if-save-btn">حفظ المكوّن ✓</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+  function toggleSidebar() {
+    document.getElementById('sidebar').classList.toggle('open');
+    document.getElementById('sidebarOverlay').classList.toggle('open');
+  }
+  function closeSidebar() {
+    document.getElementById('sidebar').classList.remove('open');
+    document.getElementById('sidebarOverlay').classList.remove('open');
+  }
+  document.addEventListener('DOMContentLoaded', () => {
+    document.querySelectorAll('.nav-item').forEach(item => {
+      item.addEventListener('click', () => {
+        if (window.innerWidth <= 860) closeSidebar();
+      });
+    });
+  });
+
+  function toggleTheme() {
+    const body = document.body;
+    const btn  = document.getElementById('themeBtn');
+    body.classList.toggle('light');
+    btn.textContent = body.classList.contains('light') ? '🌙' : '☀️';
+    localStorage.setItem('akleto-theme', body.classList.contains('light') ? 'light' : 'dark');
+  }
+  if (localStorage.getItem('akleto-theme') === 'light') {
+    document.body.classList.add('light');
+    document.addEventListener('DOMContentLoaded', () => {
+      document.getElementById('themeBtn').textContent = '🌙';
+    });
+  }
+</script>
+</body>
+</html>

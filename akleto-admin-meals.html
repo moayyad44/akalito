@@ -1,0 +1,554 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
+<title>أكليتو — الوجبات</title>
+<link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;900&family=Tajawal:wght@400;500;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="admin-style.css">
+<script type="module">
+import {
+  db, auth, collection, getDocs, query, where, addDoc, updateDoc, deleteDoc,
+  writeBatch, doc, serverTimestamp, getDocFromServer,
+  onAuthStateChanged, signOut, uploadImage, withTimeout
+} from "./firebase-init.js";
+
+let mealsCache = [];
+let ingredientsCache = [];
+let mealIngredientRows = []; // {ingredientId, qty}
+let knownMealCategories = ['meat','chicken','vegetarian','legumes','breakfast'];
+let mealImageFile = null;
+let currentEditingMealId = null; // null = مش بوضع تعديل
+let isSavingMeal = false;
+
+function showToast(message, isError) {
+  let toast = document.getElementById('akleto-toast');
+  if (!toast) {
+    toast = document.createElement('div');
+    toast.id = 'akleto-toast';
+    document.body.appendChild(toast);
+  }
+  toast.textContent = message;
+  toast.className = 'akleto-toast show' + (isError ? ' error' : '');
+  clearTimeout(window._toastTimer);
+  window._toastTimer = setTimeout(() => { toast.className = 'akleto-toast'; }, 2500);
+}
+
+let _lockCount = 0;
+function lockBodyScroll() {
+  if (_lockCount === 0) { document.documentElement.classList.add('modal-lock'); document.body.classList.add('modal-lock'); }
+  _lockCount++;
+}
+function unlockBodyScroll() {
+  _lockCount = Math.max(0, _lockCount - 1);
+  if (_lockCount === 0) { document.documentElement.classList.remove('modal-lock'); document.body.classList.remove('modal-lock'); }
+}
+
+window.addEventListener('DOMContentLoaded', () => {
+
+  onAuthStateChanged(auth, user => {
+    if (!user) {
+      window.location.href = 'akleto-admin.html';
+    } else {
+      document.getElementById('app-shell').style.display = 'flex';
+      loadIngredients();
+      loadMeals();
+    }
+  });
+
+  window.adminLogout = () => signOut(auth);
+
+  async function loadIngredients() {
+    try {
+      const snap = await getDocs(collection(db, 'ingredients'));
+      ingredientsCache = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    } catch(e) { console.error('load ingredients error', e); }
+  }
+
+  async function loadMeals() {
+    const wrap = document.getElementById('mealsGrid');
+    wrap.innerHTML = `<div class="empty-state" style="padding:14px 0;">جاري التحميل...</div>`;
+    try {
+      const snap = await getDocs(collection(db, 'meals'));
+      mealsCache = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    } catch(e) {
+      console.error('load meals error', e);
+      wrap.innerHTML = `<div class="empty-state" style="padding:14px 0;">صار خطأ بتحميل الوجبات — تحقق من الإنترنت</div>`;
+      return;
+    }
+    mealsCache.forEach(m => { if (m.category && !knownMealCategories.includes(m.category)) knownMealCategories.push(m.category); });
+    document.getElementById('meals-count').textContent = mealsCache.length;
+    renderMealsGrid();
+  }
+
+  const difficultyLabel = { easy:'🟢 سهل', medium:'🟡 متوسط', hard:'🔴 صعب' };
+
+  function renderMealsGrid() {
+    const wrap = document.getElementById('mealsGrid');
+    if (!mealsCache.length) {
+      wrap.innerHTML = `<div class="empty-state" style="padding:14px 0;">ما في وجبات مضافة بعد</div>`;
+      return;
+    }
+    wrap.innerHTML = mealsCache.map(m => {
+      const thumb = m.image_url ? `<img class="meal-card-thumb" src="${m.image_url}" />` : `<div class="meal-card-thumb">🍽️</div>`;
+      return `
+        <div class="meal-card" onclick="openMealDetails('${m.id}')">
+          ${thumb}
+          <div class="meal-card-body">
+            <div class="meal-card-name">${m.name_ar || ''}</div>
+            <div class="meal-card-meta">${difficultyLabel[m.difficulty] || ''} · ${m.prep_time_min || 0} د · ${m.base_price || 0} د.أ</div>
+          </div>
+        </div>`;
+    }).join('');
+  }
+
+  /* ══════════════ فتح تفاصيل/تعديل وجبة موجودة ══════════════ */
+  window.openMealDetails = async (mealId) => {
+    const meal = mealsCache.find(m => m.id === mealId);
+    if (!meal) return;
+    currentEditingMealId = mealId;
+    mealImageFile = null;
+
+    document.getElementById('mealModalTitle').textContent = '✏️ تعديل: ' + (meal.name_ar || '');
+    document.getElementById('mf-name').value = meal.name_ar || '';
+    document.getElementById('mf-category').value = meal.category || '';
+    document.getElementById('mf-difficulty').value = meal.difficulty || 'easy';
+    document.getElementById('mf-prep').value = meal.prep_time_min || '';
+    document.getElementById('mf-price').value = meal.base_price || '';
+    document.getElementById('mf-servings').value = meal.servings_default || 2;
+    document.getElementById('mf-desc').value = meal.description || '';
+    document.getElementById('mealFormError').style.display = 'none';
+
+    const img = document.getElementById('mf-image-preview');
+    if (meal.image_url) { img.src = meal.image_url; img.classList.add('show'); }
+    else { img.classList.remove('show'); }
+
+    populateCategoryList();
+    document.getElementById('deleteMealBtn').style.display = 'inline-flex';
+
+    const saveBtn = document.getElementById('mf-save-btn');
+    saveBtn.disabled = false;
+    saveBtn.textContent = 'حفظ التعديلات ✓';
+
+    // حمّل مكونات الوجبة الحالية من meal_ingredients
+    mealIngredientRows = [{ loading:true }];
+    renderIngredientRows();
+    document.getElementById('addMealOverlay').classList.add('open');
+    lockBodyScroll();
+
+    try {
+      const q = query(collection(db, 'meal_ingredients'), where('meal_id', '==', mealId));
+      const snap = await getDocs(q);
+      mealIngredientRows = snap.docs.map(d => ({
+        linkId: d.id,
+        ingredientId: d.data().ingredient_id,
+        qty: d.data().quantity_per_person
+      }));
+    } catch(e) {
+      console.error('load meal_ingredients error', e);
+      showToast('صار خطأ بتحميل مكونات الوجبة ❌', true);
+      mealIngredientRows = [];
+    }
+    renderIngredientRows();
+  };
+
+  window.openAddMealModal = () => {
+    currentEditingMealId = null;
+    mealIngredientRows = [];
+    mealImageFile = null;
+    document.getElementById('mealModalTitle').textContent = '➕ إضافة وجبة جديدة';
+    document.getElementById('mealForm').reset();
+    document.getElementById('mealFormError').style.display = 'none';
+    document.getElementById('mf-image-preview').classList.remove('show');
+    document.getElementById('deleteMealBtn').style.display = 'none';
+    const saveBtn = document.getElementById('mf-save-btn');
+    saveBtn.disabled = false;
+    saveBtn.textContent = 'حفظ الوجبة ✓';
+    populateCategoryList();
+    renderIngredientRows();
+    document.getElementById('addMealOverlay').classList.add('open');
+    lockBodyScroll();
+  };
+
+  window.closeAddMealModal = () => {
+    document.getElementById('addMealOverlay').classList.remove('open');
+    unlockBodyScroll();
+    currentEditingMealId = null;
+  };
+
+  window.previewMealImage = (ev) => {
+    const file = ev.target.files[0];
+    if (!file) return;
+    mealImageFile = file;
+    const img = document.getElementById('mf-image-preview');
+    img.src = URL.createObjectURL(file);
+    img.classList.add('show');
+  };
+
+  function populateCategoryList() {
+    document.getElementById('mealCategoryList').innerHTML =
+      knownMealCategories.map(c => `<option value="${c}"></option>`).join('');
+  }
+
+  window.addIngredientRow = () => {
+    if (!ingredientsCache.length) {
+      alert('ما في مكونات مضافة بقاعدة البيانات بعد — ضيف مكونات أول من صفحة المكونات.');
+      return;
+    }
+    mealIngredientRows.push({ ingredientId: ingredientsCache[0].id, qty: 1 });
+    renderIngredientRows();
+  };
+
+  window.removeIngredientRow = (idx) => {
+    mealIngredientRows.splice(idx, 1);
+    renderIngredientRows();
+  };
+
+  window.updateIngredientRow = (idx, field, value) => {
+    mealIngredientRows[idx][field] = field === 'qty' ? parseFloat(value)||0 : value;
+  };
+
+  function renderIngredientRows() {
+    const wrap = document.getElementById('ingredientRows');
+    if (mealIngredientRows.length === 1 && mealIngredientRows[0].loading) {
+      wrap.innerHTML = `<div class="empty-state" style="padding:14px 0;">جاري تحميل المكونات...</div>`;
+      return;
+    }
+    if (!mealIngredientRows.length) {
+      wrap.innerHTML = `<div class="empty-state" style="padding:14px 0;">ما ضفت مكونات بعد — دوس "➕ ضيف مكوّن"</div>`;
+      return;
+    }
+    wrap.innerHTML = mealIngredientRows.map((row, idx) => {
+      const options = ingredientsCache.map(ing =>
+        `<option value="${ing.id}" ${ing.id===row.ingredientId?'selected':''}>${ing.name_ar||ing.id}</option>`
+      ).join('');
+      const unit = (ingredientsCache.find(i => i.id === row.ingredientId) || {}).unit || '';
+      return `
+        <div class="ing-row">
+          <select onchange="updateIngredientRow(${idx},'ingredientId',this.value)">${options}</select>
+          <input type="number" min="0" step="0.01" value="${row.qty}" placeholder="الكمية للشخص الواحد"
+                 onchange="updateIngredientRow(${idx},'qty',this.value)" />
+          <span class="ing-unit">${unit}</span>
+          <button type="button" class="ing-remove" onclick="removeIngredientRow(${idx})">✕</button>
+        </div>`;
+    }).join('');
+  }
+
+  window.deleteCurrentMeal = async () => {
+    if (!currentEditingMealId) return;
+    const meal = mealsCache.find(m => m.id === currentEditingMealId);
+    if (!confirm(`تأكيد حذف وجبة "${meal ? meal.name_ar : ''}"؟\n\nهاد بيحذف الوجبة وكل روابط مكوناتها نهائياً.`)) return;
+
+    const delBtn = document.getElementById('deleteMealBtn');
+    delBtn.disabled = true;
+    delBtn.textContent = 'جاري الحذف...';
+    try {
+      const q = query(collection(db, 'meal_ingredients'), where('meal_id', '==', currentEditingMealId));
+      const snap = await getDocs(q);
+      const batch = writeBatch(db);
+      snap.docs.forEach(d => batch.delete(d.ref));
+      batch.delete(doc(db, 'meals', currentEditingMealId));
+      await withTimeout(batch.commit(), 20000, 'انتهت مهلة الحذف — تأكد من الإنترنت');
+
+      mealsCache = mealsCache.filter(m => m.id !== currentEditingMealId);
+      document.getElementById('meals-count').textContent = mealsCache.length;
+      renderMealsGrid();
+      closeAddMealModal();
+      showToast('تم حذف الوجبة ✅');
+    } catch(e) {
+      console.error('delete meal error', e);
+      showToast('صار خطأ بالحذف — جرب مرة ثانية ❌', true);
+    } finally {
+      delBtn.disabled = false;
+      delBtn.textContent = '🗑️ حذف الوجبة';
+    }
+  };
+
+  window.saveMeal = async (ev) => {
+    ev.preventDefault();
+    if (isSavingMeal) return;
+    const errBox = document.getElementById('mealFormError');
+    errBox.style.display = 'none';
+
+    const name_ar        = document.getElementById('mf-name').value.trim();
+    const category        = document.getElementById('mf-category').value;
+    const difficulty       = document.getElementById('mf-difficulty').value;
+    const prep_time_min    = parseInt(document.getElementById('mf-prep').value) || 0;
+    const base_price       = parseFloat(document.getElementById('mf-price').value) || 0;
+    const servings_default = parseInt(document.getElementById('mf-servings').value) || 2;
+    const description       = document.getElementById('mf-desc').value.trim();
+
+    if (!name_ar) {
+      errBox.textContent = 'لازم تكتب اسم الوجبة';
+      errBox.style.display = 'block';
+      return;
+    }
+    if (!mealIngredientRows.length || mealIngredientRows[0].loading) {
+      errBox.textContent = 'لازم تضيف مكوّن واحد على الأقل';
+      errBox.style.display = 'block';
+      return;
+    }
+
+    const saveBtn = document.getElementById('mf-save-btn');
+    isSavingMeal = true;
+    saveBtn.disabled = true;
+    saveBtn.textContent = 'جاري الحفظ...';
+
+    try {
+      let image_url = currentEditingMealId ? (mealsCache.find(m=>m.id===currentEditingMealId)||{}).image_url || '' : '';
+      let imageWarning = false;
+      if (mealImageFile) {
+        try { image_url = await uploadImage(mealImageFile, 'meals'); }
+        catch(imgErr) { console.error('image upload error', imgErr); imageWarning = true; }
+      }
+
+      const mealData = {
+        name_ar, category, difficulty, prep_time_min, base_price,
+        servings_default, description, image_url, is_active: true
+      };
+
+      let mealId = currentEditingMealId;
+
+      if (mealId) {
+        // ═══ وضع التعديل: حدّث الوجبة، واحذف روابط المكونات القديمة وأضف الجديدة بدفعة واحدة ═══
+        const oldLinksSnap = await getDocs(query(collection(db, 'meal_ingredients'), where('meal_id', '==', mealId)));
+        const batch = writeBatch(db);
+        batch.update(doc(db, 'meals', mealId), mealData);
+        oldLinksSnap.docs.forEach(d => batch.delete(d.ref));
+        mealIngredientRows.forEach(row => {
+          const linkRef = doc(collection(db, 'meal_ingredients'));
+          batch.set(linkRef, { meal_id: mealId, ingredient_id: row.ingredientId, quantity_per_person: row.qty });
+        });
+        await withTimeout(batch.commit(), 20000, 'انتهت مهلة الحفظ — تأكد من الإنترنت');
+
+        const idx = mealsCache.findIndex(m => m.id === mealId);
+        if (idx > -1) mealsCache[idx] = { ...mealsCache[idx], ...mealData };
+      } else {
+        // ═══ وضع الإضافة: وجبة جديدة ═══
+        const mealRef = await withTimeout(
+          addDoc(collection(db, 'meals'), { ...mealData, order_count: 0, created_at: serverTimestamp() }),
+          15000, 'انتهت مهلة الحفظ — تأكد من الإنترنت'
+        );
+        mealId = mealRef.id;
+        const batch = writeBatch(db);
+        mealIngredientRows.forEach(row => {
+          const linkRef = doc(collection(db, 'meal_ingredients'));
+          batch.set(linkRef, { meal_id: mealId, ingredient_id: row.ingredientId, quantity_per_person: row.qty });
+        });
+        await withTimeout(batch.commit(), 20000, 'انتهت مهلة الحفظ — تأكد من الإنترنت');
+        mealsCache.push({ id: mealId, ...mealData, order_count: 0 });
+      }
+
+      // ملاحظة: batch.commit()/addDoc() هما مصدر الحقيقة للنجاح — أي تحقق إضافي
+      // بعدهم بونص بس وما بيلغي النجاح لو تأخر أو فشل.
+      try { await withTimeout(getDocFromServer(doc(db, 'meals', mealId)), 8000, 'verify-timeout'); }
+      catch(verifyErr) { console.warn('meal verify (non-fatal)', verifyErr); }
+
+      if (category && !knownMealCategories.includes(category)) knownMealCategories.push(category);
+      document.getElementById('meals-count').textContent = mealsCache.length;
+
+      closeAddMealModal();
+      showToast(imageWarning ? 'تم الحفظ ✅ (بدون صورة — تحقق من إعدادات Storage)' : 'تم الحفظ بنجاح ✅');
+      renderMealsGrid();
+    } catch(e) {
+      console.error('save meal error', e);
+      let msg = 'صار خطأ بالحفظ — جرب مرة ثانية';
+      if (e && e.code === 'timeout') msg = e.message;
+      else if (e && e.code === 'permission-denied') msg = 'ما عندك صلاحية للكتابة — تحقق من Firestore Rules';
+      else if (e && e.code) msg = 'خطأ: ' + e.code;
+      errBox.textContent = msg;
+      errBox.style.display = 'block';
+      showToast(msg + ' ❌', true);
+    } finally {
+      isSavingMeal = false;
+      saveBtn.disabled = false;
+      saveBtn.textContent = currentEditingMealId ? 'حفظ التعديلات ✓' : 'حفظ الوجبة ✓';
+    }
+  };
+
+});
+</script>
+</head>
+<body>
+
+<div id="app-shell" style="display:none;width:100%;">
+
+<div class="sidebar-overlay" id="sidebarOverlay" onclick="closeSidebar()"></div>
+
+<aside class="sidebar" id="sidebar">
+  <div class="logo">
+    <div class="logo-text">أكليتو 🍽️</div>
+    <div class="logo-sub">لوحة التحكم — ADMIN</div>
+  </div>
+
+  <div class="nav-section">
+    <div class="nav-label">الرئيسية</div>
+    <a class="nav-item" href="akleto-admin.html" style="text-decoration:none;color:inherit;">
+      <span class="nav-icon">📊</span><span>نظرة عامة</span>
+    </a>
+    <div class="nav-item"><span class="nav-icon">🛒</span><span>الطلبات</span></div>
+    <a class="nav-item active" href="akleto-admin-meals.html" style="text-decoration:none;color:inherit;">
+      <span class="nav-icon">🍖</span><span>الوجبات</span>
+    </a>
+    <a class="nav-item" href="akleto-admin-ingredients.html" style="text-decoration:none;color:inherit;">
+      <span class="nav-icon">🧅</span><span>المكونات</span>
+    </a>
+  </div>
+
+  <div class="nav-section">
+    <div class="nav-label">المستخدمون</div>
+    <div class="nav-item"><span class="nav-icon">👤</span><span>الزبائن</span></div>
+    <div class="nav-item"><span class="nav-icon">🛵</span><span>السائقين</span></div>
+    <div class="nav-item"><span class="nav-icon">🏪</span><span>المتاجر الشريكة</span></div>
+  </div>
+
+  <div class="nav-section">
+    <div class="nav-label">الإعدادات</div>
+    <div class="nav-item"><span class="nav-icon">📣</span><span>الإشعارات</span></div>
+    <div class="nav-item"><span class="nav-icon">⚙️</span><span>الإعدادات</span></div>
+  </div>
+
+  <div class="sidebar-footer">
+    <div class="admin-card">
+      <div class="admin-avatar">م</div>
+      <div>
+        <div class="admin-name">مؤيد</div>
+        <div class="admin-role">مدير المنصة 👑</div>
+      </div>
+      <button onclick="adminLogout()" title="خروج" style="margin-right:auto;background:none;border:none;color:var(--cream30);cursor:pointer;font-size:16px;">⏻</button>
+    </div>
+  </div>
+</aside>
+
+<main class="main">
+  <div class="topbar">
+    <div>
+      <div class="page-title">🍖 الوجبات</div>
+      <div class="page-subtitle"><span id="meals-count">0</span> وجبة بقاعدة البيانات</div>
+    </div>
+    <div class="topbar-actions">
+      <button class="menu-toggle" id="menuBtn" onclick="toggleSidebar()" title="القائمة">☰</button>
+      <button class="theme-toggle" id="themeBtn" onclick="toggleTheme()" title="تبديل الوضع">🌙</button>
+      <button class="btn-primary" onclick="openAddMealModal()">➕ <span class="btn-primary-label">إضافة وجبة</span></button>
+    </div>
+  </div>
+
+  <div class="meals-grid" id="mealsGrid"></div>
+</main>
+
+</div>
+
+<!-- ══════ MODAL: إضافة/تعديل وجبة ══════ -->
+<div class="modal-overlay" id="addMealOverlay">
+  <div class="modal-card">
+    <div class="modal-header">
+      <div class="modal-title" id="mealModalTitle">➕ إضافة وجبة جديدة</div>
+      <button type="button" class="modal-close" onclick="closeAddMealModal()">✕</button>
+    </div>
+
+    <form id="mealForm" onsubmit="saveMeal(event)">
+      <div class="modal-body">
+
+        <div class="modal-error" id="mealFormError"></div>
+
+        <div class="form-group">
+          <label>اسم الوجبة</label>
+          <input type="text" id="mf-name" placeholder="مثال: منسف" required />
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label>التصنيف (اختر أو اكتب تصنيف جديد)</label>
+            <input type="text" id="mf-category" list="mealCategoryList" placeholder="مثال: لحوم" />
+            <datalist id="mealCategoryList"></datalist>
+          </div>
+          <div class="form-group">
+            <label>مستوى الصعوبة</label>
+            <select id="mf-difficulty">
+              <option value="easy">🟢 سهل</option>
+              <option value="medium">🟡 متوسط</option>
+              <option value="hard">🔴 صعب</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label>وقت التحضير (دقيقة)</label>
+            <input type="number" id="mf-prep" min="0" placeholder="30" />
+          </div>
+          <div class="form-group">
+            <label>السعر الأساسي (د.أ) — للشخص الواحد</label>
+            <input type="number" id="mf-price" min="0" step="0.01" placeholder="3.50" />
+          </div>
+          <div class="form-group">
+            <label>عدد الأشخاص الافتراضي</label>
+            <input type="number" id="mf-servings" min="1" value="2" />
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label>وصف مختصر</label>
+          <textarea id="mf-desc" rows="2" placeholder="وصف قصير للوجبة..."></textarea>
+        </div>
+
+        <div class="form-group">
+          <label>صورة الوجبة</label>
+          <div class="image-upload-box">
+            <img id="mf-image-preview" class="image-preview" />
+            <input type="file" id="mf-image" accept="image/*" onchange="previewMealImage(event)" />
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label>المكونات — الكمية للشخص الواحد (خوارزمية الدمج الذكي بتستخدمها)</label>
+          <div id="ingredientRows"></div>
+          <div class="ing-actions-row">
+            <button type="button" class="btn-add-ing" onclick="addIngredientRow()">➕ ضيف مكوّن</button>
+          </div>
+        </div>
+
+      </div>
+
+      <div class="modal-footer" style="justify-content:space-between;">
+        <button type="button" class="btn-secondary" id="deleteMealBtn" style="display:none;color:#D9534F;" onclick="deleteCurrentMeal()">🗑️ حذف الوجبة</button>
+        <div style="display:flex;gap:10px;margin-right:auto;">
+          <button type="button" class="btn-secondary" onclick="closeAddMealModal()">إلغاء</button>
+          <button type="submit" class="btn-primary" id="mf-save-btn">حفظ الوجبة ✓</button>
+        </div>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+  function toggleSidebar() {
+    document.getElementById('sidebar').classList.toggle('open');
+    document.getElementById('sidebarOverlay').classList.toggle('open');
+  }
+  function closeSidebar() {
+    document.getElementById('sidebar').classList.remove('open');
+    document.getElementById('sidebarOverlay').classList.remove('open');
+  }
+  document.addEventListener('DOMContentLoaded', () => {
+    document.querySelectorAll('.nav-item').forEach(item => {
+      item.addEventListener('click', () => { if (window.innerWidth <= 860) closeSidebar(); });
+    });
+  });
+  function toggleTheme() {
+    const body = document.body;
+    const btn  = document.getElementById('themeBtn');
+    body.classList.toggle('light');
+    btn.textContent = body.classList.contains('light') ? '🌙' : '☀️';
+    localStorage.setItem('akleto-theme', body.classList.contains('light') ? 'light' : 'dark');
+  }
+  if (localStorage.getItem('akleto-theme') === 'light') {
+    document.body.classList.add('light');
+    document.addEventListener('DOMContentLoaded', () => { document.getElementById('themeBtn').textContent = '🌙'; });
+  }
+</script>
+</body>
+</html>

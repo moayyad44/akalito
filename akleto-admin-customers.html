@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
+<title>أكليتو — الزبائن</title>
+<link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;900&family=Tajawal:wght@400;500;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="admin-style.css">
+<script type="module">
+import {
+  db, auth, collection, getDocs, doc, updateDoc,
+  onAuthStateChanged, signOut, withTimeout
+} from "./firebase-init.js";
+
+let customersCache = [];
+
+function showToast(message, isError) {
+  let toast = document.getElementById('akleto-toast');
+  if (!toast) {
+    toast = document.createElement('div');
+    toast.id = 'akleto-toast';
+    document.body.appendChild(toast);
+  }
+  toast.textContent = message;
+  toast.className = 'akleto-toast show' + (isError ? ' error' : '');
+  clearTimeout(window._toastTimer);
+  window._toastTimer = setTimeout(() => { toast.className = 'akleto-toast'; }, 2500);
+}
+
+window.addEventListener('DOMContentLoaded', () => {
+
+  onAuthStateChanged(auth, user => {
+    if (!user) {
+      window.location.href = 'akleto-admin.html';
+    } else {
+      document.getElementById('app-shell').style.display = 'flex';
+      loadCustomers();
+    }
+  });
+
+  window.adminLogout = () => signOut(auth);
+
+  async function loadCustomers() {
+    const wrap = document.getElementById('customersWrap');
+    wrap.innerHTML = `<div class="empty-state" style="padding:14px 0;">جاري التحميل...</div>`;
+    try {
+      const snap = await getDocs(collection(db, 'customers'));
+      customersCache = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    } catch(e) {
+      console.error('load customers error', e);
+      wrap.innerHTML = `<div class="empty-state" style="padding:14px 0;">صار خطأ بتحميل الزبائن — تحقق من الإنترنت</div>`;
+      return;
+    }
+    document.getElementById('customers-count').textContent = customersCache.length;
+    renderCustomers();
+  }
+
+  function renderCustomers() {
+    const wrap = document.getElementById('customersWrap');
+    if (!customersCache.length) {
+      wrap.innerHTML = `<div class="empty-state" style="padding:30px 0;">
+        ما في زبائن مسجّلين لسا 👤<br/>
+        <span style="font-size:12px;color:var(--cream30);">بيظهروا هون تلقائياً أول ما تطبيق الزبون يبدأ يشتغل ويسجّلوا حساباتهم</span>
+      </div>`;
+      return;
+    }
+    wrap.innerHTML = customersCache.map(c => {
+      const blocked = !!c.is_blocked;
+      const joined = c.created_at && c.created_at.toDate ? c.created_at.toDate().toLocaleDateString('ar-JO') : '—';
+      return `
+        <div class="ingredient-list-item">
+          <div class="ing-thumb">👤</div>
+          <div class="ing-info">
+            <div class="ing-name">${c.name || 'بدون اسم'} ${blocked ? '<span style=\"color:#D9534F;font-size:11px;\">(محظور)</span>' : ''}</div>
+            <div class="ing-meta">${c.phone || '—'} · ${c.order_count || 0} طلب · انضم ${joined}</div>
+          </div>
+          <button type="button" class="ing-remove" style="font-size:12px;width:auto;padding:6px 10px;"
+                  onclick="toggleBlockCustomer('${c.id}', ${blocked})">${blocked ? 'رفع الحظر' : 'حظر'}</button>
+        </div>`;
+    }).join('');
+  }
+
+  window.toggleBlockCustomer = async (id, currentlyBlocked) => {
+    const c = customersCache.find(x => x.id === id);
+    const action = currentlyBlocked ? 'رفع الحظر عن' : 'حظر';
+    if (!confirm(`تأكيد ${action} "${c ? c.name : 'هذا الزبون'}"؟`)) return;
+    try {
+      await withTimeout(updateDoc(doc(db, 'customers', id), { is_blocked: !currentlyBlocked }), 15000, 'انتهت مهلة الحفظ — تأكد من الإنترنت');
+      c.is_blocked = !currentlyBlocked;
+      renderCustomers();
+      showToast(currentlyBlocked ? 'تم رفع الحظر ✅' : 'تم حظر الزبون ✅');
+    } catch(e) {
+      console.error('toggle block error', e);
+      showToast('صار خطأ — جرب مرة ثانية ❌', true);
+    }
+  };
+
+});
+</script>
+</head>
+<body>
+
+<div id="app-shell" style="display:none;width:100%;">
+
+<div class="sidebar-overlay" id="sidebarOverlay" onclick="closeSidebar()"></div>
+
+<aside class="sidebar" id="sidebar">
+  <div class="logo">
+    <div class="logo-text">أكليتو 🍽️</div>
+    <div class="logo-sub">لوحة التحكم — ADMIN</div>
+  </div>
+
+  <div class="nav-section">
+    <div class="nav-label">الرئيسية</div>
+    <a class="nav-item" href="akleto-admin.html" style="text-decoration:none;color:inherit;">
+      <span class="nav-icon">📊</span><span>نظرة عامة</span>
+    </a>
+    <div class="nav-item"><span class="nav-icon">🛒</span><span>الطلبات</span></div>
+    <a class="nav-item" href="akleto-admin-meals.html" style="text-decoration:none;color:inherit;">
+      <span class="nav-icon">🍖</span><span>الوجبات</span>
+    </a>
+    <a class="nav-item" href="akleto-admin-ingredients.html" style="text-decoration:none;color:inherit;">
+      <span class="nav-icon">🧅</span><span>المكونات</span>
+    </a>
+  </div>
+
+  <div class="nav-section">
+    <div class="nav-label">المستخدمون</div>
+    <a class="nav-item active" href="akleto-admin-customers.html" style="text-decoration:none;color:inherit;">
+      <span class="nav-icon">👤</span><span>الزبائن</span>
+    </a>
+    <div class="nav-item"><span class="nav-icon">🛵</span><span>السائقين</span></div>
+    <div class="nav-item"><span class="nav-icon">🏪</span><span>المتاجر الشريكة</span></div>
+  </div>
+
+  <div class="nav-section">
+    <div class="nav-label">الإعدادات</div>
+    <div class="nav-item"><span class="nav-icon">📣</span><span>الإشعارات</span></div>
+    <div class="nav-item"><span class="nav-icon">⚙️</span><span>الإعدادات</span></div>
+  </div>
+
+  <div class="sidebar-footer">
+    <div class="admin-card">
+      <div class="admin-avatar">م</div>
+      <div>
+        <div class="admin-name">مؤيد</div>
+        <div class="admin-role">مدير المنصة 👑</div>
+      </div>
+      <button onclick="adminLogout()" title="خروج" style="margin-right:auto;background:none;border:none;color:var(--cream30);cursor:pointer;font-size:16px;">⏻</button>
+    </div>
+  </div>
+</aside>
+
+<main class="main">
+  <div class="topbar">
+    <div>
+      <div class="page-title">👤 الزبائن</div>
+      <div class="page-subtitle"><span id="customers-count">0</span> زبون مسجّل</div>
+    </div>
+    <div class="topbar-actions">
+      <button class="menu-toggle" id="menuBtn" onclick="toggleSidebar()" title="القائمة">☰</button>
+      <button class="theme-toggle" id="themeBtn" onclick="toggleTheme()" title="تبديل الوضع">🌙</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <div id="customersWrap"></div>
+  </div>
+</main>
+
+</div>
+
+<script>
+  function toggleSidebar() {
+    document.getElementById('sidebar').classList.toggle('open');
+    document.getElementById('sidebarOverlay').classList.toggle('open');
+  }
+  function closeSidebar() {
+    document.getElementById('sidebar').classList.remove('open');
+    document.getElementById('sidebarOverlay').classList.remove('open');
+  }
+  document.addEventListener('DOMContentLoaded', () => {
+    document.querySelectorAll('.nav-item').forEach(item => {
+      item.addEventListener('click', () => { if (window.innerWidth <= 860) closeSidebar(); });
+    });
+  });
+  function toggleTheme() {
+    const body = document.body;
+    const btn  = document.getElementById('themeBtn');
+    body.classList.toggle('light');
+    btn.textContent = body.classList.contains('light') ? '🌙' : '☀️';
+    localStorage.setItem('akleto-theme', body.classList.contains('light') ? 'light' : 'dark');
+  }
+  if (localStorage.getItem('akleto-theme') === 'light') {
+    document.body.classList.add('light');
+    document.addEventListener('DOMContentLoaded', () => { document.getElementById('themeBtn').textContent = '🌙'; });
+  }
+</script>
+</body>
+</html>

@@ -5,7 +5,7 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
 import {
   getFirestore, initializeFirestore, collection, getDocs, getDoc, query,
-  orderBy, limit, onSnapshot, addDoc, updateDoc, deleteDoc, writeBatch,
+  orderBy, limit, where, onSnapshot, addDoc, updateDoc, deleteDoc, writeBatch,
   doc, serverTimestamp, getDocFromServer
 } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 import {
@@ -30,7 +30,7 @@ export const auth    = getAuth(app);
 export const storage = getStorage(app);
 
 export {
-  collection, getDocs, getDoc, query, orderBy, limit, onSnapshot,
+  collection, getDocs, getDoc, query, orderBy, limit, where, onSnapshot,
   addDoc, updateDoc, deleteDoc, writeBatch, doc, serverTimestamp, getDocFromServer,
   onAuthStateChanged, signInWithEmailAndPassword, signOut,
   storageRef, uploadBytes, getDownloadURL

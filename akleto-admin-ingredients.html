@@ -168,85 +168,48 @@ window.addEventListener('DOMContentLoaded', () => {
     try {
       let image_url = '';
       let imageWarning = false;
-      
-      // رفع الصورة إن وجدت
       if (ingredientImageFile) {
         try {
           image_url = await uploadImage(ingredientImageFile, 'ingredients');
-          console.log('✅ تم رفع الصورة بنجاح:', image_url);
         } catch(imgErr) {
-          console.error('❌ خطأ في رفع الصورة:', imgErr);
+          console.error('image upload error', imgErr);
           imageWarning = true;
         }
       }
 
-      // حفظ المكون في Firestore
-      console.log('🔄 جاري حفظ المكون في Firestore...');
       const newRef = await withTimeout(
         addDoc(collection(db, 'ingredients'), {
-          name_ar, 
-          unit, 
-          category, 
-          price_per_unit, 
-          image_url,
+          name_ar, unit, category, price_per_unit, image_url,
           is_active: true,
           created_at: serverTimestamp()
         }),
         15000, 'انتهت مهلة الحفظ — تأكد من الإنترنت'
       );
 
-      console.log('✅ تم حفظ المكون برقم:', newRef.id);
-
-      // تحديث الـ cache
-      ingredientsCache.push({ 
-        id: newRef.id, 
-        name_ar, 
-        unit, 
-        category, 
-        price_per_unit, 
-        image_url, 
-        is_active: true 
-      });
-      
-      if (category && !knownIngredientCategories.includes(category)) {
-        knownIngredientCategories.push(category);
+      // addDoc() نفسه ما بيتحل إلا بعد تأكيد فايرستور للكتابة — من هون المكوّن
+      // محفوظ فعلياً. التحقق التالي بونص بس، فشله ما يعني فشل الحفظ.
+      try {
+        await withTimeout(getDocFromServer(newRef), 8000, 'verify-timeout');
+      } catch(verifyErr) {
+        console.warn('ingredient verify (non-fatal)', verifyErr);
       }
 
-      // تحديث العداد
+      ingredientsCache.push({ id: newRef.id, name_ar, unit, category, price_per_unit, image_url, is_active: true });
+      if (category && !knownIngredientCategories.includes(category)) knownIngredientCategories.push(category);
       document.getElementById('ing-count').textContent = ingredientsCache.length;
 
-      // إغلاق الـ modal
-      window.closeAddIngredientModal();
-      
-      // عرض رسالة النجاح
-      if (imageWarning) {
-        showToast(`✅ تم حفظ المكوّن "${name_ar}" بنجاح!\n(لكن بدون صورة — جرب رفع الصورة مرة ثانية)`);
-      } else {
-        showToast(`✅ تم حفظ المكوّن "${name_ar}" بنجاح!`);
-      }
-      
-      // تحديث القائمة
+      closeAddIngredientModal();
+      showToast(imageWarning ? 'تم حفظ المكوّن ✅ (بدون صورة — تحقق من إعدادات Storage)' : 'تم حفظ المكوّن بنجاح ✅');
       renderIngredientsList();
-      
     } catch(e) {
-      console.error('❌ خطأ في حفظ المكون:', e);
+      console.error('save ingredient error', e);
       let msg = 'صار خطأ بالحفظ — جرب مرة ثانية';
-      
-      if (e && e.code === 'timeout') {
-        msg = e.message || 'انتهت مهلة الحفظ — تأكد من الإنترنت';
-      } else if (e && e.code === 'permission-denied') {
-        msg = '❌ ما عندك صلاحية للكتابة — تحقق من Firestore Rules';
-      } else if (e && e.message && e.message.includes('Permission denied')) {
-        msg = '❌ ما عندك صلاحية للكتابة — تحقق من Firestore Rules';
-      } else if (e && e.message && e.message.includes('PERMISSION_DENIED')) {
-        msg = '❌ الصلاحيات ناقصة في Firestore — اتصل بالمسؤول';
-      } else if (e && e.code) {
-        msg = `❌ خطأ: ${e.code}`;
-      }
-      
+      if (e && e.code === 'timeout') msg = e.message;
+      else if (e && e.code === 'permission-denied') msg = 'ما عندك صلاحية للكتابة — تحقق من Firestore Rules';
+      else if (e && e.code) msg = 'خطأ: ' + e.code;
       errBox.textContent = msg;
       errBox.style.display = 'block';
-      showToast(msg, true);
+      showToast(msg + ' ❌', true);
     } finally {
       isSavingIngredient = false;
       saveBtn.disabled = false;
@@ -281,10 +244,10 @@ window.addEventListener('DOMContentLoaded', () => {
       <span class="nav-icon">🛒</span>
       <span>الطلبات</span>
     </div>
-    <div class="nav-item">
+    <a class="nav-item" href="akleto-admin-meals.html" style="text-decoration:none;color:inherit;">
       <span class="nav-icon">🍖</span>
       <span>الوجبات</span>
-    </div>
+    </a>
     <a class="nav-item active" href="akleto-admin-ingredients.html" style="text-decoration:none;color:inherit;">
       <span class="nav-icon">🧅</span>
       <span>المكونات</span>

@@ -57,12 +57,22 @@
 
   * { margin:0; padding:0; box-sizing:border-box; }
 
+  html {
+    /* منع بعض متصفحات أندرويد من تكبير النص تلقائياً (font boosting) */
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+    width: 100%;
+    overflow-x: hidden;
+  }
+
   body {
     font-family: 'Cairo', sans-serif;
     background: var(--bg);
     color: var(--cream);
     min-height: 100vh;
+    width: 100%;
     display: flex;
+    overflow-x: hidden;
     transition: background 0.3s, color 0.3s;
   }
 

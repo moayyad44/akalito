@@ -205,6 +205,13 @@ window.addEventListener('DOMContentLoaded', () => {
 });
 </script>
 <style>
+  /* حاوية تحدّ من اتساع المحتوى على شاشات الكمبيوتر الكبيرة/العريضة */
+  .orders-content-max {
+    max-width: 1400px;
+    margin: 0 auto;
+    width: 100%;
+  }
+
   #ordersWrap {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
@@ -212,6 +219,11 @@ window.addEventListener('DOMContentLoaded', () => {
     align-items: start;
   }
   #ordersWrap .empty-state { grid-column: 1 / -1; }
+
+  /* تابلت: عمودين ثابتين لعرض أوضح بدل تمدد البطاقات */
+  @media (min-width: 601px) and (max-width: 900px) {
+    #ordersWrap { grid-template-columns: repeat(2, 1fr); }
+  }
 
   .filter-chips { display:flex; gap:8px; overflow-x:auto; padding: 0 0 16px; -webkit-overflow-scrolling: touch; }
   .filter-chips::-webkit-scrollbar { display:none; }
@@ -321,16 +333,18 @@ window.addEventListener('DOMContentLoaded', () => {
     </div>
   </div>
 
-  <div class="filter-chips">
-    <button class="filter-chip active" data-filter="all" onclick="setOrderFilter('all')">الكل (<span id="count-all">0</span>)</button>
-    <button class="filter-chip" data-filter="pending" onclick="setOrderFilter('pending')">🟡 قيد المعالجة (<span id="count-pending">0</span>)</button>
-    <button class="filter-chip" data-filter="preparing" onclick="setOrderFilter('preparing')">🔵 جاري التجهيز (<span id="count-preparing">0</span>)</button>
-    <button class="filter-chip" data-filter="delivering" onclick="setOrderFilter('delivering')">🚴 بالطريق (<span id="count-delivering">0</span>)</button>
-    <button class="filter-chip" data-filter="done" onclick="setOrderFilter('done')">✅ تم التوصيل (<span id="count-done">0</span>)</button>
-    <button class="filter-chip" data-filter="cancelled" onclick="setOrderFilter('cancelled')">❌ ملغي (<span id="count-cancelled">0</span>)</button>
-  </div>
+  <div class="orders-content-max">
+    <div class="filter-chips">
+      <button class="filter-chip active" data-filter="all" onclick="setOrderFilter('all')">الكل (<span id="count-all">0</span>)</button>
+      <button class="filter-chip" data-filter="pending" onclick="setOrderFilter('pending')">🟡 قيد المعالجة (<span id="count-pending">0</span>)</button>
+      <button class="filter-chip" data-filter="preparing" onclick="setOrderFilter('preparing')">🔵 جاري التجهيز (<span id="count-preparing">0</span>)</button>
+      <button class="filter-chip" data-filter="delivering" onclick="setOrderFilter('delivering')">🚴 بالطريق (<span id="count-delivering">0</span>)</button>
+      <button class="filter-chip" data-filter="done" onclick="setOrderFilter('done')">✅ تم التوصيل (<span id="count-done">0</span>)</button>
+      <button class="filter-chip" data-filter="cancelled" onclick="setOrderFilter('cancelled')">❌ ملغي (<span id="count-cancelled">0</span>)</button>
+    </div>
 
-  <div id="ordersWrap"></div>
+    <div id="ordersWrap"></div>
+  </div>
 </main>
 
 </div>

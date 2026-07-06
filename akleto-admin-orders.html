@@ -205,6 +205,14 @@ window.addEventListener('DOMContentLoaded', () => {
 });
 </script>
 <style>
+  #ordersWrap {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 12px;
+    align-items: start;
+  }
+  #ordersWrap .empty-state { grid-column: 1 / -1; }
+
   .filter-chips { display:flex; gap:8px; overflow-x:auto; padding: 0 0 16px; -webkit-overflow-scrolling: touch; }
   .filter-chips::-webkit-scrollbar { display:none; }
   .filter-chip {
@@ -216,7 +224,7 @@ window.addEventListener('DOMContentLoaded', () => {
 
   .order-card {
     background: var(--surface); border: 1px solid var(--border); border-radius: 14px;
-    padding: 14px 16px; margin-bottom: 10px; cursor: pointer; transition: border-color .15s;
+    padding: 14px 16px; cursor: pointer; transition: border-color .15s;
   }
   .order-card:hover { border-color: var(--primary); }
   .order-card-top { display:flex; justify-content:space-between; align-items:flex-start; gap: 10px; margin-bottom: 6px; flex-wrap: wrap; }
@@ -234,8 +242,9 @@ window.addEventListener('DOMContentLoaded', () => {
 
   .od-section-title { font-size: 13px; font-weight: 800; color: var(--cream30); margin: 16px 0 6px; }
 
-  /* ── موبايل: تكثيف الحشوة وتصغير الخط قليلاً عشان يريّح على الشاشة الصغيرة ── */
+  /* ── موبايل: عمود واحد + تكثيف الحشوة وتصغير الخط ── */
   @media (max-width: 480px) {
+    #ordersWrap { grid-template-columns: 1fr; }
     .filter-chip { padding: 7px 13px; font-size: 12px; }
     .order-card { padding: 12px 14px; }
     .order-customer { font-size: 13.5px; }

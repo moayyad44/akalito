@@ -563,7 +563,7 @@
   /* ══ LOGIN GATE ══ */
   #login-gate {
     position: fixed;
-    inset: 0;
+    top: 0; left: 0; right: 0; bottom: 0;
     background: var(--bg);
     display: none;
     align-items: center;
@@ -637,7 +637,7 @@
   .modal-overlay {
     display: none;
     position: fixed;
-    inset: 0;
+    top: 0; left: 0; right: 0; bottom: 0;
     background: rgba(0,0,0,0.55);
     z-index: 450;
     align-items: flex-start;
@@ -715,7 +715,7 @@
     display: none;
     flex-direction: column;
     position: fixed;
-    inset: 0;
+    top: 0; left: 0; right: 0; bottom: 0;
     background: var(--bg);
     z-index: 400;
     touch-action: none;
@@ -1016,7 +1016,7 @@
   .sidebar-overlay {
     display: none;
     position: fixed;
-    inset: 0;
+    top: 0; left: 0; right: 0; bottom: 0;
     background: rgba(0,0,0,0.5);
     z-index: 99;
   }

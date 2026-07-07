@@ -22,14 +22,17 @@ let currentOrderId = null;
 let unsubOrders = null;
 
 const STATUS = {
-  pending:     { label: 'قيد المعالجة', emoji: '🟡', color: 'var(--orange)', glow: 'var(--orange-glow)' },
-  preparing:   { label: 'جاري التجهيز', emoji: '🔵', color: 'var(--blue)',   glow: 'var(--blue-glow)' },
-  delivering:  { label: 'بالطريق',      emoji: '🚴', color: 'var(--blue)',   glow: 'var(--blue-glow)' },
-  done:        { label: 'تم التوصيل',   emoji: '✅', color: 'var(--green)',  glow: 'var(--green-glow)' },
-  cancelled:   { label: 'ملغي',         emoji: '❌', color: 'var(--red)',    glow: 'var(--red-glow)' }
+  pending:     { label: 'قيد المعالجة',   emoji: '🟡', color: 'var(--orange)', glow: 'var(--orange-glow)' },
+  preparing:   { label: 'جاري التجهيز',   emoji: '🔵', color: 'var(--blue)',   glow: 'var(--blue-glow)' },
+  ready:       { label: 'جاهز للاستلام',  emoji: '📦', color: 'var(--purple)', glow: 'var(--purple-glow)' },
+  delivering:  { label: 'بالطريق',        emoji: '🛵', color: 'var(--blue)',   glow: 'var(--blue-glow)' },
+  done:        { label: 'تم التوصيل',     emoji: '✅', color: 'var(--green)',  glow: 'var(--green-glow)' },
+  cancelled:   { label: 'ملغي',           emoji: '❌', color: 'var(--red)',    glow: 'var(--red-glow)' }
 };
-const STATUS_ORDER = ['pending', 'preparing', 'delivering', 'done', 'cancelled'];
-const NEXT_STATUS = { pending: 'preparing', preparing: 'delivering', delivering: 'done' };
+const STATUS_ORDER = ['pending', 'preparing', 'ready', 'delivering', 'done', 'cancelled'];
+/* ready → delivering عادةً بيصير أوتوماتيك لما سائق يستلم الطلب من تطبيق السائق (بيرفق driver_id/driver_name).
+   لسا موجود هون كخيار يدوي احتياطي بس (مثلاً لو ما في سائق متاح وقتها). */
+const NEXT_STATUS = { pending: 'preparing', preparing: 'ready', ready: 'delivering', delivering: 'done' };
 
 function ticketCode(id) {
   return (id || '----').slice(-4).toUpperCase();
@@ -193,6 +196,16 @@ window.addEventListener('DOMContentLoaded', () => {
     document.getElementById('sheetIngredients').innerHTML = ingHtml;
 
     document.getElementById('sheetPrice').textContent = (o.total_estimated_price || 0).toFixed(2) + ' د.أ';
+
+    // معلومات السائق (تظهر فقط إذا في سائق مستلم الطلب)
+    const driverWrap = document.getElementById('sheetDriverWrap');
+    if (o.driver_name) {
+      document.getElementById('sheetDriverInfo').innerHTML =
+        `<div class="receipt-row"><span>🛵 ${o.driver_name}</span><span class="mono">${o.driver_phone || '—'}</span></div>`;
+      driverWrap.style.display = '';
+    } else {
+      driverWrap.style.display = 'none';
+    }
 
     // أزرار تغيير الحالة
     const actionsWrap = document.getElementById('sheetActions');
@@ -466,7 +479,8 @@ window.addEventListener('DOMContentLoaded', () => {
       <button class="ord-tab active" data-filter="all" style="--tab-color:var(--red)" onclick="setOrderFilter('all')">الكل <span class="tab-count" id="count-all">0</span></button>
       <button class="ord-tab" data-filter="pending" style="--tab-color:var(--orange)" onclick="setOrderFilter('pending')">🟡 قيد المعالجة <span class="tab-count" id="count-pending">0</span></button>
       <button class="ord-tab" data-filter="preparing" style="--tab-color:var(--blue)" onclick="setOrderFilter('preparing')">🔵 جاري التجهيز <span class="tab-count" id="count-preparing">0</span></button>
-      <button class="ord-tab" data-filter="delivering" style="--tab-color:var(--blue)" onclick="setOrderFilter('delivering')">🚴 بالطريق <span class="tab-count" id="count-delivering">0</span></button>
+      <button class="ord-tab" data-filter="ready" style="--tab-color:var(--purple)" onclick="setOrderFilter('ready')">📦 جاهز للاستلام <span class="tab-count" id="count-ready">0</span></button>
+      <button class="ord-tab" data-filter="delivering" style="--tab-color:var(--blue)" onclick="setOrderFilter('delivering')">🛵 بالطريق <span class="tab-count" id="count-delivering">0</span></button>
       <button class="ord-tab" data-filter="done" style="--tab-color:var(--green)" onclick="setOrderFilter('done')">✅ تم التوصيل <span class="tab-count" id="count-done">0</span></button>
       <button class="ord-tab" data-filter="cancelled" style="--tab-color:var(--red)" onclick="setOrderFilter('cancelled')">❌ ملغي <span class="tab-count" id="count-cancelled">0</span></button>
     </div>
@@ -501,6 +515,12 @@ window.addEventListener('DOMContentLoaded', () => {
       <div class="receipt-divider"></div>
       <div class="receipt-section-title">🧅 المكونات المدموجة</div>
       <div id="sheetIngredients"></div>
+
+      <div id="sheetDriverWrap" style="display:none;">
+        <div class="receipt-divider"></div>
+        <div class="receipt-section-title">🛵 السائق</div>
+        <div id="sheetDriverInfo"></div>
+      </div>
 
       <div class="receipt-total">
         <span>الإجمالي التقديري</span>

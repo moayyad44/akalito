@@ -1055,7 +1055,7 @@
       padding: 18px 16px 90px;
     }
 
-    .menu-toggle { display: flex; }
+    .menu-toggle { display: flex; flex-shrink: 0; position: relative; z-index: 150; }
 
     .topbar {
       flex-wrap: wrap;

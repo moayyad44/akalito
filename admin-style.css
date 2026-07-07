@@ -12,6 +12,8 @@
     --green-glow: rgba(46,213,115,0.22);
     --blue:      #45B7FF;
     --blue-glow: rgba(69,183,255,0.22);
+    --purple:      #A66DD4;
+    --purple-glow: rgba(166,109,212,0.22);
     --cream:     #FDF8F3;
     --cream60:   rgba(253,248,243,0.6);
     --cream30:   rgba(253,248,243,0.3);
@@ -32,6 +34,8 @@
     --green-glow: rgba(39,174,96,0.18);
     --blue:      #2980B9;
     --blue-glow: rgba(41,128,185,0.18);
+    --purple:      #8E44AD;
+    --purple-glow: rgba(142,68,173,0.18);
     --cream:     #2C1810;
     --cream60:   rgba(44,24,16,0.65);
     --cream30:   rgba(44,24,16,0.38);

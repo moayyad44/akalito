@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>أكليتو — الزبائن</title>
+<title>أكليتو — السائقين</title>
 <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;900&family=Tajawal:wght@400;500;700;800&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="admin-style.css?v=5">
 <script type="module">
@@ -15,7 +15,7 @@ import {
   onAuthStateChanged, signOut, withTimeout
 } from "./firebase-init.js";
 
-let customersCache = [];
+let driversCache = [];
 
 function showToast(message, isError) {
   let toast = document.getElementById('akleto-toast');
@@ -37,61 +37,65 @@ window.addEventListener('DOMContentLoaded', () => {
       window.location.href = 'akleto-admin.html';
     } else {
       document.getElementById('app-shell').style.display = 'flex';
-      loadCustomers();
+      loadDrivers();
     }
   });
 
   window.adminLogout = () => signOut(auth);
 
-  async function loadCustomers() {
-    const wrap = document.getElementById('customersWrap');
+  async function loadDrivers() {
+    const wrap = document.getElementById('driversWrap');
     wrap.innerHTML = `<div class="empty-state" style="padding:14px 0;">جاري التحميل...</div>`;
     try {
-      const snap = await getDocs(collection(db, 'customers'));
-      customersCache = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      const snap = await getDocs(collection(db, 'drivers'));
+      driversCache = snap.docs.map(d => ({ id: d.id, ...d.data() }));
     } catch(e) {
-      console.error('load customers error', e);
-      wrap.innerHTML = `<div class="empty-state" style="padding:14px 0;">صار خطأ بتحميل الزبائن — تحقق من الإنترنت</div>`;
+      console.error('load drivers error', e);
+      wrap.innerHTML = `<div class="empty-state" style="padding:14px 0;">صار خطأ بتحميل السائقين — تحقق من الإنترنت</div>`;
       return;
     }
-    document.getElementById('customers-count').textContent = customersCache.length;
-    renderCustomers();
+    document.getElementById('drivers-count').textContent = driversCache.length;
+    renderDrivers();
   }
 
-  function renderCustomers() {
-    const wrap = document.getElementById('customersWrap');
-    if (!customersCache.length) {
+  function renderDrivers() {
+    const wrap = document.getElementById('driversWrap');
+    if (!driversCache.length) {
       wrap.innerHTML = `<div class="empty-state" style="padding:30px 0;">
-        ما في زبائن مسجّلين لسا 👤<br/>
-        <span style="font-size:12px;color:var(--cream30);">بيظهروا هون تلقائياً أول ما تطبيق الزبون يبدأ يشتغل ويسجّلوا حساباتهم</span>
+        ما في سائقين مسجّلين لسا 🛵<br/>
+        <span style="font-size:12px;color:var(--cream30);">بيظهروا هون تلقائياً أول ما يسجّلوا من تطبيق السائق</span>
       </div>`;
       return;
     }
-    wrap.innerHTML = customersCache.map(c => {
-      const blocked = !!c.is_blocked;
-      const joined = c.created_at && c.created_at.toDate ? c.created_at.toDate().toLocaleDateString('ar-JO') : '—';
+    // الأحدث تسجيلاً أولاً
+    const sorted = [...driversCache].sort((a, b) =>
+      (b.created_at?.toMillis?.() || 0) - (a.created_at?.toMillis?.() || 0));
+
+    wrap.innerHTML = sorted.map(d => {
+      const blocked = d.is_active === false;
+      const joined = d.created_at && d.created_at.toDate ? d.created_at.toDate().toLocaleDateString('ar-JO') : '—';
       return `
         <div class="ingredient-list-item">
-          <div class="ing-thumb">👤</div>
+          <div class="ing-thumb">🛵</div>
           <div class="ing-info">
-            <div class="ing-name">${c.name || 'بدون اسم'} ${blocked ? '<span style=\"color:#D9534F;font-size:11px;\">(محظور)</span>' : ''}</div>
-            <div class="ing-meta">${c.phone || '—'} · ${c.order_count || 0} طلب · انضم ${joined}</div>
+            <div class="ing-name">${d.name || 'بدون اسم'} ${blocked ? '<span style=\"color:#D9534F;font-size:11px;\">(محظور)</span>' : ''}</div>
+            <div class="ing-meta">${d.phone || '—'} · ${d.deliveries_count || 0} توصيلة · انضم ${joined}</div>
           </div>
           <button type="button" class="ing-remove" style="font-size:12px;width:auto;padding:6px 10px;"
-                  onclick="toggleBlockCustomer('${c.id}', ${blocked})">${blocked ? 'رفع الحظر' : 'حظر'}</button>
+                  onclick="toggleBlockDriver('${d.id}', ${blocked})">${blocked ? 'رفع الحظر' : 'حظر'}</button>
         </div>`;
     }).join('');
   }
 
-  window.toggleBlockCustomer = async (id, currentlyBlocked) => {
-    const c = customersCache.find(x => x.id === id);
+  window.toggleBlockDriver = async (id, currentlyBlocked) => {
+    const d = driversCache.find(x => x.id === id);
     const action = currentlyBlocked ? 'رفع الحظر عن' : 'حظر';
-    if (!confirm(`تأكيد ${action} "${c ? c.name : 'هذا الزبون'}"؟`)) return;
+    if (!confirm(`تأكيد ${action} "${d ? d.name : 'هذا السائق'}"؟`)) return;
     try {
-      await withTimeout(updateDoc(doc(db, 'customers', id), { is_blocked: !currentlyBlocked }), 15000, 'انتهت مهلة الحفظ — تأكد من الإنترنت');
-      c.is_blocked = !currentlyBlocked;
-      renderCustomers();
-      showToast(currentlyBlocked ? 'تم رفع الحظر ✅' : 'تم حظر الزبون ✅');
+      await withTimeout(updateDoc(doc(db, 'drivers', id), { is_active: currentlyBlocked }), 15000, 'انتهت مهلة الحفظ — تأكد من الإنترنت');
+      d.is_active = currentlyBlocked;
+      renderDrivers();
+      showToast(currentlyBlocked ? 'تم رفع الحظر ✅' : 'تم حظر السائق ✅');
     } catch(e) {
       console.error('toggle block error', e);
       showToast('صار خطأ — جرب مرة ثانية ❌', true);
@@ -129,10 +133,12 @@ window.addEventListener('DOMContentLoaded', () => {
 
   <div class="nav-section">
     <div class="nav-label">المستخدمون</div>
-    <a class="nav-item active" href="akleto-admin-customers.html" style="text-decoration:none;color:inherit;">
+    <a class="nav-item" href="akleto-admin-customers.html" style="text-decoration:none;color:inherit;">
       <span class="nav-icon">👤</span><span>الزبائن</span>
     </a>
-    <a class="nav-item" href="akleto-admin-drivers.html" style="text-decoration:none;color:inherit;"><span class="nav-icon">🛵</span><span>السائقين</span></a>
+    <a class="nav-item active" href="akleto-admin-drivers.html" style="text-decoration:none;color:inherit;">
+      <span class="nav-icon">🛵</span><span>السائقين</span>
+    </a>
     <div class="nav-item"><span class="nav-icon">🏪</span><span>المتاجر الشريكة</span></div>
   </div>
 
@@ -157,8 +163,8 @@ window.addEventListener('DOMContentLoaded', () => {
 <main class="main">
   <div class="topbar">
     <div>
-      <div class="page-title">👤 الزبائن</div>
-      <div class="page-subtitle"><span id="customers-count">0</span> زبون مسجّل</div>
+      <div class="page-title">🛵 السائقين</div>
+      <div class="page-subtitle"><span id="drivers-count">0</span> سائق مسجّل</div>
     </div>
     <div class="topbar-actions">
       <button class="menu-toggle" id="menuBtn" onclick="toggleSidebar()" title="القائمة">☰</button>
@@ -167,7 +173,7 @@ window.addEventListener('DOMContentLoaded', () => {
   </div>
 
   <div class="card">
-    <div id="customersWrap"></div>
+    <div id="driversWrap"></div>
   </div>
 </main>
 

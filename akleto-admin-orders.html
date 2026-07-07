@@ -1,0 +1,416 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
+<title>أكليتو — الطلبات</title>
+<link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;900&family=Tajawal:wght@400;500;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="admin-style.css?v=3">
+<script type="module">
+import {
+  db, auth, collection, getDocs, query, orderBy, doc, updateDoc,
+  onSnapshot, onAuthStateChanged, signOut, withTimeout
+} from "./firebase-init.js";
+
+let ordersCache = [];
+let mealsCache = [];
+let currentFilter = 'all';
+let unsubscribeOrders = null;
+
+const statusLabel = {
+  pending:    { text: '🟡 قيد المعالجة', color: '#E0A800' },
+  preparing:  { text: '🔵 جاري التجهيز', color: '#3E8ED0' },
+  delivering: { text: '🚴 بالطريق',     color: '#8E5CD9' },
+  done:       { text: '✅ تم التوصيل',  color: '#4CAF6D' },
+  cancelled:  { text: '❌ ملغي',        color: '#D9534F' }
+};
+const statusOrder = ['pending','preparing','delivering','done','cancelled'];
+
+function showToast(message, isError) {
+  let toast = document.getElementById('akleto-toast');
+  if (!toast) {
+    toast = document.createElement('div');
+    toast.id = 'akleto-toast';
+    document.body.appendChild(toast);
+  }
+  toast.textContent = message;
+  toast.className = 'akleto-toast show' + (isError ? ' error' : '');
+  clearTimeout(window._toastTimer);
+  window._toastTimer = setTimeout(() => { toast.className = 'akleto-toast'; }, 2500);
+}
+
+let _lockCount = 0;
+function lockBodyScroll() {
+  if (_lockCount === 0) { document.documentElement.classList.add('modal-lock'); document.body.classList.add('modal-lock'); }
+  _lockCount++;
+}
+function unlockBodyScroll() {
+  _lockCount = Math.max(0, _lockCount - 1);
+  if (_lockCount === 0) { document.documentElement.classList.remove('modal-lock'); document.body.classList.remove('modal-lock'); }
+}
+
+window.addEventListener('DOMContentLoaded', () => {
+
+  onAuthStateChanged(auth, user => {
+    if (!user) {
+      window.location.href = 'akleto-admin.html';
+    } else {
+      document.getElementById('app-shell').style.display = 'flex';
+      loadMeals();
+      subscribeOrders();
+    }
+  });
+
+  window.adminLogout = () => signOut(auth);
+
+  async function loadMeals() {
+    try {
+      const snap = await getDocs(collection(db, 'meals'));
+      mealsCache = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    } catch(e) { console.error('load meals error', e); }
+  }
+
+  function subscribeOrders() {
+    const wrap = document.getElementById('ordersWrap');
+    wrap.innerHTML = `<div class="empty-state" style="padding:14px 0;">جاري التحميل...</div>`;
+    try {
+      const q = query(collection(db, 'orders'), orderBy('created_at', 'desc'));
+      unsubscribeOrders = onSnapshot(q,
+        (snap) => {
+          ordersCache = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+          updateFilterCounts();
+          renderOrdersList();
+        },
+        (err) => {
+          console.error('orders subscribe error', err);
+          wrap.innerHTML = `<div class="empty-state" style="padding:14px 0;">صار خطأ بتحميل الطلبات — تحقق من الإنترنت أو صلاحيات Firestore</div>`;
+        }
+      );
+    } catch(e) { console.error('subscribeOrders error', e); }
+  }
+
+  function mealName(mealId) {
+    const m = mealsCache.find(x => x.id === mealId);
+    return m ? m.name_ar : 'وجبة محذوفة';
+  }
+
+  function timeAgo(ts) {
+    if (!ts || !ts.toDate) return '—';
+    const d = ts.toDate();
+    const diffMin = Math.floor((Date.now() - d.getTime()) / 60000);
+    if (diffMin < 1) return 'الآن';
+    if (diffMin < 60) return `قبل ${diffMin} د`;
+    const diffH = Math.floor(diffMin / 60);
+    if (diffH < 24) return `قبل ${diffH} س`;
+    return d.toLocaleDateString('ar-JO') + ' ' + d.toLocaleTimeString('ar-JO', {hour:'2-digit', minute:'2-digit'});
+  }
+
+  function updateFilterCounts() {
+    document.getElementById('count-all').textContent = ordersCache.length;
+    statusOrder.forEach(s => {
+      const el = document.getElementById('count-' + s);
+      if (el) el.textContent = ordersCache.filter(o => o.status === s).length;
+    });
+    document.getElementById('orders-total-count').textContent = ordersCache.length;
+  }
+
+  window.setOrderFilter = (filter) => {
+    currentFilter = filter;
+    document.querySelectorAll('.filter-chip').forEach(chip => chip.classList.toggle('active', chip.dataset.filter === filter));
+    renderOrdersList();
+  };
+
+  function renderOrdersList() {
+    const wrap = document.getElementById('ordersWrap');
+    const filtered = currentFilter === 'all' ? ordersCache : ordersCache.filter(o => o.status === currentFilter);
+
+    if (!filtered.length) {
+      wrap.innerHTML = `<div class="empty-state" style="padding:40px 0;">ما في طلبات ${currentFilter === 'all' ? '' : 'بهاي الحالة'} حالياً 📦</div>`;
+      return;
+    }
+
+    wrap.innerHTML = filtered.map(o => {
+      const st = statusLabel[o.status] || { text: o.status, color: '#999' };
+      const itemsCount = (o.items || []).length;
+      return `
+        <div class="order-card" onclick="openOrderDetails('${o.id}')">
+          <div class="order-card-top">
+            <div class="order-customer">${o.customer_name || 'زبون'}</div>
+            <span class="order-status-badge" style="background:${st.color}22;color:${st.color};">${st.text}</span>
+          </div>
+          <div class="order-card-meta">
+            📞 ${o.customer_phone || '—'} · ${itemsCount} وجبة · ${(o.total_estimated_price || 0)} د.أ تقريباً
+          </div>
+          <div class="order-card-time">${timeAgo(o.created_at)}</div>
+        </div>`;
+    }).join('');
+  }
+
+  window.openOrderDetails = (orderId) => {
+    const o = ordersCache.find(x => x.id === orderId);
+    if (!o) return;
+
+    document.getElementById('od-customer').textContent = o.customer_name || 'زبون';
+    document.getElementById('od-phone').textContent = o.customer_phone || '—';
+    document.getElementById('od-time').textContent = timeAgo(o.created_at);
+
+    document.getElementById('od-items').innerHTML = (o.items || []).map(it =>
+      `<div class="ing-preview-row"><span>🍽️ ${mealName(it.meal_id)}</span><span class="amt">👥 ${it.servings}</span></div>`
+    ).join('') || '<div class="empty-state" style="padding:8px 0;">لا يوجد عناصر</div>';
+
+    document.getElementById('od-ingredients').innerHTML = (o.merged_ingredients || []).map(ing =>
+      `<div class="ing-preview-row"><span>${ing.name}</span><span class="amt">${ing.quantity} ${ing.unit}</span></div>`
+    ).join('') || '<div class="empty-state" style="padding:8px 0;">لا يوجد مكونات</div>';
+
+    document.getElementById('od-total').textContent = (o.total_estimated_price || 0) + ' د.أ';
+
+    const statusSelect = document.getElementById('od-status-select');
+    statusSelect.innerHTML = statusOrder.map(s =>
+      `<option value="${s}" ${s === o.status ? 'selected' : ''}>${statusLabel[s].text}</option>`
+    ).join('');
+
+    document.getElementById('orderDetailsOverlay').dataset.orderId = orderId;
+    document.getElementById('orderDetailsOverlay').classList.add('open');
+    lockBodyScroll();
+  };
+
+  window.closeOrderDetails = () => {
+    document.getElementById('orderDetailsOverlay').classList.remove('open');
+    unlockBodyScroll();
+  };
+
+  window.updateOrderStatus = async () => {
+    const orderId = document.getElementById('orderDetailsOverlay').dataset.orderId;
+    const newStatus = document.getElementById('od-status-select').value;
+    const btn = document.getElementById('od-save-status-btn');
+    btn.disabled = true;
+    btn.textContent = 'جاري الحفظ...';
+    try {
+      await withTimeout(updateDoc(doc(db, 'orders', orderId), { status: newStatus }), 15000, 'انتهت مهلة الحفظ — تأكد من الإنترنت');
+      showToast('تم تحديث حالة الطلب ✅');
+      closeOrderDetails();
+      // onSnapshot رح يحدّث القائمة تلقائياً
+    } catch(e) {
+      console.error('update status error', e);
+      showToast('صار خطأ بالتحديث — جرب مرة ثانية ❌', true);
+    } finally {
+      btn.disabled = false;
+      btn.textContent = 'حفظ الحالة ✓';
+    }
+  };
+
+});
+</script>
+<style>
+  /* حاوية تحدّ من اتساع المحتوى على شاشات الكمبيوتر الكبيرة/العريضة */
+  .orders-content-max {
+    max-width: 1400px;
+    margin: 0 auto;
+    width: 100%;
+  }
+
+  #ordersWrap {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 12px;
+    align-items: start;
+  }
+  #ordersWrap .empty-state { grid-column: 1 / -1; }
+
+  /* تابلت: عمودين ثابتين لعرض أوضح بدل تمدد البطاقات */
+  @media (min-width: 601px) and (max-width: 900px) {
+    #ordersWrap { grid-template-columns: repeat(2, 1fr); }
+  }
+
+  .filter-chips { display:flex; gap:8px; overflow-x:auto; padding: 0 0 16px; -webkit-overflow-scrolling: touch; }
+  .filter-chips::-webkit-scrollbar { display:none; }
+  .filter-chip {
+    flex-shrink:0; padding: 8px 16px; border-radius: 20px; border: 1px solid var(--border);
+    background: var(--surface); color: var(--cream30); font-size: 12.5px; font-weight: 700;
+    cursor: pointer; white-space: nowrap;
+  }
+  .filter-chip.active { background: var(--primary); color: #fff; border-color: var(--primary); }
+
+  .order-card {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 14px;
+    padding: 14px 16px; cursor: pointer; transition: border-color .15s;
+  }
+  .order-card:hover { border-color: var(--primary); }
+  .order-card-top { display:flex; justify-content:space-between; align-items:flex-start; gap: 10px; margin-bottom: 6px; flex-wrap: wrap; }
+  .order-customer { font-size: 14.5px; font-weight: 800; color: var(--cream); word-break: break-word; }
+  .order-status-badge { font-size: 11.5px; font-weight: 700; padding: 4px 10px; border-radius: 20px; white-space: nowrap; flex-shrink: 0; }
+  .order-card-meta { font-size: 12.5px; color: var(--cream30); margin-bottom: 4px; line-height: 1.6; }
+  .order-card-time { font-size: 11px; color: var(--cream30); opacity: .7; }
+
+  .ing-preview-row {
+    display:flex; justify-content:space-between; align-items:flex-start; gap: 10px; padding: 8px 0;
+    border-bottom: 1px solid var(--border); font-size: 13px; color: var(--cream);
+  }
+  .ing-preview-row:last-child { border-bottom: none; }
+  .ing-preview-row .amt { color: var(--cream30); white-space: nowrap; flex-shrink: 0; }
+
+  .od-section-title { font-size: 13px; font-weight: 800; color: var(--cream30); margin: 16px 0 6px; }
+
+  /* ── موبايل: عمود واحد + تكثيف الحشوة وتصغير الخط ── */
+  @media (max-width: 480px) {
+    #ordersWrap { grid-template-columns: 1fr; }
+    .filter-chip { padding: 7px 13px; font-size: 12px; }
+    .order-card { padding: 12px 14px; }
+    .order-customer { font-size: 13.5px; }
+    .order-card-meta { font-size: 12px; }
+    .ing-preview-row { font-size: 12.5px; }
+  }
+</style>
+</head>
+<body>
+
+<div id="app-shell" style="display:none;width:100%;">
+
+<div class="sidebar-overlay" id="sidebarOverlay" onclick="closeSidebar()"></div>
+
+<aside class="sidebar" id="sidebar">
+  <div class="logo">
+    <div class="logo-text">أكليتو 🍽️</div>
+    <div class="logo-sub">لوحة التحكم — ADMIN</div>
+  </div>
+
+  <div class="nav-section">
+    <div class="nav-label">الرئيسية</div>
+    <a class="nav-item" href="akleto-admin.html" style="text-decoration:none;color:inherit;">
+      <span class="nav-icon">📊</span><span>نظرة عامة</span>
+    </a>
+    <a class="nav-item active" href="akleto-admin-orders.html" style="text-decoration:none;color:inherit;">
+      <span class="nav-icon">🛒</span><span>الطلبات</span>
+      <span class="nav-badge" id="orders-total-count">0</span>
+    </a>
+    <a class="nav-item" href="akleto-admin-meals.html" style="text-decoration:none;color:inherit;">
+      <span class="nav-icon">🍖</span><span>الوجبات</span>
+    </a>
+    <a class="nav-item" href="akleto-admin-ingredients.html" style="text-decoration:none;color:inherit;">
+      <span class="nav-icon">🧅</span><span>المكونات</span>
+    </a>
+  </div>
+
+  <div class="nav-section">
+    <div class="nav-label">المستخدمون</div>
+    <a class="nav-item" href="akleto-admin-customers.html" style="text-decoration:none;color:inherit;">
+      <span class="nav-icon">👤</span><span>الزبائن</span>
+    </a>
+    <div class="nav-item"><span class="nav-icon">🛵</span><span>السائقين</span></div>
+    <div class="nav-item"><span class="nav-icon">🏪</span><span>المتاجر الشريكة</span></div>
+  </div>
+
+  <div class="nav-section">
+    <div class="nav-label">الإعدادات</div>
+    <div class="nav-item"><span class="nav-icon">📣</span><span>الإشعارات</span></div>
+    <div class="nav-item"><span class="nav-icon">⚙️</span><span>الإعدادات</span></div>
+  </div>
+
+  <div class="sidebar-footer">
+    <div class="admin-card">
+      <div class="admin-avatar">م</div>
+      <div>
+        <div class="admin-name">مؤيد</div>
+        <div class="admin-role">مدير المنصة 👑</div>
+      </div>
+      <button onclick="adminLogout()" title="خروج" style="margin-right:auto;background:none;border:none;color:var(--cream30);cursor:pointer;font-size:16px;">⏻</button>
+    </div>
+  </div>
+</aside>
+
+<main class="main">
+  <div class="topbar">
+    <div>
+      <div class="page-title">🛒 الطلبات</div>
+      <div class="page-subtitle">تحديث لحظي — أي طلب جديد بيظهر تلقائياً</div>
+    </div>
+    <div class="topbar-actions">
+      <button class="menu-toggle" id="menuBtn" onclick="toggleSidebar()" title="القائمة">☰</button>
+      <button class="theme-toggle" id="themeBtn" onclick="toggleTheme()" title="تبديل الوضع">🌙</button>
+    </div>
+  </div>
+
+  <div class="orders-content-max">
+    <div class="filter-chips">
+      <button class="filter-chip active" data-filter="all" onclick="setOrderFilter('all')">الكل (<span id="count-all">0</span>)</button>
+      <button class="filter-chip" data-filter="pending" onclick="setOrderFilter('pending')">🟡 قيد المعالجة (<span id="count-pending">0</span>)</button>
+      <button class="filter-chip" data-filter="preparing" onclick="setOrderFilter('preparing')">🔵 جاري التجهيز (<span id="count-preparing">0</span>)</button>
+      <button class="filter-chip" data-filter="delivering" onclick="setOrderFilter('delivering')">🚴 بالطريق (<span id="count-delivering">0</span>)</button>
+      <button class="filter-chip" data-filter="done" onclick="setOrderFilter('done')">✅ تم التوصيل (<span id="count-done">0</span>)</button>
+      <button class="filter-chip" data-filter="cancelled" onclick="setOrderFilter('cancelled')">❌ ملغي (<span id="count-cancelled">0</span>)</button>
+    </div>
+
+    <div id="ordersWrap"></div>
+  </div>
+</main>
+
+</div>
+
+<!-- ══════ MODAL: تفاصيل الطلب ══════ -->
+<div class="modal-overlay" id="orderDetailsOverlay">
+  <div class="modal-card" style="max-width:440px;">
+    <div class="modal-header">
+      <div class="modal-title">🧾 تفاصيل الطلب</div>
+      <button type="button" class="modal-close" onclick="closeOrderDetails()">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-group">
+        <label>الزبون</label>
+        <div id="od-customer" style="font-weight:700;"></div>
+        <div id="od-phone" style="color:var(--cream30);font-size:13px;margin-top:2px;"></div>
+        <div id="od-time" style="color:var(--cream30);font-size:12px;margin-top:2px;"></div>
+      </div>
+
+      <div class="od-section-title">🍽️ الوجبات المطلوبة</div>
+      <div id="od-items"></div>
+
+      <div class="od-section-title">🧠 المكونات المدمجة</div>
+      <div id="od-ingredients"></div>
+
+      <div class="ing-preview-row" style="border-top:2px solid var(--border);margin-top:10px;padding-top:12px;font-weight:800;">
+        <span>السعر التقديري</span><span id="od-total" class="amt" style="color:var(--primary);"></span>
+      </div>
+
+      <div class="form-group" style="margin-top:16px;">
+        <label>حالة الطلب</label>
+        <select id="od-status-select"></select>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button type="button" class="btn-secondary" onclick="closeOrderDetails()">إغلاق</button>
+      <button type="button" class="btn-primary" id="od-save-status-btn" onclick="updateOrderStatus()">حفظ الحالة ✓</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  function toggleSidebar() {
+    document.getElementById('sidebar').classList.toggle('open');
+    document.getElementById('sidebarOverlay').classList.toggle('open');
+  }
+  function closeSidebar() {
+    document.getElementById('sidebar').classList.remove('open');
+    document.getElementById('sidebarOverlay').classList.remove('open');
+  }
+  document.addEventListener('DOMContentLoaded', () => {
+    document.querySelectorAll('.nav-item').forEach(item => {
+      item.addEventListener('click', () => { if (window.innerWidth <= 860) closeSidebar(); });
+    });
+  });
+  function toggleTheme() {
+    const body = document.body;
+    const btn  = document.getElementById('themeBtn');
+    body.classList.toggle('light');
+    btn.textContent = body.classList.contains('light') ? '🌙' : '☀️';
+    localStorage.setItem('akleto-theme', body.classList.contains('light') ? 'light' : 'dark');
+  }
+  if (localStorage.getItem('akleto-theme') === 'light') {
+    document.body.classList.add('light');
+    document.addEventListener('DOMContentLoaded', () => { document.getElementById('themeBtn').textContent = '🌙'; });
+  }
+</script>
+</body>
+</html>

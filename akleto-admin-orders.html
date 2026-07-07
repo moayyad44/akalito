@@ -7,7 +7,7 @@
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
 <title>أكليتو — الطلبات</title>
-<link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;900&family=Tajawal:wght@400;500;700;800&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;900&family=Tajawal:wght@400;500;700;800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="admin-style.css?v=3">
 <script type="module">
 import {
@@ -22,14 +22,18 @@ let currentOrderId = null;
 let unsubOrders = null;
 
 const STATUS = {
-  pending:     { label: 'قيد المعالجة', emoji: '🟡', color: 'var(--orange)' },
-  preparing:   { label: 'جاري التجهيز', emoji: '🔵', color: 'var(--blue)' },
-  delivering:  { label: 'بالطريق',      emoji: '🚴', color: 'var(--blue)' },
-  done:        { label: 'تم التوصيل',   emoji: '✅', color: 'var(--green)' },
-  cancelled:   { label: 'ملغي',         emoji: '❌', color: 'var(--red)' }
+  pending:     { label: 'قيد المعالجة', emoji: '🟡', color: 'var(--orange)', glow: 'var(--orange-glow)' },
+  preparing:   { label: 'جاري التجهيز', emoji: '🔵', color: 'var(--blue)',   glow: 'var(--blue-glow)' },
+  delivering:  { label: 'بالطريق',      emoji: '🚴', color: 'var(--blue)',   glow: 'var(--blue-glow)' },
+  done:        { label: 'تم التوصيل',   emoji: '✅', color: 'var(--green)',  glow: 'var(--green-glow)' },
+  cancelled:   { label: 'ملغي',         emoji: '❌', color: 'var(--red)',    glow: 'var(--red-glow)' }
 };
 const STATUS_ORDER = ['pending', 'preparing', 'delivering', 'done', 'cancelled'];
 const NEXT_STATUS = { pending: 'preparing', preparing: 'delivering', delivering: 'done' };
+
+function ticketCode(id) {
+  return (id || '----').slice(-4).toUpperCase();
+}
 
 function showToast(message, isError) {
   let toast = document.getElementById('akleto-toast');
@@ -88,7 +92,7 @@ window.addEventListener('DOMContentLoaded', () => {
 
   function listenOrders() {
     const wrap = document.getElementById('ordersList');
-    wrap.innerHTML = `<div class="ord-empty">جاري تحميل الطلبات...</div>`;
+    wrap.innerHTML = `<div class="ord-empty">🧾 جاري تحميل الطلبات...</div>`;
     try {
       const q = query(collection(db, 'orders'), orderBy('created_at', 'desc'));
       unsubOrders = onSnapshot(q, snap => {
@@ -97,11 +101,11 @@ window.addEventListener('DOMContentLoaded', () => {
         renderOrders();
       }, err => {
         console.error('orders onSnapshot error', err);
-        wrap.innerHTML = `<div class="ord-empty">صار خطأ بتحميل الطلبات — تحقق من الإنترنت</div>`;
+        wrap.innerHTML = `<div class="ord-empty">⚠️ صار خطأ بتحميل الطلبات — تحقق من الإنترنت</div>`;
       });
     } catch (e) {
       console.error('listen orders error', e);
-      wrap.innerHTML = `<div class="ord-empty">صار خطأ بتحميل الطلبات</div>`;
+      wrap.innerHTML = `<div class="ord-empty">⚠️ صار خطأ بتحميل الطلبات</div>`;
     }
   }
 
@@ -115,7 +119,7 @@ window.addEventListener('DOMContentLoaded', () => {
 
   window.setOrderFilter = (f) => {
     currentFilter = f;
-    document.querySelectorAll('.ord-chip').forEach(c => c.classList.toggle('active', c.dataset.filter === f));
+    document.querySelectorAll('.ord-tab').forEach(c => c.classList.toggle('active', c.dataset.filter === f));
     renderOrders();
   };
 
@@ -124,7 +128,7 @@ window.addEventListener('DOMContentLoaded', () => {
     const list = currentFilter === 'all' ? ordersCache : ordersCache.filter(o => o.status === currentFilter);
 
     if (!list.length) {
-      wrap.innerHTML = `<div class="ord-empty">ما في طلبات ${currentFilter === 'all' ? '' : 'بهاي الحالة'} حالياً</div>`;
+      wrap.innerHTML = `<div class="ord-empty">🧾 ${currentFilter === 'all' ? 'ما وصل ولا طلب لهسا — أول طلب رح يطلع هون تلقائياً' : 'ما في طلبات بهاي الحالة حالياً'}</div>`;
       return;
     }
 
@@ -132,41 +136,59 @@ window.addEventListener('DOMContentLoaded', () => {
       const st = STATUS[o.status] || STATUS.pending;
       const itemsCount = (o.items || []).length;
       return `
-      <div class="ord-card" style="--st-color:${st.color}" onclick="openOrderSheet('${o.id}')">
-        <div class="ord-card-row">
-          <div class="ord-card-customer">${o.customer_name || 'زبون'}</div>
-          <div class="ord-card-time">${timeAgo(o.created_at)}</div>
+      <div class="tix-card" style="--st-color:${st.color};--st-glow:${st.glow}"
+           tabindex="0" role="button"
+           onclick="openOrderSheet('${o.id}')"
+           onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openOrderSheet('${o.id}')}">
+        <div class="tix-stub">
+          <span class="tix-number mono">#${ticketCode(o.id)}</span>
+          <span class="tix-time mono">${timeAgo(o.created_at)}</span>
         </div>
-        <div class="ord-card-badge">${st.emoji} ${st.label}</div>
-        <div class="ord-card-meta">
-          <span>📞 ${o.customer_phone || '—'}</span>
-          <span>🍽️ ${itemsCount} وجبة</span>
-          <span class="ord-card-price">${(o.total_estimated_price || 0).toFixed(2)} د.أ</span>
+        <div class="tix-perf"></div>
+        <div class="tix-body">
+          <div class="tix-customer">${o.customer_name || 'زبون'}</div>
+          <div class="tix-meta">
+            <span>📞 ${o.customer_phone || '—'}</span>
+            <span>🍽️ ${itemsCount} وجبة</span>
+          </div>
+          <div class="tix-foot">
+            <span class="stamp">${st.emoji} ${st.label}</span>
+            <span class="tix-price mono">${(o.total_estimated_price || 0).toFixed(2)} د.أ</span>
+          </div>
         </div>
       </div>`;
     }).join('');
   }
 
-  // ══════ Bottom Sheet لتفاصيل الطلب ══════
+  // ══════ ورقة تذكرة الطلب ══════
   window.openOrderSheet = (orderId) => {
     const o = ordersCache.find(x => x.id === orderId);
     if (!o) return;
     currentOrderId = orderId;
     const st = STATUS[o.status] || STATUS.pending;
+    const sheet = document.getElementById('orderSheet');
+    sheet.style.setProperty('--st-color', st.color);
+    sheet.style.setProperty('--st-glow', st.glow);
 
+    document.getElementById('sheetTicketNumber').textContent = '#' + ticketCode(o.id);
     document.getElementById('sheetCustomerName').textContent = o.customer_name || 'زبون';
     document.getElementById('sheetCustomerPhone').textContent = o.customer_phone || '—';
-    document.getElementById('sheetStatusBadge').textContent = `${st.emoji} ${st.label}`;
-    document.getElementById('sheetStatusBadge').style.color = st.color;
     document.getElementById('sheetTime').textContent = timeAgo(o.created_at);
+    document.getElementById('sheetStatusBadge').innerHTML = `${st.emoji} ${st.label}`;
 
     const mealsHtml = (o.items || []).map(it =>
-      `<div class="sheet-meal-row">🍽️ ${mealsCache[it.meal_id] || 'وجبة'} <span class="sheet-meal-servings">× ${it.servings || 1}</span></div>`
+      `<div class="receipt-row">
+         <span>🍽️ ${mealsCache[it.meal_id] || 'وجبة'}</span>
+         <span class="mono">× ${it.servings || 1}</span>
+       </div>`
     ).join('') || '<div class="ord-empty" style="padding:8px 0;">لا توجد عناصر</div>';
     document.getElementById('sheetMeals').innerHTML = mealsHtml;
 
     const ingHtml = (o.merged_ingredients || []).map(ing =>
-      `<div class="sheet-ing-row"><span>${ing.name}</span><span class="sheet-ing-qty">${ing.quantity} ${ing.unit || ''}</span></div>`
+      `<div class="receipt-row">
+         <span>${ing.name}</span>
+         <span class="mono">${ing.quantity} ${ing.unit || ''}</span>
+       </div>`
     ).join('') || '<div class="ord-empty" style="padding:8px 0;">لا توجد مكونات</div>';
     document.getElementById('sheetIngredients').innerHTML = ingHtml;
 
@@ -224,112 +246,154 @@ window.addEventListener('DOMContentLoaded', () => {
 });
 </script>
 <style>
+  /* ══════════ يوتيليتي: أرقام بخط مونو (تذكرة/أسعار/وقت) ══════════ */
+  .mono { font-family: 'JetBrains Mono', monospace; }
+
   /* ══════════ حاوية عامة تحدّ الاتساع على الشاشات الكبيرة ══════════ */
   .ord-page { max-width: 1100px; margin: 0 auto; width: 100%; }
 
-  /* ══════════ فلاتر الحالة ══════════ */
-  .ord-filters {
-    display: flex; gap: 8px; overflow-x: auto; padding-bottom: 14px;
+  /* ══════════ شريط تبويبات الحالة (بديل الفلاتر الدائرية) ══════════ */
+  .ord-tabs {
+    display: flex; gap: 4px; overflow-x: auto; margin-bottom: 20px;
+    border-bottom: 1px solid var(--border);
     -ms-overflow-style: none; scrollbar-width: none;
   }
-  .ord-filters::-webkit-scrollbar { display: none; }
-  .ord-chip {
-    flex-shrink: 0; padding: 8px 16px; border-radius: 20px;
-    border: 1px solid var(--border); background: var(--surface);
-    color: var(--cream60); font-family: 'Cairo', sans-serif; font-size: 13px;
-    font-weight: 600; cursor: pointer; white-space: nowrap; transition: all .15s;
+  .ord-tabs::-webkit-scrollbar { display: none; }
+  .ord-tab {
+    flex-shrink: 0; display: flex; align-items: center; gap: 7px;
+    padding: 10px 14px 12px; background: none; border: none;
+    border-bottom: 2px solid transparent; margin-bottom: -1px;
+    font-family: 'Cairo', sans-serif; font-size: 13px; font-weight: 600;
+    color: var(--cream30); cursor: pointer; white-space: nowrap; transition: color .15s, border-color .15s;
   }
-  .ord-chip.active { background: var(--red); border-color: var(--red); color: #fff; }
+  .ord-tab:hover { color: var(--cream); }
+  .ord-tab.active { color: var(--cream); border-bottom-color: var(--tab-color, var(--red)); }
+  .ord-tab:focus-visible { outline: 2px solid var(--tab-color, var(--red)); outline-offset: 2px; border-radius: 4px; }
+  .ord-tab .tab-count {
+    font-family: 'JetBrains Mono', monospace; font-size: 10px; font-weight: 700;
+    background: var(--cream10); padding: 1px 7px; border-radius: 20px; color: inherit;
+  }
 
-  /* ══════════ قائمة البطاقات — عمود واحد افتراضياً (mobile-first) ══════════ */
-  #ordersList { display: flex; flex-direction: column; gap: 10px; }
+  /* ══════════ قائمة التذاكر — عمود واحد افتراضياً (mobile-first) ══════════ */
+  #ordersList { display: flex; flex-direction: column; gap: 16px; }
 
-  .ord-card {
-    background: var(--surface); border: 1px solid var(--border);
-    border-radius: 14px; padding: 14px 16px 14px 14px;
+  .tix-card {
+    position: relative;
+    background: var(--surface);
+    border: 1px solid var(--border);
     border-inline-start: 4px solid var(--st-color);
-    cursor: pointer; transition: transform .12s, border-color .12s;
+    border-radius: 14px;
+    overflow: hidden;
+    cursor: pointer;
+    transition: transform .12s, box-shadow .15s;
   }
-  .ord-card:active { transform: scale(0.98); }
+  .tix-card:hover { box-shadow: 0 10px 26px rgba(0,0,0,0.25); }
+  .tix-card:active { transform: scale(0.98); }
+  .tix-card:focus-visible { outline: 2px solid var(--st-color); outline-offset: 2px; }
 
-  .ord-card-row { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
-  .ord-card-customer { font-weight: 700; font-size: 15px; color: var(--cream); }
-  .ord-card-time { font-size: 12px; color: var(--cream30); flex-shrink: 0; }
+  .tix-stub {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 12px 16px 10px;
+  }
+  .tix-number { font-size: 13px; font-weight: 700; letter-spacing: 1px; color: var(--st-color); }
+  .tix-time { font-size: 11px; color: var(--cream30); }
 
-  .ord-card-badge {
-    display: inline-block; margin-top: 6px; font-size: 12px; font-weight: 600;
-    color: var(--st-color);
+  /* خط تثقيب — يقص "فتحتين" من حواف البطاقة بلون خلفية الصفحة */
+  .tix-perf { position: relative; height: 0; margin: 0 16px; border-top: 2px dashed var(--border); }
+  .tix-perf::before, .tix-perf::after {
+    content: ''; position: absolute; top: -7px; width: 14px; height: 14px;
+    border-radius: 50%; background: var(--bg);
+  }
+  .tix-perf::before { left: -23px; }
+  .tix-perf::after  { right: -23px; }
+
+  .tix-body { padding: 12px 16px 16px; }
+  .tix-customer { font-weight: 700; font-size: 15px; color: var(--cream); margin-bottom: 8px; }
+  .tix-meta { display: flex; flex-wrap: wrap; gap: 10px; font-size: 12px; color: var(--cream60); margin-bottom: 12px; }
+
+  .tix-foot { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+  .tix-price { font-weight: 700; font-size: 15px; color: var(--cream); }
+
+  /* ختم الحالة — دائري مائل، بلون ديناميكي حسب حالة الطلب */
+  .stamp {
+    display: inline-flex; align-items: center; gap: 5px;
+    padding: 4px 11px; border: 1.5px solid var(--st-color); border-radius: 7px;
+    color: var(--st-color); background: var(--st-glow);
+    font-size: 11px; font-weight: 800; letter-spacing: .3px;
+    transform: rotate(-3deg); flex-shrink: 0;
   }
 
-  .ord-card-meta {
-    display: flex; flex-wrap: wrap; gap: 10px; margin-top: 10px;
-    font-size: 12px; color: var(--cream60);
-  }
-  .ord-card-price { font-weight: 700; color: var(--cream); margin-inline-start: auto; }
-
-  .ord-empty { padding: 40px 16px; text-align: center; color: var(--cream30); font-size: 13px; }
+  .ord-empty { padding: 44px 16px; text-align: center; color: var(--cream30); font-size: 13px; }
 
   /* ══════════ ديسكتوب: شبكة أعمدة بدل عمود واحد ══════════ */
   @media (min-width: 700px) {
-    #ordersList { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); align-items: start; }
+    #ordersList { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); align-items: start; }
   }
 
-  /* ══════════ Bottom Sheet لتفاصيل الطلب ══════════ */
+  /* ══════════ ورقة التذكرة (Bottom Sheet / Modal) ══════════ */
   #sheetOverlay {
-    display: none; position: fixed; top:0; left:0; right:0; bottom:0;
-    background: rgba(0,0,0,0.5); z-index: 500;
+    display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(0,0,0,0.55); z-index: 500;
   }
   #sheetOverlay.open { display: block; }
 
   #orderSheet {
     position: fixed; left: 0; right: 0; bottom: 0;
-    background: var(--bg); border: 1px solid var(--border);
+    background: var(--surface); border: 1px solid var(--border);
+    border-inline-start: 4px solid var(--st-color, var(--red));
     border-radius: 20px 20px 0 0; z-index: 501;
-    max-height: 88vh; display: flex; flex-direction: column;
+    max-height: 90vh; display: flex; flex-direction: column;
     transform: translateY(100%); transition: transform .25s ease;
+    overflow: hidden;
   }
   #orderSheet.open { transform: translateY(0); }
 
-  .sheet-handle {
-    width: 40px; height: 4px; background: var(--border); border-radius: 4px;
-    margin: 10px auto 4px;
+  .sheet-handle { width: 40px; height: 4px; background: var(--border); border-radius: 4px; margin: 10px auto 0; flex-shrink: 0; }
+
+  .sheet-close-btn {
+    position: absolute; top: 14px; right: 16px;
+    background: var(--cream10); border: none; color: var(--cream60);
+    width: 30px; height: 30px; border-radius: 8px; font-size: 15px; cursor: pointer;
   }
 
-  .sheet-header { padding: 8px 20px 14px; border-bottom: 1px solid var(--border); }
-  .sheet-header-top { display: flex; justify-content: space-between; align-items: center; }
-  .sheet-header-top h3 { font-family: 'Tajawal', sans-serif; font-size: 18px; }
-  .sheet-close-btn { background: none; border: none; color: var(--cream30); font-size: 20px; cursor: pointer; }
-  #sheetStatusBadge { font-size: 13px; font-weight: 700; margin-top: 4px; display: inline-block; }
-  #sheetCustomerPhone, #sheetTime { font-size: 12px; color: var(--cream30); }
+  .receipt-head { text-align: center; padding: 16px 20px 18px; flex-shrink: 0; }
+  .receipt-eyebrow { font-size: 10px; letter-spacing: 3px; color: var(--cream30); text-transform: uppercase; margin-bottom: 6px; }
+  .receipt-number { font-size: 26px; font-weight: 700; color: var(--cream); letter-spacing: 2px; }
+  .receipt-customer { font-size: 15px; font-weight: 700; color: var(--cream); margin-top: 8px; }
+  .receipt-sub { font-size: 12px; color: var(--cream30); margin-top: 3px; display: flex; gap: 8px; justify-content: center; }
+  .receipt-head .stamp { margin-top: 14px; }
 
-  .sheet-body { padding: 14px 20px 20px; overflow-y: auto; flex: 1; }
-  .sheet-section-title { font-size: 12px; font-weight: 700; color: var(--cream30); margin: 14px 0 8px; }
-  .sheet-section-title:first-child { margin-top: 0; }
+  .sheet-body { padding: 0 20px 20px; overflow-y: auto; flex: 1; }
 
-  .sheet-meal-row { display: flex; justify-content: space-between; padding: 6px 0; font-size: 14px; }
-  .sheet-meal-servings { color: var(--cream30); }
+  .receipt-divider { border-top: 1px dashed var(--border); margin: 16px 0 14px; }
+  .receipt-divider:first-child { margin-top: 0; }
 
-  .sheet-ing-row {
-    display: flex; justify-content: space-between; padding: 8px 0;
-    border-bottom: 1px solid var(--cream10); font-size: 13px;
-  }
-  .sheet-ing-qty { color: var(--cream60); }
+  .receipt-section-title { font-size: 12px; font-weight: 700; color: var(--cream30); margin-bottom: 8px; }
 
-  .sheet-price-row {
-    display: flex; justify-content: space-between; font-weight: 700;
-    font-size: 15px; padding-top: 12px; margin-top: 8px; border-top: 1px solid var(--border);
+  .receipt-row { display: flex; justify-content: space-between; gap: 10px; padding: 6px 0; font-size: 14px; color: var(--cream); }
+  .receipt-row span:last-child { color: var(--cream60); flex-shrink: 0; }
+
+  .receipt-total {
+    display: flex; justify-content: space-between; align-items: center;
+    font-weight: 700; font-size: 16px; color: var(--cream);
+    padding-top: 14px; margin-top: 14px; border-top: 3px double var(--border);
   }
 
-  .sheet-footer { padding: 14px 20px; border-top: 1px solid var(--border); }
+  .sheet-footer { padding: 14px 20px; border-top: 1px solid var(--border); flex-shrink: 0; }
 
   /* ديسكتوب: شكل بطاقة وسط الشاشة بدل ورقة منزلقة من الأسفل */
   @media (min-width: 640px) {
     #sheetOverlay { display: none; align-items: center; justify-content: center; }
     #sheetOverlay.open { display: flex; }
     #orderSheet {
-      position: static; width: 100%; max-width: 480px;
+      position: static; width: 100%; max-width: 460px;
       border-radius: 20px; transform: none; max-height: 85vh;
     }
+    .sheet-handle { display: none; }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .tix-card, #orderSheet, .btn-primary { transition: none !important; }
   }
 </style>
 </head>
@@ -389,7 +453,7 @@ window.addEventListener('DOMContentLoaded', () => {
     <div class="topbar">
       <div>
         <div class="page-title">🛒 الطلبات</div>
-        <div class="page-subtitle">تحديث لحظي — أي طلب جديد بيظهر تلقائياً</div>
+        <div class="page-subtitle">🧾 تحديث لحظي — كل طلب جديد يطلع هون فوراً بدون تحديث الصفحة</div>
       </div>
       <div class="topbar-actions">
         <button class="menu-toggle" id="menuBtn" onclick="toggleSidebar()" title="القائمة">☰</button>
@@ -397,13 +461,13 @@ window.addEventListener('DOMContentLoaded', () => {
       </div>
     </div>
 
-    <div class="ord-filters">
-      <button class="ord-chip active" data-filter="all" onclick="setOrderFilter('all')">الكل (<span id="count-all">0</span>)</button>
-      <button class="ord-chip" data-filter="pending" onclick="setOrderFilter('pending')">🟡 قيد المعالجة (<span id="count-pending">0</span>)</button>
-      <button class="ord-chip" data-filter="preparing" onclick="setOrderFilter('preparing')">🔵 جاري التجهيز (<span id="count-preparing">0</span>)</button>
-      <button class="ord-chip" data-filter="delivering" onclick="setOrderFilter('delivering')">🚴 بالطريق (<span id="count-delivering">0</span>)</button>
-      <button class="ord-chip" data-filter="done" onclick="setOrderFilter('done')">✅ تم التوصيل (<span id="count-done">0</span>)</button>
-      <button class="ord-chip" data-filter="cancelled" onclick="setOrderFilter('cancelled')">❌ ملغي (<span id="count-cancelled">0</span>)</button>
+    <div class="ord-tabs">
+      <button class="ord-tab active" data-filter="all" style="--tab-color:var(--red)" onclick="setOrderFilter('all')">الكل <span class="tab-count" id="count-all">0</span></button>
+      <button class="ord-tab" data-filter="pending" style="--tab-color:var(--orange)" onclick="setOrderFilter('pending')">🟡 قيد المعالجة <span class="tab-count" id="count-pending">0</span></button>
+      <button class="ord-tab" data-filter="preparing" style="--tab-color:var(--blue)" onclick="setOrderFilter('preparing')">🔵 جاري التجهيز <span class="tab-count" id="count-preparing">0</span></button>
+      <button class="ord-tab" data-filter="delivering" style="--tab-color:var(--blue)" onclick="setOrderFilter('delivering')">🚴 بالطريق <span class="tab-count" id="count-delivering">0</span></button>
+      <button class="ord-tab" data-filter="done" style="--tab-color:var(--green)" onclick="setOrderFilter('done')">✅ تم التوصيل <span class="tab-count" id="count-done">0</span></button>
+      <button class="ord-tab" data-filter="cancelled" style="--tab-color:var(--red)" onclick="setOrderFilter('cancelled')">❌ ملغي <span class="tab-count" id="count-cancelled">0</span></button>
     </div>
 
     <div id="ordersList"></div>
@@ -412,33 +476,34 @@ window.addEventListener('DOMContentLoaded', () => {
 
 </div>
 
-<!-- ══════ Bottom Sheet: تفاصيل الطلب ══════ -->
+<!-- ══════ ورقة تذكرة الطلب ══════ -->
 <div id="sheetOverlay" onclick="if(event.target===this) closeOrderSheet()">
   <div id="orderSheet">
     <div class="sheet-handle"></div>
-    <div class="sheet-header">
-      <div class="sheet-header-top">
-        <div>
-          <h3 id="sheetCustomerName">—</h3>
-          <div id="sheetStatusBadge">—</div>
-        </div>
-        <button class="sheet-close-btn" onclick="closeOrderSheet()">✕</button>
-      </div>
-      <div style="display:flex;justify-content:space-between;margin-top:8px;">
+    <button class="sheet-close-btn" onclick="closeOrderSheet()">✕</button>
+    <div class="receipt-head">
+      <div class="receipt-eyebrow">تذكرة طلب</div>
+      <div class="receipt-number mono" id="sheetTicketNumber">#—</div>
+      <div class="receipt-customer" id="sheetCustomerName">—</div>
+      <div class="receipt-sub">
         <span id="sheetCustomerPhone">—</span>
-        <span id="sheetTime">—</span>
+        <span>·</span>
+        <span id="sheetTime" class="mono">—</span>
       </div>
+      <div class="stamp" id="sheetStatusBadge">—</div>
     </div>
+
     <div class="sheet-body">
-      <div class="sheet-section-title">🍽️ الوجبات المطلوبة</div>
+      <div class="receipt-section-title">🍽️ الوجبات المطلوبة</div>
       <div id="sheetMeals"></div>
 
-      <div class="sheet-section-title">🧅 المكونات المدموجة</div>
+      <div class="receipt-divider"></div>
+      <div class="receipt-section-title">🧅 المكونات المدموجة</div>
       <div id="sheetIngredients"></div>
 
-      <div class="sheet-price-row">
+      <div class="receipt-total">
         <span>الإجمالي التقديري</span>
-        <span id="sheetPrice">—</span>
+        <span class="mono" id="sheetPrice">—</span>
       </div>
     </div>
     <div class="sheet-footer" id="sheetActions"></div>

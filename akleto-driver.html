@@ -1,0 +1,588 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<title>أكليتو — السائق</title>
+<link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;900&family=Tajawal:wght@400;500;700;800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --primary:  #A23E48;
+    --secondary:#F5A65B;
+    --olive:    #65743A;
+    --purple:   #8E44AD;
+    --bg:       #FDF8F3;
+    --surface:  #FFFFFE;
+    --border:   #EBE0D3;
+    --text:     #3A2A28;
+    --text30:   #9C8C82;
+  }
+  * { box-sizing: border-box; margin:0; padding:0; }
+  html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; overflow-x: hidden; }
+  body {
+    font-family: 'Cairo', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    direction: rtl;
+    padding-bottom: 76px;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+  h1,h2,h3,.font-title { font-family: 'Tajawal', sans-serif; }
+  button { font-family: inherit; cursor: pointer; }
+  .mono { font-family: 'JetBrains Mono', monospace; }
+  .hidden { display: none !important; }
+
+  /* ═══ شاشة الترحيب/التسجيل ═══ */
+  #welcomeScreen {
+    display: flex; flex-direction: column; justify-content: center;
+    min-height: 100vh; padding: 28px; text-align: center;
+  }
+  #welcomeScreen .logo-emoji { font-size: 56px; margin-bottom: 8px; }
+  #welcomeScreen h1 { font-size: 26px; color: var(--primary); margin-bottom: 6px; }
+  #welcomeScreen p { color: var(--text30); font-size: 14px; margin-bottom: 28px; }
+  .field-group { text-align: right; margin-bottom: 14px; }
+  .field-group label { font-size: 13px; font-weight: 600; display:block; margin-bottom: 6px; }
+  .field-group input {
+    width: 100%; padding: 13px 16px; border-radius: 12px; border: 1.5px solid var(--border);
+    background: var(--surface); font-family: inherit; font-size: 15px; color: var(--text);
+  }
+  .field-group input:focus { outline: none; border-color: var(--primary); }
+
+  .btn-main {
+    width: 100%; padding: 15px; border-radius: 14px; border: none;
+    background: var(--primary); color: #fff; font-weight: 700; font-size: 15px;
+    display:flex; align-items:center; justify-content:center; gap:8px;
+  }
+  .btn-main:disabled { opacity: .5; }
+  .btn-outline {
+    width: 100%; padding: 13px; border-radius: 14px; border: 1.5px solid var(--primary);
+    background: transparent; color: var(--primary); font-weight: 700; font-size: 14px;
+  }
+  .error-text { color: var(--primary); font-size: 12.5px; margin-top: 10px; display:none; }
+
+  /* ═══ الهيدر العلوي ═══ */
+  .topbar {
+    display:flex; align-items:center; justify-content:space-between;
+    padding: 16px 18px 10px;
+  }
+  .topbar .greeting { font-size: 13px; color: var(--text30); }
+  .topbar .greeting b { color: var(--text); }
+  .topbar-logo { font-family:'Tajawal',sans-serif; font-weight:900; color: var(--primary); font-size: 20px; }
+
+  .section-title { font-size: 16px; font-weight: 800; padding: 6px 18px 12px; font-family:'Tajawal',sans-serif; }
+  .content-wrap { max-width: 640px; margin: 0 auto; }
+
+  /* ═══ بطاقة طلب ═══ */
+  .order-card {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 16px;
+    padding: 14px 16px; margin: 0 18px 12px;
+    border-inline-start: 5px solid var(--st-color, var(--primary));
+  }
+  .order-card-head { display:flex; align-items:center; justify-content:space-between; margin-bottom:8px; }
+  .order-card-code { font-size: 15px; font-weight: 800; }
+  .order-card-time { font-size: 11.5px; color: var(--text30); }
+  .order-card-meta { font-size: 12.5px; color: var(--text30); display:flex; gap:10px; margin-bottom: 10px; flex-wrap: wrap; }
+  .order-card-price { font-weight: 800; color: var(--primary); font-size: 14px; }
+  .order-card-actions { display:flex; gap: 8px; margin-top: 6px; }
+  .btn-claim {
+    flex:1; padding: 11px; border-radius: 12px; border:none; background: var(--olive);
+    color:#fff; font-weight:700; font-size: 13.5px;
+  }
+  .btn-claim:disabled { opacity:.5; }
+  .btn-secondary-sm {
+    flex:1; padding: 11px; border-radius: 12px; border: 1.5px solid var(--border); background: transparent;
+    color: var(--text); font-weight:700; font-size: 13.5px;
+  }
+  .status-pill { font-size: 11px; font-weight: 700; padding: 3px 10px; border-radius: 20px; color:#fff; background: var(--st-color, var(--primary)); }
+
+  .empty-state-c { text-align:center; padding: 60px 30px; color: var(--text30); font-size:14px; }
+  .empty-state-c .emoji { font-size: 44px; margin-bottom: 12px; }
+
+  /* ═══ حسابي ═══ */
+  .account-card {
+    background: var(--surface); border:1px solid var(--border); border-radius:16px;
+    padding: 20px; margin: 0 18px 16px; text-align:center;
+  }
+  .account-avatar {
+    width:64px; height:64px; border-radius:50%; background: var(--primary); color:#fff;
+    display:flex; align-items:center; justify-content:center; font-size:26px; font-weight:800;
+    margin: 0 auto 12px;
+  }
+  .account-name { font-size:17px; font-weight:800; font-family:'Tajawal',sans-serif; }
+  .account-phone { font-size:13px; color:var(--text30); margin-top:2px; }
+  .stat-row { display:flex; gap:10px; margin: 0 18px 18px; }
+  .stat-box { flex:1; background: var(--surface); border:1px solid var(--border); border-radius:14px; padding:14px; text-align:center; }
+  .stat-box .num { font-size:20px; font-weight:800; color: var(--primary); }
+  .stat-box .lbl { font-size:11.5px; color:var(--text30); margin-top:2px; }
+
+  /* ═══ Bottom Nav ═══ */
+  .bottom-nav {
+    position:fixed; bottom:0; right:0; left:0; background: var(--surface);
+    border-top:1px solid var(--border); display:flex; z-index: 150;
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+  .nav-btn {
+    flex:1; border:none; background:none; padding:11px 0 9px; display:flex;
+    flex-direction:column; align-items:center; gap:3px; color: var(--text30); font-size:11px; font-weight:600;
+    position:relative;
+  }
+  .nav-btn.active { color: var(--primary); }
+  .nav-btn .icon { font-size: 20px; }
+  .nav-badge {
+    position:absolute; top:2px; left:calc(50% + 6px); background:var(--primary); color:#fff;
+    font-size:10px; font-weight:800; width:16px; height:16px; border-radius:50%;
+    display:flex; align-items:center; justify-content:center;
+  }
+
+  /* ═══ ورقة تفاصيل الطلب ═══ */
+  .sheet-overlay {
+    position: fixed; top:0; left:0; right:0; bottom:0; background: rgba(58,42,40,.4); z-index: 200;
+    display:none; align-items:flex-end; justify-content:center;
+  }
+  .sheet-overlay.open { display:flex; }
+  .sheet-card {
+    background: var(--bg); width:100%; max-width: 480px; max-height: 88vh; overflow-y:auto;
+    border-radius: 24px 24px 0 0; padding-bottom: 20px; position: relative;
+  }
+  .sheet-close {
+    position:absolute; top:14px; left:14px; width:34px; height:34px; border-radius:50%;
+    background: rgba(0,0,0,.06); border:none; font-size:16px; color:var(--text); z-index: 2;
+  }
+  .sheet-body { padding: 24px 20px 6px; }
+  .sheet-title { font-size: 19px; font-weight: 800; font-family:'Tajawal',sans-serif; margin-bottom:12px; }
+  .receipt-row { display:flex; justify-content:space-between; gap:10px; padding:8px 0; font-size:14px; border-bottom: 1px solid var(--border); }
+  .receipt-row:last-child { border-bottom:none; }
+  .receipt-row span:last-child { color: var(--text30); flex-shrink:0; }
+  .receipt-section-title { font-size:12px; font-weight:700; color:var(--text30); margin: 14px 0 6px; }
+  .receipt-total { display:flex; justify-content:space-between; font-weight:800; font-size:16px; padding-top:14px; margin-top:10px; border-top: 2px dashed var(--border); color: var(--primary); }
+  .sheet-footer { padding: 16px 20px 4px; }
+
+  .toast {
+    position:fixed; bottom:90px; right:50%; transform:translateX(50%) translateY(20px);
+    background: var(--text); color:#fff; padding: 12px 22px; border-radius: 30px;
+    font-size:13.5px; font-weight:600; opacity:0; transition: all .25s; z-index: 300; white-space:nowrap;
+    max-width: 90vw; text-align:center;
+  }
+  .toast.show { opacity:1; transform:translateX(50%) translateY(0); }
+
+  @media (min-width: 640px) {
+    .sheet-overlay { align-items:center; }
+    .sheet-card { border-radius: 20px; max-height: 85vh; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ══════ شاشة الترحيب / تسجيل السائق ══════ -->
+<div id="welcomeScreen">
+  <div class="logo-emoji">🛵</div>
+  <h1>أكليتو للسائقين</h1>
+  <p>سجّل بياناتك عشان تبدأ تستلم طلبات التوصيل</p>
+
+  <div class="field-group">
+    <label>الاسم</label>
+    <input type="text" id="w-name" placeholder="مثال: أحمد محمود">
+  </div>
+  <div class="field-group">
+    <label>رقم الهاتف</label>
+    <input type="tel" id="w-phone" placeholder="مثال: 0791234567">
+  </div>
+
+  <button class="btn-main" id="w-start-btn" onclick="startDriverSession()">ابدأ 🚀</button>
+  <div class="error-text" id="w-error"></div>
+</div>
+
+<!-- ══════ التطبيق الرئيسي ══════ -->
+<div id="appShell" class="hidden">
+
+  <div class="topbar">
+    <div>
+      <div class="topbar-logo">أكليتو 🛵</div>
+      <div class="greeting">أهلاً <b id="greet-name">—</b></div>
+    </div>
+  </div>
+
+  <!-- شاشة الطلبات المتاحة -->
+  <div id="homeScreen">
+    <div class="content-wrap">
+      <div class="section-title">📦 الطلبات المتاحة للاستلام</div>
+      <div id="availableList"><div class="empty-state-c">جاري التحميل...</div></div>
+    </div>
+  </div>
+
+  <!-- شاشة توصيلاتي -->
+  <div id="myScreen" class="content-wrap hidden">
+    <div class="section-title">🛵 قيد التوصيل الآن</div>
+    <div id="activeDeliveries"><div class="empty-state-c" style="padding:30px 0;">جاري التحميل...</div></div>
+    <div class="section-title">📜 توصيلات سابقة</div>
+    <div id="deliveryHistory"><div class="empty-state-c" style="padding:30px 0;">جاري التحميل...</div></div>
+  </div>
+
+  <!-- شاشة حسابي -->
+  <div id="accountScreen" class="hidden">
+    <div class="account-card">
+      <div class="account-avatar" id="acc-avatar">؟</div>
+      <div class="account-name" id="acc-name">—</div>
+      <div class="account-phone" id="acc-phone">—</div>
+    </div>
+    <div class="stat-row">
+      <div class="stat-box"><div class="num" id="acc-stat-active">0</div><div class="lbl">قيد التوصيل</div></div>
+      <div class="stat-box"><div class="num" id="acc-stat-done">0</div><div class="lbl">توصيلات مكتملة</div></div>
+    </div>
+    <div style="padding: 0 18px;">
+      <button class="btn-outline" onclick="logoutDriver()">تسجيل خروج 🚪</button>
+    </div>
+  </div>
+
+  <div class="bottom-nav" id="bottomNav">
+    <button class="nav-btn active" id="nav-home" onclick="switchScreen('home')">
+      <span class="icon">📦</span><span>المتاحة</span>
+    </button>
+    <button class="nav-btn" id="nav-my" onclick="switchScreen('my')">
+      <span class="icon">🛵</span><span>توصيلاتي</span>
+      <span class="nav-badge hidden" id="myBadge">0</span>
+    </button>
+    <button class="nav-btn" id="nav-account" onclick="switchScreen('account')">
+      <span class="icon">👤</span><span>حسابي</span>
+    </button>
+  </div>
+</div>
+
+<!-- ══════ ورقة تفاصيل الطلب ══════ -->
+<div class="sheet-overlay" id="orderSheet" onclick="if(event.target===this) closeOrderSheet()">
+  <div class="sheet-card">
+    <button class="sheet-close" onclick="closeOrderSheet()">✕</button>
+    <div class="sheet-body">
+      <div class="sheet-title">طلب <span id="sheet-code" class="mono"></span></div>
+      <div class="receipt-row"><span>👤 الزبون</span><span id="sheet-cust-name">—</span></div>
+      <div class="receipt-row"><span>📞 الهاتف</span><span id="sheet-cust-phone" class="mono">—</span></div>
+
+      <div class="receipt-section-title">🍽️ الوجبات</div>
+      <div id="sheet-meals"></div>
+
+      <div class="receipt-total">
+        <span id="sheet-price-label">المبلغ المطلوب تحصيله</span>
+        <span class="mono" id="sheet-price">—</span>
+      </div>
+    </div>
+    <div class="sheet-footer" id="sheet-actions"></div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script type="module">
+import {
+  db, collection, getDocs, addDoc, doc, query, where, onSnapshot, serverTimestamp,
+  updateDoc, runTransaction, withTimeout
+} from "./firebase-init.js";
+
+let mealsCache = {};        // meal_id -> name_ar
+let availableOrders = [];   // status === 'ready'
+let myOrders = [];          // driver_id === driverId (delivering + done)
+let driverId = null, driverName = '', driverPhone = '';
+let currentSheetOrderId = null;
+let currentSheetMode = null; // 'claim' | 'active'
+let unsubAvailable = null, unsubMine = null;
+
+const DRIVER_STORAGE_KEY = 'akleto_driver_id';
+const DRIVER_NAME_KEY = 'akleto_driver_name';
+const DRIVER_PHONE_KEY = 'akleto_driver_phone';
+
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(window._toastT);
+  window._toastT = setTimeout(() => t.classList.remove('show'), 2400);
+}
+
+function ticketCode(id) { return '#' + (id || '----').slice(-4).toUpperCase(); }
+
+function timeAgo(ts) {
+  if (!ts || !ts.toDate) return '—';
+  const diffMs = Date.now() - ts.toDate().getTime();
+  const mins = Math.floor(diffMs / 60000);
+  if (mins < 1) return 'الآن';
+  if (mins < 60) return `قبل ${mins} د`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return `قبل ${hrs} س`;
+  return `قبل ${Math.floor(hrs / 24)} يوم`;
+}
+
+/* ═══════════ تسجيل السائق ═══════════ */
+window.startDriverSession = async () => {
+  const name = document.getElementById('w-name').value.trim();
+  const phone = document.getElementById('w-phone').value.trim();
+  const errBox = document.getElementById('w-error');
+  errBox.style.display = 'none';
+
+  if (!name || !phone) {
+    errBox.textContent = 'لازم تكتب الاسم ورقم الهاتف';
+    errBox.style.display = 'block';
+    return;
+  }
+  if (!/^0\d{8,9}$/.test(phone)) {
+    errBox.textContent = 'رقم الهاتف غير صحيح (مثال: 0791234567)';
+    errBox.style.display = 'block';
+    return;
+  }
+
+  const btn = document.getElementById('w-start-btn');
+  btn.disabled = true;
+  btn.textContent = 'جاري التحضير...';
+
+  try {
+    const newRef = await withTimeout(
+      addDoc(collection(db, 'drivers'), {
+        name, phone, is_active: true, deliveries_count: 0, created_at: serverTimestamp()
+      }),
+      15000, 'انتهت مهلة الاتصال — تأكد من الإنترنت'
+    );
+    driverId = newRef.id;
+    driverName = name;
+    driverPhone = phone;
+    localStorage.setItem(DRIVER_STORAGE_KEY, driverId);
+    localStorage.setItem(DRIVER_NAME_KEY, name);
+    localStorage.setItem(DRIVER_PHONE_KEY, phone);
+    enterApp();
+  } catch (e) {
+    console.error('driver signup error', e);
+    errBox.textContent = 'صار خطأ — جرب مرة ثانية';
+    errBox.style.display = 'block';
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'ابدأ 🚀';
+  }
+};
+
+window.logoutDriver = () => {
+  if (unsubAvailable) unsubAvailable();
+  if (unsubMine) unsubMine();
+  localStorage.removeItem(DRIVER_STORAGE_KEY);
+  localStorage.removeItem(DRIVER_NAME_KEY);
+  localStorage.removeItem(DRIVER_PHONE_KEY);
+  window.location.reload();
+};
+
+function enterApp() {
+  document.getElementById('welcomeScreen').classList.add('hidden');
+  document.getElementById('appShell').classList.remove('hidden');
+  document.getElementById('greet-name').textContent = driverName;
+  document.getElementById('acc-name').textContent = driverName;
+  document.getElementById('acc-phone').textContent = driverPhone;
+  document.getElementById('acc-avatar').textContent = driverName.trim().charAt(0) || '؟';
+  loadMealsThenListen();
+}
+
+/* ═══════════ تحميل الوجبات (لعرض أسمائها بالتفاصيل) ═══════════ */
+async function loadMealsThenListen() {
+  try {
+    const snap = await getDocs(collection(db, 'meals'));
+    snap.docs.forEach(d => { mealsCache[d.id] = (d.data().name_ar || 'وجبة'); });
+  } catch (e) { console.error('load meals error', e); }
+  listenAvailableOrders();
+  listenMyOrders();
+}
+
+/* ═══════════ الطلبات المتاحة (status === ready) ═══════════ */
+function listenAvailableOrders() {
+  const wrap = document.getElementById('availableList');
+  try {
+    const q = query(collection(db, 'orders'), where('status', '==', 'ready'));
+    unsubAvailable = onSnapshot(q, snap => {
+      availableOrders = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      availableOrders.sort((a, b) => (a.created_at?.toMillis?.() || 0) - (b.created_at?.toMillis?.() || 0));
+      renderAvailableOrders();
+    }, err => {
+      console.error('available orders error', err);
+      wrap.innerHTML = `<div class="empty-state-c">⚠️ صار خطأ بتحميل الطلبات — تحقق من الإنترنت</div>`;
+    });
+  } catch (e) {
+    console.error(e);
+    wrap.innerHTML = `<div class="empty-state-c">⚠️ صار خطأ بتحميل الطلبات</div>`;
+  }
+}
+
+function renderAvailableOrders() {
+  const wrap = document.getElementById('availableList');
+  if (!availableOrders.length) {
+    wrap.innerHTML = `<div class="empty-state-c"><div class="emoji">🛵</div>ما في طلبات جاهزة للاستلام حالياً</div>`;
+    return;
+  }
+  wrap.innerHTML = availableOrders.map(o => {
+    const itemsCount = (o.items || []).length;
+    return `
+    <div class="order-card" style="--st-color:var(--purple)">
+      <div class="order-card-head">
+        <span class="order-card-code mono">${ticketCode(o.id)}</span>
+        <span class="order-card-time">${timeAgo(o.created_at)}</span>
+      </div>
+      <div class="order-card-meta">
+        <span>🍽️ ${itemsCount} وجبة</span>
+        <span class="order-card-price">${(o.total_estimated_price || 0).toFixed(2)} د.أ</span>
+      </div>
+      <div class="order-card-actions">
+        <button class="btn-secondary-sm" onclick="openOrderSheet('${o.id}','claim')">التفاصيل</button>
+        <button class="btn-claim" onclick="claimOrder('${o.id}')">استلام الطلب 🛵</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+/* ═══════════ استلام الطلب (Transaction عشان يمنع سائقين ياخذوا نفس الطلب) ═══════════ */
+window.claimOrder = async (orderId) => {
+  try {
+    await runTransaction(db, async (tx) => {
+      const orderRef = doc(db, 'orders', orderId);
+      const snap = await tx.get(orderRef);
+      if (!snap.exists() || snap.data().status !== 'ready') {
+        throw new Error('TAKEN');
+      }
+      tx.update(orderRef, {
+        status: 'delivering',
+        driver_id: driverId,
+        driver_name: driverName,
+        driver_phone: driverPhone,
+        picked_up_at: serverTimestamp()
+      });
+    });
+    showToast('✅ تم استلام الطلب — روح توصّله');
+    closeOrderSheet();
+    switchScreen('my');
+  } catch (e) {
+    if (e.message === 'TAKEN') {
+      showToast('⚠️ سائق ثاني سبقك بهاد الطلب');
+    } else {
+      console.error('claim order error', e);
+      showToast('صار خطأ — جرب مرة ثانية');
+    }
+  }
+};
+
+/* ═══════════ توصيلاتي (driver_id === driverId) ═══════════ */
+function listenMyOrders() {
+  try {
+    const q = query(collection(db, 'orders'), where('driver_id', '==', driverId));
+    unsubMine = onSnapshot(q, snap => {
+      myOrders = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      renderMyOrders();
+    }, err => console.error('my orders error', err));
+  } catch (e) { console.error(e); }
+}
+
+function renderMyOrders() {
+  const active = myOrders.filter(o => o.status === 'delivering')
+    .sort((a, b) => (b.picked_up_at?.toMillis?.() || 0) - (a.picked_up_at?.toMillis?.() || 0));
+  const done = myOrders.filter(o => o.status === 'done')
+    .sort((a, b) => (b.delivered_at?.toMillis?.() || 0) - (a.delivered_at?.toMillis?.() || 0));
+
+  const badge = document.getElementById('myBadge');
+  if (active.length) { badge.textContent = active.length; badge.classList.remove('hidden'); }
+  else { badge.classList.add('hidden'); }
+
+  document.getElementById('acc-stat-active').textContent = active.length;
+  document.getElementById('acc-stat-done').textContent = done.length;
+
+  const activeWrap = document.getElementById('activeDeliveries');
+  activeWrap.innerHTML = active.length ? active.map(o => `
+    <div class="order-card" style="--st-color:var(--olive)">
+      <div class="order-card-head">
+        <span class="order-card-code mono">${ticketCode(o.id)}</span>
+        <span class="order-card-time">${timeAgo(o.picked_up_at)}</span>
+      </div>
+      <div class="order-card-meta">
+        <span>👤 ${o.customer_name || 'زبون'}</span>
+        <span class="order-card-price">${(o.total_estimated_price || 0).toFixed(2)} د.أ</span>
+      </div>
+      <div class="order-card-actions">
+        <button class="btn-secondary-sm" onclick="openOrderSheet('${o.id}','active')">التفاصيل</button>
+        <button class="btn-claim" onclick="markDelivered('${o.id}')">تم التوصيل ✅</button>
+      </div>
+    </div>`).join('') : `<div class="empty-state-c" style="padding:30px 0;">ما عندك توصيلات حالياً</div>`;
+
+  const historyWrap = document.getElementById('deliveryHistory');
+  historyWrap.innerHTML = done.length ? done.map(o => `
+    <div class="order-card" style="--st-color:var(--text30)">
+      <div class="order-card-head">
+        <span class="order-card-code mono">${ticketCode(o.id)}</span>
+        <span class="status-pill" style="--st-color:var(--olive)">✅ تم التوصيل</span>
+      </div>
+      <div class="order-card-meta">
+        <span>👤 ${o.customer_name || 'زبون'}</span>
+        <span class="order-card-price">${(o.total_estimated_price || 0).toFixed(2)} د.أ</span>
+      </div>
+    </div>`).join('') : `<div class="empty-state-c" style="padding:30px 0;">ما في توصيلات مكتملة بعد</div>`;
+}
+
+window.markDelivered = async (orderId) => {
+  try {
+    await withTimeout(
+      updateDoc(doc(db, 'orders', orderId), { status: 'done', delivered_at: serverTimestamp() }),
+      10000, 'انتهت مهلة تحديث الحالة'
+    );
+    showToast('✅ تم تسجيل التوصيل — شكراً!');
+    closeOrderSheet();
+  } catch (e) {
+    console.error('mark delivered error', e);
+    showToast('صار خطأ بتحديث الحالة', true);
+  }
+};
+
+/* ═══════════ ورقة تفاصيل الطلب ═══════════ */
+window.openOrderSheet = (orderId, mode) => {
+  const list = mode === 'claim' ? availableOrders : myOrders;
+  const o = list.find(x => x.id === orderId);
+  if (!o) return;
+  currentSheetOrderId = orderId;
+  currentSheetMode = mode;
+
+  document.getElementById('sheet-code').textContent = ticketCode(o.id);
+  document.getElementById('sheet-cust-name').textContent = o.customer_name || 'زبون';
+  document.getElementById('sheet-cust-phone').textContent = o.customer_phone || '—';
+
+  const mealsHtml = (o.items || []).map(it =>
+    `<div class="receipt-row"><span>🍽️ ${mealsCache[it.meal_id] || 'وجبة'}</span><span class="mono">× ${it.servings || 1}</span></div>`
+  ).join('') || `<div class="empty-state-c" style="padding:8px 0;">لا توجد عناصر</div>`;
+  document.getElementById('sheet-meals').innerHTML = mealsHtml;
+  document.getElementById('sheet-price').textContent = (o.total_estimated_price || 0).toFixed(2) + ' د.أ';
+
+  const actionsWrap = document.getElementById('sheet-actions');
+  if (mode === 'claim') {
+    actionsWrap.innerHTML = `<button class="btn-main" onclick="claimOrder('${o.id}')">استلام الطلب 🛵</button>`;
+  } else {
+    actionsWrap.innerHTML = `<button class="btn-main" onclick="markDelivered('${o.id}')">تم التوصيل ✅</button>`;
+  }
+
+  document.getElementById('orderSheet').classList.add('open');
+};
+
+window.closeOrderSheet = () => {
+  document.getElementById('orderSheet').classList.remove('open');
+  currentSheetOrderId = null;
+  currentSheetMode = null;
+};
+
+/* ═══════════ التنقّل بين الشاشات ═══════════ */
+window.switchScreen = (name) => {
+  ['home', 'my', 'account'].forEach(s => {
+    document.getElementById(s + 'Screen').classList.toggle('hidden', s !== name);
+    document.getElementById('nav-' + s).classList.toggle('active', s === name);
+  });
+};
+
+/* ═══════════ نقطة البداية ═══════════ */
+window.addEventListener('DOMContentLoaded', () => {
+  const savedId = localStorage.getItem(DRIVER_STORAGE_KEY);
+  if (savedId) {
+    driverId = savedId;
+    driverName = localStorage.getItem(DRIVER_NAME_KEY) || '';
+    driverPhone = localStorage.getItem(DRIVER_PHONE_KEY) || '';
+    enterApp();
+  }
+});
+</script>
+</body>
+</html>

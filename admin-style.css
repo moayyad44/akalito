@@ -199,9 +199,12 @@
     margin-left: 0;
     margin-right: 240px;
     flex: 1;
+    min-width: 0;
     padding: 28px 32px;
     min-height: 100vh;
   }
+
+  #app-shell { min-width: 0; }
 
   /* ═══════════════ TOPBAR ═══════════════ */
   .topbar {

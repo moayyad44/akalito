@@ -360,9 +360,6 @@
     <button class="nav-btn" id="nav-account" onclick="switchScreen('account')">
       <span class="icon">👤</span><span>حسابي</span>
     </button>
-    <button class="nav-btn hidden" id="nav-store" onclick="switchScreen('store')">
-      <span class="icon">🏪</span><span>متجري</span>
-    </button>
   </div>
 
   <!-- ═══ القائمة الجانبية ═══ -->
@@ -628,11 +625,9 @@ window.loginAsStore = async () => {
     localStorage.setItem(STORE_EMP_NAME_KEY, storeEmpName);
     localStorage.setItem(STORE_EMP_PHONE_KEY, storeEmpPhone);
 
-    enterStoreMode();
     document.getElementById('storeLoginScreen').classList.add('hidden');
     document.getElementById('appShell').classList.remove('hidden');
-    switchScreen('store');
-    if (!customerId) loadInitialData(); // عشان لو فتح لاحقاً تبويب التسوق العادي يكون جاهز
+    enterStoreMode();
   } catch(e) {
     console.error('store login error', e);
     errBox.textContent = 'صار خطأ — جرب مرة ثانية';
@@ -644,9 +639,9 @@ window.loginAsStore = async () => {
 };
 
 function enterStoreMode() {
-  document.getElementById('nav-store').classList.remove('hidden');
   document.getElementById('store-greeting-name').textContent = storeName;
   document.getElementById('store-employee-name').textContent = 'مسجل دخول: ' + storeEmpName;
+  switchScreen('store');
 }
 
 window.logoutStore = () => {
@@ -656,7 +651,6 @@ window.logoutStore = () => {
   localStorage.removeItem(STORE_EMP_NAME_KEY);
   localStorage.removeItem(STORE_EMP_PHONE_KEY);
   storeId = null; storeName = ''; storeEmpName = ''; storeEmpPhone = '';
-  document.getElementById('nav-store').classList.add('hidden');
   if (customerId) {
     switchScreen('home');
   } else {
@@ -775,10 +769,22 @@ window.confirmAddMealToCart = () => {
 
 /* ═══════════ التنقّل بين الشاشات ═══════════ */
 window.switchScreen = (name) => {
-  ['home','cart','account','store'].forEach(s => {
+  // وضع المتجر حصري: ما نسمح بالرجوع لشاشات التسوق أثناء تسجيل الدخول كمتجر
+  if (storeId && name !== 'store') return;
+
+  if (name === 'store') {
+    ['home','cart','account'].forEach(s => document.getElementById(s + 'Screen').classList.add('hidden'));
+    document.getElementById('storeScreen').classList.remove('hidden');
+    document.getElementById('successScreen').classList.add('hidden');
+    document.getElementById('bottomNav').classList.add('hidden');
+    return;
+  }
+
+  ['home','cart','account'].forEach(s => {
     document.getElementById(s + 'Screen').classList.toggle('hidden', s !== name);
     document.getElementById('nav-' + s).classList.toggle('active', s === name);
   });
+  document.getElementById('storeScreen').classList.add('hidden');
   document.getElementById('successScreen').classList.add('hidden');
   document.getElementById('bottomNav').classList.remove('hidden');
   if (name === 'cart') renderCartScreen();
@@ -951,24 +957,23 @@ window.addEventListener('DOMContentLoaded', () => {
   const savedId = localStorage.getItem(CUSTOMER_STORAGE_KEY);
   const savedStoreId = localStorage.getItem(STORE_ID_KEY);
 
-  if (savedId) {
-    customerId = savedId;
-    customerName = localStorage.getItem(CUSTOMER_NAME_KEY) || '';
-    customerPhone = localStorage.getItem(CUSTOMER_PHONE_KEY) || '';
-    enterApp();
-  }
-
+  // وضع المتجر حصري: لو مسجّل دخول كمتجر، ما منعرض شاشات التسوق العادية إطلاقاً
   if (savedStoreId) {
     storeId = savedStoreId;
     storeName = localStorage.getItem(STORE_NAME_KEY) || '';
     storeEmpName = localStorage.getItem(STORE_EMP_NAME_KEY) || '';
     storeEmpPhone = localStorage.getItem(STORE_EMP_PHONE_KEY) || '';
-    if (!savedId) {
-      document.getElementById('welcomeScreen').classList.add('hidden');
-      document.getElementById('appShell').classList.remove('hidden');
-    }
+    document.getElementById('welcomeScreen').classList.add('hidden');
+    document.getElementById('appShell').classList.remove('hidden');
     enterStoreMode();
-    if (!savedId) switchScreen('store');
+    return;
+  }
+
+  if (savedId) {
+    customerId = savedId;
+    customerName = localStorage.getItem(CUSTOMER_NAME_KEY) || '';
+    customerPhone = localStorage.getItem(CUSTOMER_PHONE_KEY) || '';
+    enterApp();
   }
 });
 </script>

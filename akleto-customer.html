@@ -76,6 +76,35 @@
   }
   .icon-btn:active { background: var(--border); }
 
+  /* ═══ القائمة الجانبية ═══ */
+  .cs-overlay {
+    position:fixed; inset:0; background:rgba(58,42,40,.45); z-index:300;
+    opacity:0; pointer-events:none; transition:opacity .2s ease;
+  }
+  .cs-overlay.open { opacity:1; pointer-events:auto; }
+  .cs-drawer {
+    position:fixed; top:0; right:0; height:100%; width:80%; max-width:300px;
+    background:var(--bg); z-index:301; transform:translateX(100%);
+    transition:transform .25s ease; box-shadow:-6px 0 24px rgba(0,0,0,.18);
+    display:flex; flex-direction:column;
+  }
+  .cs-drawer.open { transform:translateX(0); }
+  .cs-drawer-header { padding:26px 20px 18px; border-bottom:1px solid var(--border); }
+  .cs-drawer-avatar {
+    width:44px; height:44px; border-radius:50%; background:var(--primary); color:#fff;
+    display:flex; align-items:center; justify-content:center; font-size:19px; font-weight:800;
+    margin-bottom:10px;
+  }
+  .cs-drawer-name { font-weight:800; font-size:16px; }
+  .cs-drawer-phone { font-size:12.5px; color:var(--text30); margin-top:2px; }
+  .cs-nav-item {
+    display:flex; align-items:center; gap:13px; padding:15px 20px; font-size:14.5px;
+    font-weight:600; cursor:pointer; border-bottom:1px solid var(--border);
+  }
+  .cs-nav-item:active { background: var(--surface); }
+  .cs-nav-item .ic { font-size:18px; width:22px; text-align:center; flex-shrink:0; }
+  .cs-nav-item.danger { color:#D9534F; margin-top:auto; border-top:1px solid var(--border); border-bottom:none; }
+
   /* ═══ شبكة الوجبات ═══ */
   .section-title { font-size: 17px; font-weight: 800; padding: 6px 18px 12px; font-family:'Tajawal',sans-serif; }
   .meals-scroll-grid {
@@ -249,7 +278,10 @@
       <div>
         <div class="greeting">أهلاً <b id="home-greeting-name"></b> 👋</div>
       </div>
-      <div class="topbar-logo">أكليتو 🍽️</div>
+      <div style="display:flex;align-items:center;gap:10px;">
+        <div class="topbar-logo">أكليتو 🍽️</div>
+        <button class="icon-btn" onclick="toggleCustomerMenu()" title="القائمة">☰</button>
+      </div>
     </div>
     <div class="section-title">🍲 وجبات متوفرة</div>
     <div class="meals-scroll-grid" id="mealsGrid"></div>
@@ -271,7 +303,7 @@
   <div id="accountScreen" class="hidden">
     <div class="topbar">
       <div class="section-title" style="padding:0;">👤 حسابي</div>
-      <button class="icon-btn" onclick="logoutCustomer()" title="تسجيل خروج">⏻</button>
+      <button class="icon-btn" onclick="toggleCustomerMenu()" title="القائمة">☰</button>
     </div>
     <div style="padding: 0 18px;">
       <div style="background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:18px;margin-bottom:16px;">
@@ -331,6 +363,21 @@
     <button class="nav-btn hidden" id="nav-store" onclick="switchScreen('store')">
       <span class="icon">🏪</span><span>متجري</span>
     </button>
+  </div>
+
+  <!-- ═══ القائمة الجانبية ═══ -->
+  <div class="cs-overlay" id="csOverlay" onclick="closeCustomerMenu()"></div>
+  <div class="cs-drawer" id="csDrawer">
+    <div class="cs-drawer-header">
+      <div class="cs-drawer-avatar" id="cs-avatar"></div>
+      <div class="cs-drawer-name" id="cs-name"></div>
+      <div class="cs-drawer-phone" id="cs-phone"></div>
+    </div>
+    <div class="cs-nav-item" onclick="menuSwitch('home')"><span class="ic">🏠</span><span>الرئيسية</span></div>
+    <div class="cs-nav-item" onclick="menuSwitch('cart')"><span class="ic">🛒</span><span>سلتي</span></div>
+    <div class="cs-nav-item" onclick="menuSwitch('account')"><span class="ic">📦</span><span>طلباتي وحسابي</span></div>
+    <div class="cs-nav-item" id="cs-store-item" onclick="menuGoStore()"><span class="ic">🏪</span><span id="cs-store-label">الدخول كتاجر</span></div>
+    <div class="cs-nav-item danger" onclick="logoutCustomer()"><span class="ic">⏻</span><span>تسجيل الخروج</span></div>
   </div>
 </div>
 
@@ -457,7 +504,37 @@ function enterApp() {
   loadInitialData();
 }
 
+window.toggleCustomerMenu = () => {
+  document.getElementById('cs-avatar').textContent = (customerName || '؟').trim().charAt(0);
+  document.getElementById('cs-name').textContent = customerName || 'زائر';
+  document.getElementById('cs-phone').textContent = customerPhone || '';
+  document.getElementById('cs-store-label').textContent = storeId ? ('🏪 ' + storeName) : 'الدخول كتاجر';
+  document.getElementById('csOverlay').classList.add('open');
+  document.getElementById('csDrawer').classList.add('open');
+};
+
+window.closeCustomerMenu = () => {
+  document.getElementById('csOverlay').classList.remove('open');
+  document.getElementById('csDrawer').classList.remove('open');
+};
+
+window.menuSwitch = (name) => {
+  closeCustomerMenu();
+  switchScreen(name);
+};
+
+window.menuGoStore = () => {
+  closeCustomerMenu();
+  if (storeId) {
+    switchScreen('store');
+  } else {
+    document.getElementById('appShell').classList.add('hidden');
+    document.getElementById('storeLoginScreen').classList.remove('hidden');
+  }
+};
+
 window.logoutCustomer = () => {
+  closeCustomerMenu();
   if (!confirm('تأكيد تسجيل الخروج؟ (رح تحتاج تسجل من جديد بالاسم ورقم الهاتف)')) return;
   localStorage.removeItem(CUSTOMER_STORAGE_KEY);
   localStorage.removeItem(CUSTOMER_NAME_KEY);

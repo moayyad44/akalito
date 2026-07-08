@@ -11,7 +11,7 @@
 <link rel="stylesheet" href="admin-style.css?v=5">
 <script type="module">
 import {
-  db, auth, collection, getDocs, doc, updateDoc,
+  db, auth, collection, getDocs, doc, updateDoc, setDoc, serverTimestamp,
   onAuthStateChanged, signOut, withTimeout
 } from "./firebase-init.js";
 
@@ -69,19 +69,78 @@ window.addEventListener('DOMContentLoaded', () => {
     }
     wrap.innerHTML = customersCache.map(c => {
       const blocked = !!c.is_blocked;
+      const isStore = !!c.is_store;
       const joined = c.created_at && c.created_at.toDate ? c.created_at.toDate().toLocaleDateString('ar-JO') : '—';
       return `
         <div class="ingredient-list-item">
-          <div class="ing-thumb">👤</div>
+          <div class="ing-thumb">${isStore ? '🏪' : '👤'}</div>
           <div class="ing-info">
-            <div class="ing-name">${c.name || 'بدون اسم'} ${blocked ? '<span style=\"color:#D9534F;font-size:11px;\">(محظور)</span>' : ''}</div>
+            <div class="ing-name">${c.name || 'بدون اسم'}
+              ${isStore ? '<span style=\"color:#65C46A;font-size:11px;\">(حساب متجر)</span>' : ''}
+              ${blocked ? '<span style=\"color:#D9534F;font-size:11px;\">(محظور)</span>' : ''}
+            </div>
             <div class="ing-meta">${c.phone || '—'} · ${c.order_count || 0} طلب · انضم ${joined}</div>
           </div>
-          <button type="button" class="ing-remove" style="font-size:12px;width:auto;padding:6px 10px;"
-                  onclick="toggleBlockCustomer('${c.id}', ${blocked})">${blocked ? 'رفع الحظر' : 'حظر'}</button>
+          <div style="display:flex;gap:6px;">
+            ${isStore ? `
+              <button type="button" class="ing-remove" style="font-size:12px;width:auto;padding:6px 10px;"
+                      onclick="editStorePin('${c.id}')">تعديل PIN</button>
+            ` : `
+              <button type="button" class="ing-remove" style="font-size:12px;width:auto;padding:6px 10px;"
+                      onclick="convertToStore('${c.id}')">تحويل لمتجر</button>
+            `}
+            <button type="button" class="ing-remove" style="font-size:12px;width:auto;padding:6px 10px;"
+                    onclick="toggleBlockCustomer('${c.id}', ${blocked})">${blocked ? 'رفع الحظر' : 'حظر'}</button>
+          </div>
         </div>`;
     }).join('');
   }
+
+  window.convertToStore = async (id) => {
+    const c = customersCache.find(x => x.id === id);
+    if (!c) return;
+    const storeName = prompt('اسم المتجر (كما بيظهر بتطبيق السائق/الأدمن):', c.name || '');
+    if (!storeName) return;
+    const address = prompt('عنوان المتجر:', '');
+    if (address === null) return;
+    const pin = prompt('كلمة مرور المتجر (PIN) — أرقام بسيطة تُعطى لصاحب المتجر ليدخل فيها على هاتفه:', '');
+    if (!pin) { showToast('لازم تحدد PIN عشان صاحب المتجر يقدر يدخل ❌', true); return; }
+    try {
+      await withTimeout(updateDoc(doc(db, 'customers', id), {
+        is_store: true, store_pin: pin
+      }), 15000, 'انتهت مهلة الحفظ — تأكد من الإنترنت');
+      await withTimeout(setDoc(doc(db, 'stores', id), {
+        name: storeName,
+        phone: c.phone || '',
+        address: address,
+        is_active: true,
+        rating: null,
+        created_at: serverTimestamp()
+      }), 15000, 'انتهت مهلة الحفظ — تأكد من الإنترنت');
+      c.is_store = true;
+      c.store_pin = pin;
+      renderCustomers();
+      showToast('تم تحويل الحساب لمتجر ✅');
+    } catch(e) {
+      console.error('convert to store error', e);
+      showToast('صار خطأ — جرب مرة ثانية ❌', true);
+    }
+  };
+
+  window.editStorePin = async (id) => {
+    const c = customersCache.find(x => x.id === id);
+    if (!c) return;
+    const pin = prompt('كلمة مرور المتجر الجديدة (PIN):', c.store_pin || '');
+    if (!pin) return;
+    try {
+      await withTimeout(updateDoc(doc(db, 'customers', id), { store_pin: pin }), 15000, 'انتهت مهلة الحفظ — تأكد من الإنترنت');
+      c.store_pin = pin;
+      showToast('تم تحديث كلمة مرور المتجر ✅');
+    } catch(e) {
+      console.error('edit store pin error', e);
+      showToast('صار خطأ — جرب مرة ثانية ❌', true);
+    }
+  };
 
   window.toggleBlockCustomer = async (id, currentlyBlocked) => {
     const c = customersCache.find(x => x.id === id);

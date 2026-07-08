@@ -262,7 +262,10 @@
 
   <!-- ═══ شاشة حسابي ═══ -->
   <div id="accountScreen" class="hidden">
-    <div class="topbar"><div class="section-title" style="padding:0;">👤 حسابي</div></div>
+    <div class="topbar">
+      <div class="section-title" style="padding:0;">👤 حسابي</div>
+      <button onclick="logoutCustomer()" title="تسجيل خروج" style="background:none;border:none;color:var(--primary);font-size:20px;cursor:pointer;padding:6px;">⏻</button>
+    </div>
     <div style="padding: 0 18px;">
       <div style="background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:18px;margin-bottom:16px;">
         <div style="font-weight:800;font-size:16px;margin-bottom:4px;" id="acc-name"></div>
@@ -446,6 +449,25 @@ function enterApp() {
   document.getElementById('acc-phone').textContent = customerPhone;
   loadInitialData();
 }
+
+window.logoutCustomer = () => {
+  if (!confirm('تأكيد تسجيل الخروج؟ (رح تحتاج تسجل من جديد بالاسم ورقم الهاتف)')) return;
+  localStorage.removeItem(CUSTOMER_STORAGE_KEY);
+  localStorage.removeItem(CUSTOMER_NAME_KEY);
+  localStorage.removeItem(CUSTOMER_PHONE_KEY);
+  customerId = null;
+  customerName = '';
+  customerPhone = '';
+  selectedMeals = [];
+  if (storeId) {
+    switchScreen('store');
+  } else {
+    document.getElementById('appShell').classList.add('hidden');
+    document.getElementById('welcomeScreen').classList.remove('hidden');
+    document.getElementById('w-name').value = '';
+    document.getElementById('w-phone').value = '';
+  }
+};
 
 /* ═══════════ دخول/خروج المتجر (لموظفي المتاجر الشريكة) ═══════════ */
 window.showStoreLogin = () => {

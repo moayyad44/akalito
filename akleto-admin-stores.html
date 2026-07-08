@@ -1,0 +1,357 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
+<title>أكليتو — المتاجر الشريكة</title>
+<link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;900&family=Tajawal:wght@400;500;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="admin-style.css?v=5">
+<script type="module">
+import {
+  db, auth, collection, getDocs, addDoc, updateDoc, doc, serverTimestamp,
+  onAuthStateChanged, signOut, withTimeout
+} from "./firebase-init.js";
+
+let storesCache = [];
+let employeesCache = [];
+let isSavingStore = false;
+
+function showToast(message, isError) {
+  let toast = document.getElementById('akleto-toast');
+  if (!toast) {
+    toast = document.createElement('div');
+    toast.id = 'akleto-toast';
+    document.body.appendChild(toast);
+  }
+  toast.textContent = message;
+  toast.className = 'akleto-toast show' + (isError ? ' error' : '');
+  clearTimeout(window._toastTimer);
+  window._toastTimer = setTimeout(() => { toast.className = 'akleto-toast'; }, 2500);
+}
+
+let _lockCount = 0;
+function lockBodyScroll() {
+  if (_lockCount === 0) { document.documentElement.classList.add('modal-lock'); document.body.classList.add('modal-lock'); }
+  _lockCount++;
+}
+function unlockBodyScroll() {
+  _lockCount = Math.max(0, _lockCount - 1);
+  if (_lockCount === 0) { document.documentElement.classList.remove('modal-lock'); document.body.classList.remove('modal-lock'); }
+}
+
+window.addEventListener('DOMContentLoaded', () => {
+
+  onAuthStateChanged(auth, user => {
+    if (!user) {
+      window.location.href = 'akleto-admin.html';
+    } else {
+      document.getElementById('app-shell').style.display = 'flex';
+      loadStores();
+    }
+  });
+
+  window.adminLogout = () => signOut(auth);
+
+  /* رمز PIN فريد من 4 أرقام — يُستخدم لتعريف المتجر عند دخول الموظفين من تطبيق الزبون */
+  function generateUniquePin() {
+    const existing = new Set(storesCache.map(s => s.pin));
+    let pin;
+    do {
+      pin = String(Math.floor(1000 + Math.random() * 9000));
+    } while (existing.has(pin));
+    return pin;
+  }
+
+  async function loadStores() {
+    const wrap = document.getElementById('storesWrap');
+    wrap.innerHTML = `<div class="empty-state" style="padding:14px 0;">جاري التحميل...</div>`;
+    try {
+      const [storesSnap, empSnap] = await Promise.all([
+        getDocs(collection(db, 'stores')),
+        getDocs(collection(db, 'store_employees'))
+      ]);
+      storesCache = storesSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+      employeesCache = empSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+    } catch(e) {
+      console.error('load stores error', e);
+      wrap.innerHTML = `<div class="empty-state" style="padding:14px 0;">صار خطأ بتحميل المتاجر — تحقق من الإنترنت</div>`;
+      return;
+    }
+    document.getElementById('stores-count').textContent = storesCache.length;
+    renderStores();
+  }
+
+  function renderStores() {
+    const wrap = document.getElementById('storesWrap');
+    if (!storesCache.length) {
+      wrap.innerHTML = `<div class="empty-state" style="padding:30px 0;">
+        ما في متاجر شريكة مضافة بعد 🏪<br/>
+        <span style="font-size:12px;color:var(--cream30);">اضغط "متجر جديد" فوق عشان تضيف أول متجر</span>
+      </div>`;
+      return;
+    }
+    const sorted = [...storesCache].sort((a, b) =>
+      (b.created_at?.toMillis?.() || 0) - (a.created_at?.toMillis?.() || 0));
+
+    wrap.innerHTML = sorted.map(s => {
+      const active = s.is_active !== false;
+      const emps = employeesCache.filter(e => e.store_id === s.id);
+      const empListHtml = emps.length
+        ? emps.map(e => `<div class="ing-meta" style="padding-right:4px;">👤 ${e.name || '—'} · ${e.phone || '—'}</div>`).join('')
+        : `<div class="ing-meta" style="padding-right:4px;">ما في موظفين سجّلوا دخول بهاد المتجر لسا</div>`;
+
+      return `
+        <div class="ingredient-list-item" style="align-items:flex-start;flex-wrap:wrap;">
+          <div class="ing-thumb">🏪</div>
+          <div class="ing-info">
+            <div class="ing-name">${s.name || 'بدون اسم'} ${!active ? '<span style="color:#D9534F;font-size:11px;">(غير نشط)</span>' : ''}</div>
+            <div class="ing-meta">📍 ${s.address || '—'} · 📞 ${s.phone || '—'}</div>
+            <div class="ing-meta">🔑 PIN: <b style="font-family:monospace;font-size:15px;letter-spacing:3px;">${s.pin || '----'}</b>
+              &nbsp;·&nbsp; 👥 ${emps.length} موظف
+            </div>
+            <button type="button" class="ing-remove" style="font-size:11px;width:auto;padding:4px 8px;margin-top:6px;"
+                    onclick="toggleEmployees('${s.id}')">عرض الموظفين ▾</button>
+            <div id="emp-${s.id}" class="hidden" style="margin-top:6px;border-top:1px solid rgba(255,255,255,0.06);padding-top:6px;">
+              ${empListHtml}
+            </div>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:6px;">
+            <button type="button" class="ing-remove" style="font-size:12px;width:auto;padding:6px 10px;"
+                    onclick="copyPin('${s.pin}')">نسخ PIN</button>
+            <button type="button" class="ing-remove" style="font-size:12px;width:auto;padding:6px 10px;"
+                    onclick="toggleStoreActive('${s.id}', ${active})">${active ? 'تعطيل' : 'تفعيل'}</button>
+          </div>
+        </div>`;
+    }).join('');
+  }
+
+  window.toggleEmployees = (id) => {
+    document.getElementById(`emp-${id}`).classList.toggle('hidden');
+  };
+
+  window.copyPin = (pin) => {
+    if (navigator.clipboard) {
+      navigator.clipboard.writeText(pin).then(() => showToast('تم نسخ PIN ✅'));
+    } else {
+      showToast('انسخه يدوياً: ' + pin);
+    }
+  };
+
+  window.toggleStoreActive = async (id, currentlyActive) => {
+    const s = storesCache.find(x => x.id === id);
+    const action = currentlyActive ? 'تعطيل' : 'تفعيل';
+    if (!confirm(`تأكيد ${action} متجر "${s ? s.name : ''}"؟`)) return;
+    try {
+      await withTimeout(updateDoc(doc(db, 'stores', id), { is_active: !currentlyActive }), 15000, 'انتهت مهلة الحفظ — تأكد من الإنترنت');
+      s.is_active = !currentlyActive;
+      renderStores();
+      showToast(currentlyActive ? 'تم تعطيل المتجر ✅' : 'تم تفعيل المتجر ✅');
+    } catch(e) {
+      console.error('toggle store active error', e);
+      showToast('صار خطأ — جرب مرة ثانية ❌', true);
+    }
+  };
+
+  /* ══════ مودال إضافة متجر جديد ══════ */
+  window.openAddStoreModal = () => {
+    document.getElementById('storeForm').reset();
+    document.getElementById('storeFormError').style.display = 'none';
+    const saveBtn = document.getElementById('sf-save-btn');
+    saveBtn.disabled = false;
+    saveBtn.textContent = 'حفظ المتجر ✓';
+    document.getElementById('addStoreOverlay').classList.add('open');
+    lockBodyScroll();
+  };
+
+  window.closeAddStoreModal = () => {
+    document.getElementById('addStoreOverlay').classList.remove('open');
+    unlockBodyScroll();
+  };
+
+  window.saveStore = async (ev) => {
+    ev.preventDefault();
+    if (isSavingStore) return;
+    const errBox = document.getElementById('storeFormError');
+    errBox.style.display = 'none';
+
+    const name = document.getElementById('sf-name').value.trim();
+    const phone = document.getElementById('sf-phone').value.trim();
+    const address = document.getElementById('sf-address').value.trim();
+
+    if (!name || !phone) {
+      errBox.textContent = 'لازم تكتب اسم المتجر ورقم الهاتف';
+      errBox.style.display = 'block';
+      return;
+    }
+
+    isSavingStore = true;
+    const saveBtn = document.getElementById('sf-save-btn');
+    saveBtn.disabled = true;
+    saveBtn.textContent = 'جاري الحفظ...';
+
+    try {
+      const pin = generateUniquePin();
+      await withTimeout(addDoc(collection(db, 'stores'), {
+        name, phone, address, pin, is_active: true, rating: null, created_at: serverTimestamp()
+      }), 15000, 'انتهت مهلة الحفظ — تأكد من الإنترنت');
+      closeAddStoreModal();
+      showToast(`تم إنشاء المتجر ✅ — PIN: ${pin}`);
+      await loadStores();
+    } catch(e) {
+      console.error('save store error', e);
+      errBox.textContent = 'صار خطأ بالحفظ — جرب مرة ثانية';
+      errBox.style.display = 'block';
+    } finally {
+      isSavingStore = false;
+      saveBtn.disabled = false;
+      saveBtn.textContent = 'حفظ المتجر ✓';
+    }
+  };
+
+});
+</script>
+</head>
+<body>
+
+<div id="app-shell" style="display:none;width:100%;">
+
+<div class="sidebar-overlay" id="sidebarOverlay" onclick="closeSidebar()"></div>
+
+<aside class="sidebar" id="sidebar">
+  <div class="logo">
+    <div class="logo-text">أكليتو 🍽️</div>
+    <div class="logo-sub">لوحة التحكم — ADMIN</div>
+  </div>
+
+  <div class="nav-section">
+    <div class="nav-label">الرئيسية</div>
+    <a class="nav-item" href="akleto-admin.html" style="text-decoration:none;color:inherit;">
+      <span class="nav-icon">📊</span><span>نظرة عامة</span>
+    </a>
+    <a class="nav-item" href="akleto-admin-orders.html" style="text-decoration:none;color:inherit;"><span class="nav-icon">🛒</span><span>الطلبات</span></a>
+    <a class="nav-item" href="akleto-admin-meals.html" style="text-decoration:none;color:inherit;">
+      <span class="nav-icon">🍖</span><span>الوجبات</span>
+    </a>
+    <a class="nav-item" href="akleto-admin-ingredients.html" style="text-decoration:none;color:inherit;">
+      <span class="nav-icon">🧅</span><span>المكونات</span>
+    </a>
+  </div>
+
+  <div class="nav-section">
+    <div class="nav-label">المستخدمون</div>
+    <a class="nav-item" href="akleto-admin-customers.html" style="text-decoration:none;color:inherit;">
+      <span class="nav-icon">👤</span><span>الزبائن</span>
+    </a>
+    <a class="nav-item" href="akleto-admin-drivers.html" style="text-decoration:none;color:inherit;"><span class="nav-icon">🛵</span><span>السائقين</span></a>
+    <a class="nav-item active" href="akleto-admin-stores.html" style="text-decoration:none;color:inherit;"><span class="nav-icon">🏪</span><span>المتاجر الشريكة</span></a>
+  </div>
+
+  <div class="nav-section">
+    <div class="nav-label">الإعدادات</div>
+    <div class="nav-item"><span class="nav-icon">📣</span><span>الإشعارات</span></div>
+    <div class="nav-item"><span class="nav-icon">⚙️</span><span>الإعدادات</span></div>
+  </div>
+
+  <div class="sidebar-footer">
+    <div class="admin-card">
+      <div class="admin-avatar">م</div>
+      <div>
+        <div class="admin-name">مؤيد</div>
+        <div class="admin-role">مدير المنصة 👑</div>
+      </div>
+      <button onclick="adminLogout()" title="خروج" style="margin-right:auto;background:none;border:none;color:var(--cream30);cursor:pointer;font-size:16px;">⏻</button>
+    </div>
+  </div>
+</aside>
+
+<main class="main">
+  <div class="topbar">
+    <div>
+      <div class="page-title">🏪 المتاجر الشريكة</div>
+      <div class="page-subtitle"><span id="stores-count">0</span> متجر شريك</div>
+    </div>
+    <div class="topbar-actions">
+      <button class="menu-toggle" id="menuBtn" onclick="toggleSidebar()" title="القائمة">☰</button>
+      <button class="theme-toggle" id="themeBtn" onclick="toggleTheme()" title="تبديل الوضع">🌙</button>
+      <button class="btn-primary" onclick="openAddStoreModal()">➕ <span class="btn-primary-label">متجر جديد</span></button>
+    </div>
+  </div>
+
+  <div class="card">
+    <div id="storesWrap"></div>
+  </div>
+</main>
+
+</div>
+
+<!-- ══════ MODAL: إضافة متجر جديد ══════ -->
+<div class="modal-overlay" id="addStoreOverlay">
+  <div class="modal-card" style="max-width:420px;">
+    <div class="modal-header">
+      <div class="modal-title">🏪 متجر شريك جديد</div>
+      <button type="button" class="modal-close" onclick="closeAddStoreModal()">✕</button>
+    </div>
+
+    <form id="storeForm" onsubmit="saveStore(event)">
+      <div class="modal-body">
+
+        <div class="modal-error" id="storeFormError"></div>
+
+        <div class="form-group">
+          <label>اسم المتجر</label>
+          <input type="text" id="sf-name" placeholder="مثال: سوبرماركت الأمانة" required />
+        </div>
+
+        <div class="form-group">
+          <label>رقم الهاتف</label>
+          <input type="tel" id="sf-phone" placeholder="07XXXXXXXX" required />
+        </div>
+
+        <div class="form-group">
+          <label>العنوان / الموقع</label>
+          <input type="text" id="sf-address" placeholder="مثال: جبل الحسين، شارع الجامعة" />
+        </div>
+
+        <div class="field-hint">🔑 رمز PIN من 4 أرقام رح يتولّد تلقائياً بعد الحفظ — هاد الرمز يستخدمه موظفي المتجر للدخول من تطبيق الزبون (زر "الدخول كتاجر").</div>
+
+      </div>
+
+      <div class="modal-footer">
+        <button type="button" class="btn-secondary" onclick="closeAddStoreModal()">إلغاء</button>
+        <button type="submit" class="btn-primary" id="sf-save-btn">حفظ المتجر ✓</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+  function toggleSidebar() {
+    document.getElementById('sidebar').classList.toggle('open');
+    document.getElementById('sidebarOverlay').classList.toggle('open');
+  }
+  function closeSidebar() {
+    document.getElementById('sidebar').classList.remove('open');
+    document.getElementById('sidebarOverlay').classList.remove('open');
+  }
+  document.addEventListener('DOMContentLoaded', () => {
+    document.querySelectorAll('.nav-item').forEach(item => {
+      item.addEventListener('click', () => { if (window.innerWidth <= 860) closeSidebar(); });
+    });
+  });
+  function toggleTheme() {
+    const body = document.body;
+    const btn  = document.getElementById('themeBtn');
+    body.classList.toggle('light');
+    btn.textContent = body.classList.contains('light') ? '🌙' : '☀️';
+    localStorage.setItem('akleto-theme', body.classList.contains('light') ? 'light' : 'dark');
+  }
+  if (localStorage.getItem('akleto-theme') === 'light') {
+    document.body.classList.add('light');
+    document.addEventListener('DOMContentLoaded', () => { document.getElementById('themeBtn').textContent = '🌙'; });
+  }
+</script>
+</body>
+</html>

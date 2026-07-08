@@ -68,6 +68,13 @@
   .topbar .greeting { font-size: 13px; color: var(--text30); }
   .topbar .greeting b { color: var(--text); }
   .topbar-logo { font-family:'Tajawal',sans-serif; font-weight:900; color: var(--primary); font-size: 20px; }
+  .icon-btn {
+    width:38px; height:38px; border-radius:50%; flex-shrink:0;
+    border:1.5px solid var(--border); background: var(--surface); color: var(--primary);
+    font-size:16px; display:flex; align-items:center; justify-content:center;
+    cursor:pointer; transition: background .15s ease;
+  }
+  .icon-btn:active { background: var(--border); }
 
   /* ═══ شبكة الوجبات ═══ */
   .section-title { font-size: 17px; font-weight: 800; padding: 6px 18px 12px; font-family:'Tajawal',sans-serif; }
@@ -264,7 +271,7 @@
   <div id="accountScreen" class="hidden">
     <div class="topbar">
       <div class="section-title" style="padding:0;">👤 حسابي</div>
-      <button onclick="logoutCustomer()" title="تسجيل خروج" style="background:none;border:none;color:var(--primary);font-size:20px;cursor:pointer;padding:6px;">⏻</button>
+      <button class="icon-btn" onclick="logoutCustomer()" title="تسجيل خروج">⏻</button>
     </div>
     <div style="padding: 0 18px;">
       <div style="background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:18px;margin-bottom:16px;">

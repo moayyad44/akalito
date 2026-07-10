@@ -11,7 +11,7 @@
 <link rel="stylesheet" href="admin-style.css?v=5">
 <script type="module">
 import {
-  db, auth, collection, getDocs, addDoc, deleteDoc, doc, serverTimestamp, getDocFromServer,
+  db, auth, collection, getDocs, addDoc, updateDoc, deleteDoc, doc, serverTimestamp, getDocFromServer,
   onAuthStateChanged, signInWithEmailAndPassword, signOut,
   uploadImage, withTimeout, MEASURE_TYPES
 } from "./firebase-init.js";
@@ -19,6 +19,7 @@ import {
 let ingredientsCache = [];
 let ingredientImageFile = null;
 let isSavingIngredient = false;
+let currentEditingIngredientId = null; // null = وضع إضافة، غير ذلك = وضع تعديل
 let knownIngredientCategories = ['vegetables','meat','dairy','spices','grains','other'];
 
 function showToast(message, isError) {
@@ -89,13 +90,13 @@ window.addEventListener('DOMContentLoaded', () => {
         ? `${ing.package_label || ''} = ${ing.package_qty || 0} ${mt.baseUnitLabel}${ing.price_per_package ? ' · ' + ing.price_per_package + ' د.أ' : ''}`
         : '';
       return `
-        <div class="ingredient-list-item">
+        <div class="ingredient-list-item" onclick="openEditIngredientModal('${ing.id}')" style="cursor:pointer;">
           ${thumb}
           <div class="ing-info">
             <div class="ing-name">${ing.name_ar || ''}</div>
             <div class="ing-meta">${catLabel} · ${packageInfo}</div>
           </div>
-          <button type="button" class="ing-remove" title="حذف المكوّن" onclick="deleteIngredient('${ing.id}')">✕</button>
+          <button type="button" class="ing-remove" title="حذف المكوّن" onclick="event.stopPropagation(); deleteIngredient('${ing.id}')">✕</button>
         </div>`;
     }).join('');
   }
@@ -107,6 +108,10 @@ window.addEventListener('DOMContentLoaded', () => {
       await withTimeout(deleteDoc(doc(db, 'ingredients', id)), 15000, 'انتهت مهلة الحذف — تأكد من الإنترنت');
       ingredientsCache = ingredientsCache.filter(i => i.id !== id);
       document.getElementById('ing-count').textContent = ingredientsCache.length;
+      if (currentEditingIngredientId === id) {
+        currentEditingIngredientId = null;
+        closeAddIngredientModal();
+      }
       renderIngredientsList();
       showToast('تم حذف المكوّن ✅');
     } catch(e) {
@@ -121,10 +126,13 @@ window.addEventListener('DOMContentLoaded', () => {
   }
 
   window.openAddIngredientModal = () => {
+    currentEditingIngredientId = null;
     ingredientImageFile = null;
     document.getElementById('ingredientForm').reset();
     document.getElementById('ingredientFormError').style.display = 'none';
     document.getElementById('if-image-preview').classList.remove('show');
+    document.getElementById('ingredientModalTitle').textContent = '🧅 إضافة مكوّن جديد';
+    document.getElementById('deleteIngredientBtn').style.display = 'none';
     const saveBtn = document.getElementById('if-save-btn');
     saveBtn.disabled = false;
     saveBtn.textContent = 'حفظ المكوّن ✓';
@@ -132,6 +140,39 @@ window.addEventListener('DOMContentLoaded', () => {
     updatePackageQtyLabel();
     document.getElementById('addIngredientOverlay').classList.add('open');
     lockBodyScroll();
+  };
+
+  window.openEditIngredientModal = (id) => {
+    const ing = ingredientsCache.find(i => i.id === id);
+    if (!ing) return;
+    currentEditingIngredientId = id;
+    ingredientImageFile = null;
+    document.getElementById('ingredientFormError').style.display = 'none';
+    document.getElementById('ingredientModalTitle').textContent = '✏️ تعديل: ' + (ing.name_ar || '');
+    document.getElementById('deleteIngredientBtn').style.display = 'inline-flex';
+
+    document.getElementById('if-name').value = ing.name_ar || '';
+    document.getElementById('if-measure-type').value = ing.measure_type || 'weight';
+    document.getElementById('if-category').value = ing.category || '';
+    document.getElementById('if-package-label').value = ing.package_label || '';
+    document.getElementById('if-package-qty').value = ing.package_qty || '';
+    document.getElementById('if-price').value = ing.price_per_package || '';
+    updatePackageQtyLabel();
+
+    const img = document.getElementById('if-image-preview');
+    if (ing.image_url) { img.src = ing.image_url; img.classList.add('show'); }
+    else { img.classList.remove('show'); }
+
+    const saveBtn = document.getElementById('if-save-btn');
+    saveBtn.disabled = false;
+    saveBtn.textContent = 'حفظ التعديلات ✓';
+    populateCategoryList();
+    document.getElementById('addIngredientOverlay').classList.add('open');
+    lockBodyScroll();
+  };
+
+  window.deleteCurrentIngredient = () => {
+    if (currentEditingIngredientId) deleteIngredient(currentEditingIngredientId);
   };
 
   function updatePackageQtyLabel() {
@@ -143,6 +184,7 @@ window.addEventListener('DOMContentLoaded', () => {
   window.closeAddIngredientModal = () => {
     document.getElementById('addIngredientOverlay').classList.remove('open');
     unlockBodyScroll();
+    currentEditingIngredientId = null;
   };
 
   window.previewIngredientImage = (ev) => {
@@ -189,7 +231,9 @@ window.addEventListener('DOMContentLoaded', () => {
     saveBtn.textContent = 'جاري الحفظ...';
 
     try {
-      let image_url = '';
+      let image_url = currentEditingIngredientId
+        ? (ingredientsCache.find(i => i.id === currentEditingIngredientId) || {}).image_url || ''
+        : '';
       let imageWarning = false;
       if (ingredientImageFile) {
         try {
@@ -200,30 +244,50 @@ window.addEventListener('DOMContentLoaded', () => {
         }
       }
 
-      const newRef = await withTimeout(
-        addDoc(collection(db, 'ingredients'), {
-          name_ar, measure_type, category, package_label, package_qty, price_per_package, image_url,
-          is_active: true,
-          created_at: serverTimestamp()
-        }),
-        15000, 'انتهت مهلة الحفظ — تأكد من الإنترنت'
-      );
+      const ingredientData = { name_ar, measure_type, category, package_label, package_qty, price_per_package, image_url };
 
-      // addDoc() نفسه ما بيتحل إلا بعد تأكيد فايرستور للكتابة — من هون المكوّن
-      // محفوظ فعلياً. التحقق التالي بونص بس، فشله ما يعني فشل الحفظ.
-      try {
-        await withTimeout(getDocFromServer(newRef), 8000, 'verify-timeout');
-      } catch(verifyErr) {
-        console.warn('ingredient verify (non-fatal)', verifyErr);
+      if (currentEditingIngredientId) {
+        // ═══ وضع التعديل ═══
+        const ingId = currentEditingIngredientId;
+        await withTimeout(
+          updateDoc(doc(db, 'ingredients', ingId), ingredientData),
+          15000, 'انتهت مهلة الحفظ — تأكد من الإنترنت'
+        );
+        const idx = ingredientsCache.findIndex(i => i.id === ingId);
+        if (idx > -1) ingredientsCache[idx] = { ...ingredientsCache[idx], ...ingredientData };
+        if (category && !knownIngredientCategories.includes(category)) knownIngredientCategories.push(category);
+        document.getElementById('ing-count').textContent = ingredientsCache.length;
+
+        closeAddIngredientModal();
+        showToast(imageWarning ? 'تم حفظ التعديلات ✅ (بدون صورة جديدة — تحقق من إعدادات Storage)' : 'تم حفظ التعديلات بنجاح ✅');
+        renderIngredientsList();
+      } else {
+        // ═══ وضع الإضافة ═══
+        const newRef = await withTimeout(
+          addDoc(collection(db, 'ingredients'), {
+            ...ingredientData,
+            is_active: true,
+            created_at: serverTimestamp()
+          }),
+          15000, 'انتهت مهلة الحفظ — تأكد من الإنترنت'
+        );
+
+        // addDoc() نفسه ما بيتحل إلا بعد تأكيد فايرستور للكتابة — من هون المكوّن
+        // محفوظ فعلياً. التحقق التالي بونص بس، فشله ما يعني فشل الحفظ.
+        try {
+          await withTimeout(getDocFromServer(newRef), 8000, 'verify-timeout');
+        } catch(verifyErr) {
+          console.warn('ingredient verify (non-fatal)', verifyErr);
+        }
+
+        ingredientsCache.push({ id: newRef.id, ...ingredientData, is_active: true });
+        if (category && !knownIngredientCategories.includes(category)) knownIngredientCategories.push(category);
+        document.getElementById('ing-count').textContent = ingredientsCache.length;
+
+        closeAddIngredientModal();
+        showToast(imageWarning ? 'تم حفظ المكوّن ✅ (بدون صورة — تحقق من إعدادات Storage)' : 'تم حفظ المكوّن بنجاح ✅');
+        renderIngredientsList();
       }
-
-      ingredientsCache.push({ id: newRef.id, name_ar, measure_type, category, package_label, package_qty, price_per_package, image_url, is_active: true });
-      if (category && !knownIngredientCategories.includes(category)) knownIngredientCategories.push(category);
-      document.getElementById('ing-count').textContent = ingredientsCache.length;
-
-      closeAddIngredientModal();
-      showToast(imageWarning ? 'تم حفظ المكوّن ✅ (بدون صورة — تحقق من إعدادات Storage)' : 'تم حفظ المكوّن بنجاح ✅');
-      renderIngredientsList();
     } catch(e) {
       console.error('save ingredient error', e);
       let msg = 'صار خطأ بالحفظ — جرب مرة ثانية';
@@ -236,7 +300,7 @@ window.addEventListener('DOMContentLoaded', () => {
     } finally {
       isSavingIngredient = false;
       saveBtn.disabled = false;
-      saveBtn.textContent = 'حفظ المكوّن ✓';
+      saveBtn.textContent = currentEditingIngredientId ? 'حفظ التعديلات ✓' : 'حفظ المكوّن ✓';
     }
   };
 
@@ -345,7 +409,7 @@ window.addEventListener('DOMContentLoaded', () => {
 <div class="modal-overlay" id="addIngredientOverlay">
   <div class="modal-card" style="max-width:420px;">
     <div class="modal-header">
-      <div class="modal-title">🧅 إضافة مكوّن جديد</div>
+      <div class="modal-title" id="ingredientModalTitle">🧅 إضافة مكوّن جديد</div>
       <button type="button" class="modal-close" onclick="closeAddIngredientModal()">✕</button>
     </div>
 
@@ -404,9 +468,12 @@ window.addEventListener('DOMContentLoaded', () => {
 
       </div>
 
-      <div class="modal-footer">
-        <button type="button" class="btn-secondary" onclick="closeAddIngredientModal()">إلغاء</button>
-        <button type="submit" class="btn-primary" id="if-save-btn">حفظ المكوّن ✓</button>
+      <div class="modal-footer" style="justify-content:space-between;">
+        <button type="button" class="btn-secondary" id="deleteIngredientBtn" style="display:none;color:#D9534F;" onclick="deleteCurrentIngredient()">🗑️ حذف المكوّن</button>
+        <div style="display:flex;gap:10px;margin-right:auto;">
+          <button type="button" class="btn-secondary" onclick="closeAddIngredientModal()">إلغاء</button>
+          <button type="submit" class="btn-primary" id="if-save-btn">حفظ المكوّن ✓</button>
+        </div>
       </div>
     </form>
   </div>

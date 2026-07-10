@@ -89,7 +89,7 @@ window.addEventListener('DOMContentLoaded', () => {
           ${thumb}
           <div class="ing-info">
             <div class="ing-name">${ing.name_ar || ''}</div>
-            <div class="ing-meta">${catLabel} · ${ing.unit || ''}${ing.price_per_unit ? ' · ' + ing.price_per_unit + ' د.أ' : ''}${ing.min_purchase_qty ? ' · 📦 أصغر شراء: ' + ing.min_purchase_qty + ' ' + (ing.unit||'') : ''}</div>
+            <div class="ing-meta">${catLabel} · ${ing.unit || ''}${ing.price_per_unit ? ' · ' + ing.price_per_unit + ' د.أ' : ''}</div>
           </div>
           <button type="button" class="ing-remove" title="حذف المكوّن" onclick="deleteIngredient('${ing.id}')">✕</button>
         </div>`;
@@ -153,7 +153,6 @@ window.addEventListener('DOMContentLoaded', () => {
     const unit         = document.getElementById('if-unit').value;
     const category      = document.getElementById('if-category').value;
     const price_per_unit = parseFloat(document.getElementById('if-price').value) || 0;
-    const min_purchase_qty = parseFloat(document.getElementById('if-min-purchase').value) || 0;
 
     if (!name_ar) {
       errBox.textContent = 'لازم تكتب اسم المكوّن';
@@ -180,7 +179,7 @@ window.addEventListener('DOMContentLoaded', () => {
 
       const newRef = await withTimeout(
         addDoc(collection(db, 'ingredients'), {
-          name_ar, unit, category, price_per_unit, min_purchase_qty, image_url,
+          name_ar, unit, category, price_per_unit, image_url,
           is_active: true,
           created_at: serverTimestamp()
         }),
@@ -195,7 +194,7 @@ window.addEventListener('DOMContentLoaded', () => {
         console.warn('ingredient verify (non-fatal)', verifyErr);
       }
 
-      ingredientsCache.push({ id: newRef.id, name_ar, unit, category, price_per_unit, min_purchase_qty, image_url, is_active: true });
+      ingredientsCache.push({ id: newRef.id, name_ar, unit, category, price_per_unit, image_url, is_active: true });
       if (category && !knownIngredientCategories.includes(category)) knownIngredientCategories.push(category);
       document.getElementById('ing-count').textContent = ingredientsCache.length;
 
@@ -334,7 +333,7 @@ window.addEventListener('DOMContentLoaded', () => {
 
         <div class="form-group">
           <label>اسم المكوّن</label>
-          <input type="text" id="if-name" placeholder="مثال: بصل" required />
+          <input type="text" id="if-name" placeholder="مثال: بصل — أو لمنتج معلّب: شنينة نص لتر" required />
         </div>
 
         <div class="form-row" style="grid-template-columns:1fr 1fr;">
@@ -346,10 +345,14 @@ window.addEventListener('DOMContentLoaded', () => {
               <option value="ml">مل (ml)</option>
               <option value="l">لتر (l)</option>
               <option value="حبة">حبة</option>
+              <option value="علبة">علبة</option>
+              <option value="كيس">كيس</option>
+              <option value="كرتونة">كرتونة</option>
               <option value="tbsp">معلقة كبيرة</option>
               <option value="tsp">معلقة صغيرة</option>
               <option value="cup">كوب</option>
             </select>
+            <div class="field-hint">📦 منتج مغلّف (شنينة، معلبات...): اختر علبة/كيس/كرتونة. 🌾 مواد سائبة تنباع بالوزن (خضار، بهارات...): اختر غرام/كيلو/مل/لتر.</div>
           </div>
           <div class="form-group">
             <label>التصنيف (اختر أو اكتب تصنيف جديد)</label>
@@ -361,12 +364,6 @@ window.addEventListener('DOMContentLoaded', () => {
         <div class="form-group">
           <label>سعر تقريبي للوحدة (د.أ) — اختياري</label>
           <input type="number" id="if-price" min="0" step="0.01" placeholder="0.50" />
-        </div>
-
-        <div class="form-group">
-          <label>أصغر كمية تُباع بالسوق — اختياري</label>
-          <input type="number" id="if-min-purchase" min="0" step="0.01" placeholder="مثال: 1000 (لو الوحدة غرام يعني أصغر كيس 1 كغم)" />
-          <div class="field-hint">📦 لو الوجبة بتحتاج كمية أقل من هاي (متل رشة سكر)، الزبون رح يشتري أصغر كمية متوفرة كاملة مع توضيح بالسلة. سيبها فاضية لو ما في حد أدنى للشراء.</div>
         </div>
 
         <div class="form-group">

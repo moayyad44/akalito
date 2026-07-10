@@ -848,7 +848,7 @@
 
   .ing-row {
     display: grid;
-    grid-template-columns: 1fr 90px 40px 32px;
+    grid-template-columns: 1fr 70px 118px 32px;
     gap: 8px;
     align-items: center;
     margin-bottom: 8px;
@@ -1089,8 +1089,8 @@
 
     .form-row { grid-template-columns: 1fr; gap: 12px; }
     .modal-card { max-height: 95vh; max-height: 95dvh; border-radius: 16px; }
-    .ing-row { grid-template-columns: 1fr 70px 32px; }
-    .ing-unit { display: none; }
+    .ing-row { grid-template-columns: 1fr 70px 32px; grid-template-rows: auto auto; row-gap: 6px; }
+    .ing-row select { grid-column: 1 / -1; }
   }
 
   /* ── موبايل صغير ── */

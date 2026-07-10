@@ -710,7 +710,7 @@ function renderMealsGrid() {
 function getMealIngredients(mealId) {
   return mealIngredientsCache.filter(l => l.meal_id === mealId).map(l => {
     const ing = ingredientsCache.find(i => i.id === l.ingredient_id) || {};
-    return { ingredientId: l.ingredient_id, name: ing.name_ar || '؟', unit: ing.unit || '', qtyPerPerson: l.quantity_per_person || 0, pricePerUnit: ing.price_per_unit || 0, minPurchaseQty: ing.min_purchase_qty || 0 };
+    return { ingredientId: l.ingredient_id, name: ing.name_ar || '؟', unit: ing.unit || '', qtyPerPerson: l.quantity_per_person || 0, pricePerUnit: ing.price_per_unit || 0 };
   });
 }
 
@@ -809,25 +809,25 @@ window.removeMealFromCart = (mealId) => {
   renderMealsGrid();
 };
 
+// وحدات "قطعة كاملة" ما بتنباع مجزّأة (علبة/كيس/كرتونة/حبة) — أي كمية منها لازم تترقّى لأقرب عدد صحيح.
+// وحدات الوزن/الحجم السائبة (غرام/كيلو/مل/لتر/معالق/كوب) تُشترى بالكمية المضبوطة متل ما هي.
+const DISCRETE_PACKAGE_UNITS = ['حبة', 'علبة', 'كيس', 'كرتونة'];
+
 function computeMergedIngredients() {
-  const merged = {}; // ingredientId -> {name, unit, qty, pricePerUnit, minPurchaseQty}
+  const merged = {}; // ingredientId -> {name, unit, qty, pricePerUnit}
   selectedMeals.forEach(sel => {
     getMealIngredients(sel.mealId).forEach(ing => {
       const totalQty = ing.qtyPerPerson * sel.servings;
       if (!merged[ing.ingredientId]) {
-        merged[ing.ingredientId] = { name: ing.name, unit: ing.unit, qty: 0, pricePerUnit: ing.pricePerUnit, minPurchaseQty: ing.minPurchaseQty || 0 };
+        merged[ing.ingredientId] = { name: ing.name, unit: ing.unit, qty: 0, pricePerUnit: ing.pricePerUnit };
       }
       merged[ing.ingredientId].qty += totalQty;
     });
   });
-  // نحسب "كمية الشراء الفعلية" لكل مكوّن: لو في حد أدنى للشراء بالسوق ونحتاج أقل منه (أو كمية مو مضاعف صحيح له)،
-  // نقرّب لأعلى مضاعف كامل من الحد الأدنى — هاي الكمية اللي فعلياً رح تنشترى وتوصل للزبون.
+  // "كمية الشراء الفعلية": للمنتجات المغلّفة (علبة/كيس/كرتونة/حبة) بنقرّب لأقرب عدد صحيح فوق —
+  // ما ينشترى نص علبة. للمواد السائبة (وزن/حجم) الكمية المضبوطة هي اللي تُشترى.
   Object.values(merged).forEach(e => {
-    if (e.minPurchaseQty > 0) {
-      e.purchaseQty = Math.ceil(e.qty / e.minPurchaseQty) * e.minPurchaseQty;
-    } else {
-      e.purchaseQty = e.qty;
-    }
+    e.purchaseQty = DISCRETE_PACKAGE_UNITS.includes(e.unit) ? Math.ceil(e.qty) : e.qty;
   });
   return merged;
 }

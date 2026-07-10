@@ -188,14 +188,13 @@ window.addEventListener('DOMContentLoaded', () => {
     document.getElementById('sheetMeals').innerHTML = mealsHtml;
 
     const ingHtml = (o.merged_ingredients || []).map(ing => {
-      const buyQty = (ing.purchase_quantity != null) ? ing.purchase_quantity : ing.quantity;
-      const roundedNote = (ing.purchase_quantity != null && ing.purchase_quantity > ing.quantity)
-        ? `<div class="ord-empty" style="padding:0 0 6px;font-size:11px;">(الوصفة تحتاج ${ing.quantity} ${ing.unit || ''} فقط — أصغر كمية بالسوق)</div>`
+      const note = (ing.base_qty_needed != null)
+        ? `<div class="ord-empty" style="padding:0 0 6px;font-size:11px;">(الوصفة تحتاج تقريبًا ${ing.base_qty_needed} ${ing.base_unit_label || ''})</div>`
         : '';
       return `<div class="receipt-row">
          <span>${ing.name}</span>
-         <span class="mono">${buyQty} ${ing.unit || ''}</span>
-       </div>${roundedNote}`;
+         <span class="mono">${ing.purchase_quantity} ${ing.package_label || ''}</span>
+       </div>${note}`;
     }).join('') || '<div class="ord-empty" style="padding:8px 0;">لا توجد مكونات</div>';
     document.getElementById('sheetIngredients').innerHTML = ingHtml;
 

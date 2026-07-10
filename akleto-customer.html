@@ -164,6 +164,10 @@
   }
   .ing-preview-item:last-child { border-bottom:none; }
   .ing-preview-item .amt { color: var(--text30); font-size:12.5px; }
+  .ing-preview-note {
+    font-size: 11.5px; color: var(--secondary); background: rgba(245,166,91,.12);
+    border-radius: 8px; padding: 6px 10px; margin: -4px 0 8px; line-height:1.5;
+  }
 
   /* ═══ Bottom Nav ═══ */
   .bottom-nav {
@@ -706,7 +710,7 @@ function renderMealsGrid() {
 function getMealIngredients(mealId) {
   return mealIngredientsCache.filter(l => l.meal_id === mealId).map(l => {
     const ing = ingredientsCache.find(i => i.id === l.ingredient_id) || {};
-    return { ingredientId: l.ingredient_id, name: ing.name_ar || '؟', unit: ing.unit || '', qtyPerPerson: l.quantity_per_person || 0, pricePerUnit: ing.price_per_unit || 0 };
+    return { ingredientId: l.ingredient_id, name: ing.name_ar || '؟', unit: ing.unit || '', qtyPerPerson: l.quantity_per_person || 0, pricePerUnit: ing.price_per_unit || 0, minPurchaseQty: ing.min_purchase_qty || 0 };
   });
 }
 
@@ -806,15 +810,24 @@ window.removeMealFromCart = (mealId) => {
 };
 
 function computeMergedIngredients() {
-  const merged = {}; // ingredientId -> {name, unit, qty, pricePerUnit}
+  const merged = {}; // ingredientId -> {name, unit, qty, pricePerUnit, minPurchaseQty}
   selectedMeals.forEach(sel => {
     getMealIngredients(sel.mealId).forEach(ing => {
       const totalQty = ing.qtyPerPerson * sel.servings;
       if (!merged[ing.ingredientId]) {
-        merged[ing.ingredientId] = { name: ing.name, unit: ing.unit, qty: 0, pricePerUnit: ing.pricePerUnit };
+        merged[ing.ingredientId] = { name: ing.name, unit: ing.unit, qty: 0, pricePerUnit: ing.pricePerUnit, minPurchaseQty: ing.minPurchaseQty || 0 };
       }
       merged[ing.ingredientId].qty += totalQty;
     });
+  });
+  // نحسب "كمية الشراء الفعلية" لكل مكوّن: لو في حد أدنى للشراء بالسوق ونحتاج أقل منه (أو كمية مو مضاعف صحيح له)،
+  // نقرّب لأعلى مضاعف كامل من الحد الأدنى — هاي الكمية اللي فعلياً رح تنشترى وتوصل للزبون.
+  Object.values(merged).forEach(e => {
+    if (e.minPurchaseQty > 0) {
+      e.purchaseQty = Math.ceil(e.qty / e.minPurchaseQty) * e.minPurchaseQty;
+    } else {
+      e.purchaseQty = e.qty;
+    }
   });
   return merged;
 }
@@ -849,9 +862,13 @@ function renderCartScreen() {
   const entries = Object.values(merged);
   let totalPrice = 0;
   const rows = entries.map(e => {
-    const lineTotal = e.qty * (e.pricePerUnit || 0);
+    const lineTotal = e.purchaseQty * (e.pricePerUnit || 0);
     totalPrice += lineTotal;
-    return `<div class="ing-preview-item"><span>${e.name}</span><span class="amt">${formatQty(e.qty)} ${e.unit}</span></div>`;
+    const roundedUp = e.purchaseQty > e.qty;
+    const note = roundedUp
+      ? `<div class="ing-preview-note">🧾 الوصفة تحتاج ${formatQty(e.qty)} ${e.unit} بس — أصغر كمية متوفرة بالسوق ${formatQty(e.purchaseQty)} ${e.unit}، رح توصلك كاملة وتقدر تستخدم الباقي بوجبات جاية</div>`
+      : '';
+    return `<div class="ing-preview-item"><span>${e.name}</span><span class="amt">${formatQty(e.purchaseQty)} ${e.unit}</span></div>${note}`;
   }).join('');
 
   mergedWrap.innerHTML = `
@@ -877,9 +894,10 @@ window.placeOrder = async () => {
   try {
     const merged = computeMergedIngredients();
     const mergedArray = Object.entries(merged).map(([ingredientId, v]) => ({
-      ingredient_id: ingredientId, name: v.name, unit: v.unit, quantity: v.qty
+      ingredient_id: ingredientId, name: v.name, unit: v.unit,
+      quantity: v.qty, purchase_quantity: v.purchaseQty
     }));
-    const totalPrice = Object.values(merged).reduce((sum, e) => sum + e.qty * (e.pricePerUnit || 0), 0);
+    const totalPrice = Object.values(merged).reduce((sum, e) => sum + e.purchaseQty * (e.pricePerUnit || 0), 0);
 
     await withTimeout(
       addDoc(collection(db, 'orders'), {

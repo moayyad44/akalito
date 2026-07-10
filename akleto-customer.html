@@ -414,7 +414,8 @@
 
 <script type="module">
 import {
-  db, collection, getDocs, addDoc, doc, updateDoc, query, where, serverTimestamp, withTimeout
+  db, collection, getDocs, addDoc, doc, updateDoc, query, where, serverTimestamp, withTimeout,
+  MEASURE_TYPES, convertToBase
 } from "./firebase-init.js";
 
 let mealsCache = [];
@@ -710,7 +711,17 @@ function renderMealsGrid() {
 function getMealIngredients(mealId) {
   return mealIngredientsCache.filter(l => l.meal_id === mealId).map(l => {
     const ing = ingredientsCache.find(i => i.id === l.ingredient_id) || {};
-    return { ingredientId: l.ingredient_id, name: ing.name_ar || '؟', unit: ing.unit || '', qtyPerPerson: l.quantity_per_person || 0, pricePerUnit: ing.price_per_unit || 0 };
+    const recipeUnit = l.recipe_unit || '';
+    const recipeQtyPerPerson = l.recipe_qty || 0;
+    const baseQtyPerPerson = convertToBase(ing.measure_type, recipeUnit, recipeQtyPerPerson);
+    return {
+      ingredientId: l.ingredient_id,
+      name: ing.name_ar || '؟',
+      measureType: ing.measure_type,
+      recipeUnit, recipeQtyPerPerson, baseQtyPerPerson,
+      packageLabel: ing.package_label || '', packageQty: ing.package_qty || 0,
+      pricePerPackage: ing.price_per_package || 0
+    };
   });
 }
 
@@ -752,8 +763,8 @@ function renderSheetServings() {
     return;
   }
   wrap.innerHTML = ings.map(ing => {
-    const total = (ing.qtyPerPerson * currentSheetServings);
-    return `<div class="ing-preview-item"><span>${ing.name}</span><span class="amt">${formatQty(total)} ${ing.unit}</span></div>`;
+    const total = (ing.recipeQtyPerPerson * currentSheetServings);
+    return `<div class="ing-preview-item"><span>${ing.name}</span><span class="amt">${formatQty(total)} ${ing.recipeUnit}</span></div>`;
   }).join('');
 }
 
@@ -809,25 +820,25 @@ window.removeMealFromCart = (mealId) => {
   renderMealsGrid();
 };
 
-// وحدات "قطعة كاملة" ما بتنباع مجزّأة (علبة/كيس/كرتونة/حبة) — أي كمية منها لازم تترقّى لأقرب عدد صحيح.
-// وحدات الوزن/الحجم السائبة (غرام/كيلو/مل/لتر/معالق/كوب) تُشترى بالكمية المضبوطة متل ما هي.
-const DISCRETE_PACKAGE_UNITS = ['حبة', 'علبة', 'كيس', 'كرتونة'];
-
 function computeMergedIngredients() {
-  const merged = {}; // ingredientId -> {name, unit, qty, pricePerUnit}
+  const merged = {}; // ingredientId -> {name, measureType, packageLabel, packageQty, pricePerPackage, baseQty}
   selectedMeals.forEach(sel => {
     getMealIngredients(sel.mealId).forEach(ing => {
-      const totalQty = ing.qtyPerPerson * sel.servings;
+      const totalBase = ing.baseQtyPerPerson * sel.servings;
       if (!merged[ing.ingredientId]) {
-        merged[ing.ingredientId] = { name: ing.name, unit: ing.unit, qty: 0, pricePerUnit: ing.pricePerUnit };
+        merged[ing.ingredientId] = {
+          name: ing.name, measureType: ing.measureType,
+          packageLabel: ing.packageLabel, packageQty: ing.packageQty,
+          pricePerPackage: ing.pricePerPackage, baseQty: 0
+        };
       }
-      merged[ing.ingredientId].qty += totalQty;
+      merged[ing.ingredientId].baseQty += totalBase;
     });
   });
-  // "كمية الشراء الفعلية": للمنتجات المغلّفة (علبة/كيس/كرتونة/حبة) بنقرّب لأقرب عدد صحيح فوق —
-  // ما ينشترى نص علبة. للمواد السائبة (وزن/حجم) الكمية المضبوطة هي اللي تُشترى.
+  // كل مكوّن بينشترى بعدد صحيح من العبوات (كيس/علبة/حبة) — ما ينشترى نص عبوة.
+  // نقرّب لأعلى عدد عبوات كافي لتغطية إجمالي الكمية المطلوبة من كل الوجبات بالطلب.
   Object.values(merged).forEach(e => {
-    e.purchaseQty = DISCRETE_PACKAGE_UNITS.includes(e.unit) ? Math.ceil(e.qty) : e.qty;
+    e.purchaseQty = e.packageQty > 0 ? Math.ceil(e.baseQty / e.packageQty) : 1;
   });
   return merged;
 }
@@ -862,13 +873,16 @@ function renderCartScreen() {
   const entries = Object.values(merged);
   let totalPrice = 0;
   const rows = entries.map(e => {
-    const lineTotal = e.purchaseQty * (e.pricePerUnit || 0);
+    const lineTotal = e.purchaseQty * (e.pricePerPackage || 0);
     totalPrice += lineTotal;
-    const roundedUp = e.purchaseQty > e.qty;
+    const mt = MEASURE_TYPES[e.measureType];
+    const baseLabel = mt ? mt.baseUnitLabel : '';
+    const purchasedBase = e.purchaseQty * e.packageQty;
+    const roundedUp = purchasedBase > e.baseQty + 0.001;
     const note = roundedUp
-      ? `<div class="ing-preview-note">🧾 الوصفة تحتاج ${formatQty(e.qty)} ${e.unit} بس — أصغر كمية متوفرة بالسوق ${formatQty(e.purchaseQty)} ${e.unit}، رح توصلك كاملة وتقدر تستخدم الباقي بوجبات جاية</div>`
+      ? `<div class="ing-preview-note">🧾 الوصفة تحتاج تقريبًا ${formatQty(e.baseQty)} ${baseLabel} — رح تشتري ${e.purchaseQty} ${e.packageLabel} (${formatQty(purchasedBase)} ${baseLabel}) وتقدر تستخدم الباقي بوجبات جاية</div>`
       : '';
-    return `<div class="ing-preview-item"><span>${e.name}</span><span class="amt">${formatQty(e.purchaseQty)} ${e.unit}</span></div>${note}`;
+    return `<div class="ing-preview-item"><span>${e.name}</span><span class="amt">${e.purchaseQty} ${e.packageLabel}</span></div>${note}`;
   }).join('');
 
   mergedWrap.innerHTML = `
@@ -894,10 +908,12 @@ window.placeOrder = async () => {
   try {
     const merged = computeMergedIngredients();
     const mergedArray = Object.entries(merged).map(([ingredientId, v]) => ({
-      ingredient_id: ingredientId, name: v.name, unit: v.unit,
-      quantity: v.qty, purchase_quantity: v.purchaseQty
+      ingredient_id: ingredientId, name: v.name,
+      package_label: v.packageLabel, purchase_quantity: v.purchaseQty,
+      base_qty_needed: Math.round(v.baseQty * 100) / 100,
+      base_unit_label: (MEASURE_TYPES[v.measureType] || {}).baseUnitLabel || ''
     }));
-    const totalPrice = Object.values(merged).reduce((sum, e) => sum + e.purchaseQty * (e.pricePerUnit || 0), 0);
+    const totalPrice = Object.values(merged).reduce((sum, e) => sum + e.purchaseQty * (e.pricePerPackage || 0), 0);
 
     await withTimeout(
       addDoc(collection(db, 'orders'), {

@@ -13,7 +13,7 @@
 import {
   db, auth, collection, getDocs, query, where, addDoc, updateDoc, deleteDoc,
   writeBatch, doc, serverTimestamp, getDocFromServer,
-  onAuthStateChanged, signOut, uploadImage, withTimeout
+  onAuthStateChanged, signOut, uploadImage, withTimeout, MEASURE_TYPES
 } from "./firebase-init.js";
 
 let mealsCache = [];
@@ -144,7 +144,8 @@ window.addEventListener('DOMContentLoaded', () => {
       mealIngredientRows = snap.docs.map(d => ({
         linkId: d.id,
         ingredientId: d.data().ingredient_id,
-        qty: d.data().quantity_per_person
+        recipeUnit: d.data().recipe_unit,
+        recipeQty: d.data().recipe_qty
       }));
     } catch(e) {
       console.error('load meal_ingredients error', e);
@@ -197,7 +198,10 @@ window.addEventListener('DOMContentLoaded', () => {
       alert('ما في مكونات مضافة بقاعدة البيانات بعد — ضيف مكونات أول من صفحة المكونات.');
       return;
     }
-    mealIngredientRows.push({ ingredientId: ingredientsCache[0].id, qty: 1 });
+    const firstIng = ingredientsCache[0];
+    const mt = MEASURE_TYPES[firstIng.measure_type];
+    const defaultUnit = mt ? Object.keys(mt.recipeUnits)[0] : '';
+    mealIngredientRows.push({ ingredientId: firstIng.id, recipeUnit: defaultUnit, recipeQty: 1 });
     renderIngredientRows();
   };
 
@@ -207,17 +211,25 @@ window.addEventListener('DOMContentLoaded', () => {
   };
 
   window.updateIngredientRow = (idx, field, value) => {
-    mealIngredientRows[idx][field] = field === 'qty' ? parseFloat(value)||0 : value;
+    mealIngredientRows[idx][field] = field === 'recipeQty' ? (parseFloat(value)||0) : value;
   };
 
   window.updateIngredientRowByName = (idx, name) => {
     const match = ingredientsCache.find(ing => (ing.name_ar || '').trim() === name.trim());
-    const unitSpan = document.getElementById('ing-unit-' + idx);
+    const unitSelect = document.getElementById('ing-unit-' + idx);
     if (match) {
       mealIngredientRows[idx].ingredientId = match.id;
-      if (unitSpan) unitSpan.textContent = match.unit || '';
-    } else if (unitSpan) {
-      unitSpan.textContent = '—';
+      const mt = MEASURE_TYPES[match.measure_type];
+      const units = mt ? Object.keys(mt.recipeUnits) : [];
+      const currentUnit = mealIngredientRows[idx].recipeUnit;
+      if (!units.includes(currentUnit)) mealIngredientRows[idx].recipeUnit = units[0] || '';
+      if (unitSelect) {
+        unitSelect.innerHTML = units.map(u => `<option value="${u}"${u === mealIngredientRows[idx].recipeUnit ? ' selected' : ''}>${u}</option>`).join('') || '<option value="">—</option>';
+        unitSelect.disabled = false;
+      }
+    } else {
+      mealIngredientRows[idx].ingredientId = null;
+      if (unitSelect) { unitSelect.innerHTML = '<option value="">—</option>'; unitSelect.disabled = true; }
     }
   };
 
@@ -239,13 +251,18 @@ window.addEventListener('DOMContentLoaded', () => {
     }
     wrap.innerHTML = mealIngredientRows.map((row, idx) => {
       const ing = ingredientsCache.find(i => i.id === row.ingredientId) || {};
+      const mt = MEASURE_TYPES[ing.measure_type];
+      const units = mt ? Object.keys(mt.recipeUnits) : [];
+      const unitOptions = units.length
+        ? units.map(u => `<option value="${u}"${u === row.recipeUnit ? ' selected' : ''}>${u}</option>`).join('')
+        : '<option value="">—</option>';
       return `
         <div class="ing-row">
           <input type="text" list="ingredientNamesList" value="${ing.name_ar || ''}" placeholder="اكتب اسم المكوّن..."
                  oninput="updateIngredientRowByName(${idx}, this.value)" />
-          <input type="number" min="0" step="0.01" value="${row.qty}" placeholder="الكمية للشخص الواحد"
-                 onchange="updateIngredientRow(${idx},'qty',this.value)" />
-          <span class="ing-unit" id="ing-unit-${idx}">${ing.unit || ''}</span>
+          <input type="number" min="0" step="0.25" value="${row.recipeQty}" placeholder="الكمية"
+                 onchange="updateIngredientRow(${idx},'recipeQty',this.value)" />
+          <select id="ing-unit-${idx}" ${units.length ? '' : 'disabled'} onchange="updateIngredientRow(${idx},'recipeUnit',this.value)">${unitOptions}</select>
           <button type="button" class="ing-remove" onclick="removeIngredientRow(${idx})">✕</button>
         </div>`;
     }).join('');
@@ -333,7 +350,7 @@ window.addEventListener('DOMContentLoaded', () => {
         oldLinksSnap.docs.forEach(d => batch.delete(d.ref));
         mealIngredientRows.forEach(row => {
           const linkRef = doc(collection(db, 'meal_ingredients'));
-          batch.set(linkRef, { meal_id: mealId, ingredient_id: row.ingredientId, quantity_per_person: row.qty });
+          batch.set(linkRef, { meal_id: mealId, ingredient_id: row.ingredientId, recipe_unit: row.recipeUnit, recipe_qty: row.recipeQty });
         });
         await withTimeout(batch.commit(), 20000, 'انتهت مهلة الحفظ — تأكد من الإنترنت');
 
@@ -349,7 +366,7 @@ window.addEventListener('DOMContentLoaded', () => {
         const batch = writeBatch(db);
         mealIngredientRows.forEach(row => {
           const linkRef = doc(collection(db, 'meal_ingredients'));
-          batch.set(linkRef, { meal_id: mealId, ingredient_id: row.ingredientId, quantity_per_person: row.qty });
+          batch.set(linkRef, { meal_id: mealId, ingredient_id: row.ingredientId, recipe_unit: row.recipeUnit, recipe_qty: row.recipeQty });
         });
         await withTimeout(batch.commit(), 20000, 'انتهت مهلة الحفظ — تأكد من الإنترنت');
         mealsCache.push({ id: mealId, ...mealData, order_count: 0 });
@@ -514,12 +531,13 @@ window.addEventListener('DOMContentLoaded', () => {
         </div>
 
         <div class="form-group">
-          <label>المكونات — الكمية للشخص الواحد (خوارزمية الدمج الذكي بتستخدمها)</label>
+          <label>المكونات — اختر المكوّن، وحدة المقدار، والكمية للشخص الواحد</label>
           <div id="ingredientRows"></div>
           <datalist id="ingredientNamesList"></datalist>
           <div class="ing-actions-row">
             <button type="button" class="btn-add-ing" onclick="addIngredientRow()">➕ ضيف مكوّن</button>
           </div>
+          <div class="field-hint">مثال: ملح — رشة × 1. زيت — معلقة كبيرة × 2. وحدات المقدار بتتغير تلقائياً حسب نوع قياس المكوّن.</div>
         </div>
 
       </div>

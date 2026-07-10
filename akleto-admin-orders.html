@@ -187,12 +187,16 @@ window.addEventListener('DOMContentLoaded', () => {
     ).join('') || '<div class="ord-empty" style="padding:8px 0;">لا توجد عناصر</div>';
     document.getElementById('sheetMeals').innerHTML = mealsHtml;
 
-    const ingHtml = (o.merged_ingredients || []).map(ing =>
-      `<div class="receipt-row">
+    const ingHtml = (o.merged_ingredients || []).map(ing => {
+      const buyQty = (ing.purchase_quantity != null) ? ing.purchase_quantity : ing.quantity;
+      const roundedNote = (ing.purchase_quantity != null && ing.purchase_quantity > ing.quantity)
+        ? `<div class="ord-empty" style="padding:0 0 6px;font-size:11px;">(الوصفة تحتاج ${ing.quantity} ${ing.unit || ''} فقط — أصغر كمية بالسوق)</div>`
+        : '';
+      return `<div class="receipt-row">
          <span>${ing.name}</span>
-         <span class="mono">${ing.quantity} ${ing.unit || ''}</span>
-       </div>`
-    ).join('') || '<div class="ord-empty" style="padding:8px 0;">لا توجد مكونات</div>';
+         <span class="mono">${buyQty} ${ing.unit || ''}</span>
+       </div>${roundedNote}`;
+    }).join('') || '<div class="ord-empty" style="padding:8px 0;">لا توجد مكونات</div>';
     document.getElementById('sheetIngredients').innerHTML = ingHtml;
 
     document.getElementById('sheetPrice').textContent = (o.total_estimated_price || 0).toFixed(2) + ' د.أ';

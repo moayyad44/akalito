@@ -256,6 +256,7 @@
     <button class="sheet-close" onclick="closeOrderSheet()">✕</button>
     <div class="sheet-body">
       <div class="sheet-title">طلب <span id="sheet-code" class="mono"></span></div>
+      <div class="receipt-row"><span>🏪 الاستلام من</span><span id="sheet-store-name">—</span></div>
       <div class="receipt-row"><span>👤 الزبون</span><span id="sheet-cust-name">—</span></div>
       <div class="receipt-row"><span>📞 الهاتف</span><span id="sheet-cust-phone" class="mono">—</span></div>
 
@@ -421,6 +422,7 @@ function renderAvailableOrders() {
         <span class="order-card-time">${timeAgo(o.created_at)}</span>
       </div>
       <div class="order-card-meta">
+        <span>🏪 ${o.store_name || 'غير محدد'}</span>
         <span>🍽️ ${itemsCount} وجبة</span>
         <span class="order-card-price">${(o.total_estimated_price || 0).toFixed(2)} د.أ</span>
       </div>
@@ -494,6 +496,7 @@ function renderMyOrders() {
         <span class="order-card-time">${timeAgo(o.picked_up_at)}</span>
       </div>
       <div class="order-card-meta">
+        <span>🏪 ${o.store_name || 'غير محدد'}</span>
         <span>👤 ${o.customer_name || 'زبون'}</span>
         <span class="order-card-price">${(o.total_estimated_price || 0).toFixed(2)} د.أ</span>
       </div>
@@ -540,6 +543,7 @@ window.openOrderSheet = (orderId, mode) => {
   currentSheetMode = mode;
 
   document.getElementById('sheet-code').textContent = ticketCode(o.id);
+  document.getElementById('sheet-store-name').textContent = o.store_name || 'غير محدد';
   document.getElementById('sheet-cust-name').textContent = o.customer_name || 'زبون';
   document.getElementById('sheet-cust-phone').textContent = o.customer_phone || '—';
 

@@ -109,6 +109,7 @@ window.addEventListener('DOMContentLoaded', () => {
           <div class="ing-info">
             <div class="ing-name">${s.name || 'بدون اسم'} ${!active ? '<span style="color:#D9534F;font-size:11px;">(غير نشط)</span>' : ''}</div>
             <div class="ing-meta">📍 ${s.address || '—'} · 📞 ${s.phone || '—'}</div>
+            <div class="ing-meta">${(s.lat != null && s.lng != null) ? `🧭 الإحداثيات محفوظة (${s.lat.toFixed(4)}, ${s.lng.toFixed(4)})` : '<span style="color:#D9534F;">⚠️ ما في إحداثيات — ما رح يشارك بحساب أقرب متجر</span>'}</div>
             <div class="ing-meta">🔑 PIN: <b style="font-family:monospace;font-size:15px;letter-spacing:3px;">${s.pin || '----'}</b>
               &nbsp;·&nbsp; 👥 ${emps.length} موظف
             </div>
@@ -159,6 +160,7 @@ window.addEventListener('DOMContentLoaded', () => {
   window.openAddStoreModal = () => {
     document.getElementById('storeForm').reset();
     document.getElementById('storeFormError').style.display = 'none';
+    document.getElementById('sf-locate-status').textContent = '';
     const saveBtn = document.getElementById('sf-save-btn');
     saveBtn.disabled = false;
     saveBtn.textContent = 'حفظ المتجر ✓';
@@ -171,6 +173,30 @@ window.addEventListener('DOMContentLoaded', () => {
     unlockBodyScroll();
   };
 
+  window.useCurrentLocationForStore = () => {
+    const statusEl = document.getElementById('sf-locate-status');
+    if (!navigator.geolocation) {
+      statusEl.textContent = 'المتصفح ما بيدعم تحديد الموقع';
+      return;
+    }
+    const btn = document.getElementById('sf-locate-btn');
+    btn.disabled = true;
+    statusEl.textContent = 'جاري تحديد الموقع...';
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        document.getElementById('sf-lat').value = pos.coords.latitude.toFixed(6);
+        document.getElementById('sf-lng').value = pos.coords.longitude.toFixed(6);
+        statusEl.textContent = '✅ تم تحديد الموقع';
+        btn.disabled = false;
+      },
+      (err) => {
+        statusEl.textContent = 'ما قدرنا نحدد الموقع — تأكد من صلاحية الموقع بالمتصفح';
+        btn.disabled = false;
+      },
+      { enableHighAccuracy: true, timeout: 12000 }
+    );
+  };
+
   window.saveStore = async (ev) => {
     ev.preventDefault();
     if (isSavingStore) return;
@@ -180,6 +206,10 @@ window.addEventListener('DOMContentLoaded', () => {
     const name = document.getElementById('sf-name').value.trim();
     const phone = document.getElementById('sf-phone').value.trim();
     const address = document.getElementById('sf-address').value.trim();
+    const latRaw = document.getElementById('sf-lat').value.trim();
+    const lngRaw = document.getElementById('sf-lng').value.trim();
+    const lat = latRaw !== '' ? parseFloat(latRaw) : null;
+    const lng = lngRaw !== '' ? parseFloat(lngRaw) : null;
 
     if (!name || !phone) {
       errBox.textContent = 'لازم تكتب اسم المتجر ورقم الهاتف';
@@ -195,7 +225,7 @@ window.addEventListener('DOMContentLoaded', () => {
     try {
       const pin = generateUniquePin();
       await withTimeout(addDoc(collection(db, 'stores'), {
-        name, phone, address, pin, is_active: true, rating: null, created_at: serverTimestamp()
+        name, phone, address, lat, lng, pin, is_active: true, rating: null, created_at: serverTimestamp()
       }), 15000, 'انتهت مهلة الحفظ — تأكد من الإنترنت');
       closeAddStoreModal();
       showToast(`تم إنشاء المتجر ✅ — PIN: ${pin}`);
@@ -315,7 +345,18 @@ window.addEventListener('DOMContentLoaded', () => {
           <input type="text" id="sf-address" placeholder="مثال: جبل الحسين، شارع الجامعة" />
         </div>
 
-        <div class="field-hint">🔑 رمز PIN من 4 أرقام رح يتولّد تلقائياً بعد الحفظ — هاد الرمز يستخدمه موظفي المتجر للدخول من تطبيق الزبون (زر "الدخول كتاجر").</div>
+        <div class="form-group">
+          <label>الإحداثيات (لحساب أقرب متجر للزبون)</label>
+          <div style="display:flex;gap:8px;">
+            <input type="number" step="any" id="sf-lat" placeholder="خط العرض (lat)" style="flex:1;" />
+            <input type="number" step="any" id="sf-lng" placeholder="خط الطول (lng)" style="flex:1;" />
+          </div>
+          <button type="button" class="btn-secondary" style="margin-top:8px;width:100%;" onclick="useCurrentLocationForStore()" id="sf-locate-btn">📍 استخدم موقعي الحالي (وأنا واقف بالمتجر)</button>
+          <div id="sf-locate-status" style="font-size:11.5px;color:var(--cream30);margin-top:4px;"></div>
+        </div>
+
+        <div class="field-hint">🔑 رمز PIN من 4 أرقام رح يتولّد تلقائياً بعد الحفظ — هاد الرمز يستخدمه موظفي المتجر للدخول من تطبيق الزبون (زر "الدخول كتاجر"). ⚠️ الإحداثيات مهمة — بدونها ما رح يقدر النظام يحسب هل هذا أقرب متجر للزبون عند توزيع الطلبات.</div>
+
 
       </div>
 

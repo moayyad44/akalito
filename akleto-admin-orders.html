@@ -153,6 +153,7 @@ window.addEventListener('DOMContentLoaded', () => {
           <div class="tix-meta">
             <span>📞 ${o.customer_phone || '—'}</span>
             <span>🍽️ ${itemsCount} وجبة</span>
+            ${o.store_name ? `<span>🏪 ${o.store_name}</span>` : ''}
           </div>
           <div class="tix-foot">
             <span class="stamp">${st.emoji} ${st.label}</span>
@@ -199,6 +200,16 @@ window.addEventListener('DOMContentLoaded', () => {
     document.getElementById('sheetIngredients').innerHTML = ingHtml;
 
     document.getElementById('sheetPrice').textContent = (o.total_estimated_price || 0).toFixed(2) + ' د.أ';
+
+    // معلومات المتجر (تظهر إذا انربط الطلب بمتجر عن طريق التوزيع التلقائي)
+    const storeWrap = document.getElementById('sheetStoreWrap');
+    if (o.store_name) {
+      document.getElementById('sheetStoreInfo').innerHTML =
+        `<div class="receipt-row"><span>🏪 ${o.store_name}</span></div>`;
+      storeWrap.style.display = '';
+    } else {
+      storeWrap.style.display = 'none';
+    }
 
     // معلومات السائق (تظهر فقط إذا في سائق مستلم الطلب)
     const driverWrap = document.getElementById('sheetDriverWrap');
@@ -518,6 +529,12 @@ window.addEventListener('DOMContentLoaded', () => {
       <div class="receipt-divider"></div>
       <div class="receipt-section-title">🧅 المكونات المدموجة</div>
       <div id="sheetIngredients"></div>
+
+      <div id="sheetStoreWrap" style="display:none;">
+        <div class="receipt-divider"></div>
+        <div class="receipt-section-title">🏪 المتجر</div>
+        <div id="sheetStoreInfo"></div>
+      </div>
 
       <div id="sheetDriverWrap" style="display:none;">
         <div class="receipt-divider"></div>

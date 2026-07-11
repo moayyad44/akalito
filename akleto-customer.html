@@ -126,6 +126,54 @@
     font-size: 11px; font-weight:700; padding: 3px 9px; border-radius: 20px;
   }
 
+  /* ═══ منتجاتي (المتجر) ═══ */
+  .store-tabs {
+    display:flex; gap:8px; padding: 0 18px 14px; overflow-x:auto;
+  }
+  .store-tab {
+    flex-shrink:0; padding: 9px 16px; border-radius: 20px; border: 1.5px solid var(--border);
+    background: var(--surface); font-family:'Cairo',sans-serif; font-weight:700; font-size: 13px;
+    color: var(--text30); white-space:nowrap;
+  }
+  .store-tab.active { background: var(--primary); border-color: var(--primary); color:#fff; }
+  .product-grid {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 14px; padding: 0 18px 18px;
+  }
+  .product-tile {
+    background: var(--surface); border-radius: 18px; overflow:hidden;
+    border: 1px solid var(--border); position: relative; text-align:right;
+  }
+  .product-tile-img {
+    width:100%; height: 140px; object-fit: cover; background: var(--border);
+    display:flex; align-items:center; justify-content:center; font-size: 36px;
+  }
+  .product-tile-body { padding: 10px 12px 12px; }
+  .product-tile-name { font-size: 14px; font-weight: 700; margin-bottom: 4px; }
+  .product-tile-price { font-size: 12px; color: var(--text30); }
+  .product-tile-badge-new {
+    position:absolute; top:8px; right:8px; background: var(--secondary,#F5A65B); color:#fff;
+    font-size: 10.5px; font-weight:700; padding: 3px 9px; border-radius: 20px;
+  }
+  .product-tile-badge-unavail {
+    position:absolute; top:8px; right:8px; background:#8a8a8a; color:#fff;
+    font-size: 10.5px; font-weight:700; padding: 3px 9px; border-radius: 20px;
+  }
+  .store-sub-topbar {
+    display:flex; align-items:center; gap:12px; padding: 22px 18px 4px;
+  }
+  .store-back-btn {
+    width:36px; height:36px; border-radius:50%; border:1.5px solid var(--border);
+    background: var(--surface); color:var(--primary); font-size:16px; flex-shrink:0;
+  }
+  .store-assignment-note {
+    margin: 0 18px 14px; padding: 12px 14px; border-radius: 14px;
+    background: rgba(162,62,72,.08); border: 1px solid rgba(162,62,72,.2);
+    font-size: 13px; font-weight:700; color: var(--primary);
+  }
+  .store-assignment-note.warn {
+    background: rgba(217,83,79,.08); border-color: rgba(217,83,79,.25); color:#D9534F;
+  }
+
   /* ═══ شاشة تفاصيل الوجبة ═══ */
   .sheet-overlay {
     position: fixed; top:0; left:0; right:0; bottom:0; background: rgba(58,42,40,.4); z-index: 200;
@@ -337,6 +385,7 @@
     </div>
     <div id="cartContent" style="padding:0 18px 10px;"></div>
     <div id="mergedSection"></div>
+    <div id="storeAssignmentNote"></div>
     <div class="sticky-cta hidden" id="cartCta">
       <button class="btn-main" onclick="placeOrder()" id="place-order-btn">تأكيد الطلب ✅</button>
     </div>
@@ -386,9 +435,9 @@
         <div style="font-weight:700;margin-bottom:6px;">📦 طلبات المتجر</div>
         <div style="color:var(--text30);font-size:13px;">قريباً — رح تقدر تشوف الطلبات الجديدة وتأشر إنك جهّزت المكونات</div>
       </div>
-      <div style="background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:18px;margin-bottom:14px;">
+      <div style="background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:18px;margin-bottom:14px;cursor:pointer;" onclick="openStoreProducts()">
         <div style="font-weight:700;margin-bottom:6px;">🧺 منتجاتي</div>
-        <div style="color:var(--text30);font-size:13px;">قريباً — تحدد شو المكونات المتوفرة عندك بالمحل</div>
+        <div style="color:var(--text30);font-size:13px;">حدد شو المكونات المتوفرة عندك بالمحل، وعدّل أسعارها ›</div>
       </div>
       <div style="background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:18px;margin-bottom:14px;">
         <div style="font-weight:700;margin-bottom:6px;">📊 بوابة المتجر</div>
@@ -398,11 +447,41 @@
     </div>
   </div>
 
+  <!-- ═══ شاشة منتجاتي (المتجر) ═══ -->
+  <div id="storeProductsScreen" class="hidden">
+    <div class="store-sub-topbar">
+      <button class="store-back-btn" onclick="closeStoreProducts()">←</button>
+      <div class="section-title" style="padding:0;">🧺 منتجاتي</div>
+    </div>
+    <div class="store-tabs" id="storeProductsTabs"></div>
+    <div id="storeProductsGrid" class="product-grid"></div>
+  </div>
+
+  <!-- ═══ شيت: تعديل حالة/سعر منتج (المتجر) ═══ -->
+  <div class="sheet-overlay" id="storeProductSheet">
+    <div class="sheet-card">
+      <div style="position:relative;">
+        <div class="sheet-hero" id="sp-hero">🧺</div>
+        <button class="sheet-close" onclick="closeStoreProductSheet()">✕</button>
+      </div>
+      <div class="sheet-body">
+        <div class="sheet-title" id="sp-name"></div>
+        <div class="field-group" style="margin-top:14px;">
+          <label style="font-size:12.5px;color:var(--text30);font-weight:700;">سعر العبوة (د.أ) <span id="sp-package-label"></span></label>
+          <input type="number" step="0.01" min="0" id="sp-price-input" placeholder="0.00" />
+        </div>
+        <div class="error-text" id="sp-error"></div>
+        <button class="btn-main" style="margin-top:16px;" id="sp-available-btn" onclick="saveStoreProductAvailable()"></button>
+        <button class="btn-outline" style="margin-top:10px;" id="sp-unavailable-btn" onclick="saveStoreProductUnavailable()"></button>
+      </div>
+    </div>
+  </div>
+
   <!-- ═══ شاشة نجاح الطلب ═══ -->
   <div id="successScreen" class="hidden success-screen">
     <div class="emoji">✅</div>
     <h2>تم استلام طلبك!</h2>
-    <p>رح نجهزلك المكونات ونوصلها أقرب وقت ممكن 🚴</p>
+    <p id="success-store-note">رح نجهزلك المكونات ونوصلها أقرب وقت ممكن 🚴</p>
     <button class="btn-main" onclick="backToHomeFromSuccess()" style="max-width:260px;">رجوع للرئيسية</button>
   </div>
 
@@ -468,7 +547,7 @@
 
 <script type="module">
 import {
-  db, collection, getDocs, addDoc, doc, updateDoc, query, where, serverTimestamp, withTimeout,
+  db, collection, getDocs, addDoc, doc, updateDoc, setDoc, query, where, serverTimestamp, withTimeout,
   MEASURE_TYPES, convertToBase
 } from "./firebase-init.js";
 
@@ -488,6 +567,15 @@ let storeId = null;
 let storeName = '';
 let storeEmpName = '';
 let storeEmpPhone = '';
+
+let storeIngredientsCache = []; // كل سجلات store_ingredients الخاصة بالمتجر الحالي فقط
+let storeProductsLoaded = false;
+let storeProductsTab = 'new'; // new | available | unavailable
+let currentEditingProductId = null;
+
+let customerCoords = null; // {lat, lng} — تُحفظ بعد أول نجاح بتحديد الموقع لتفادي تكرار الطلب
+let storesCacheCustomer = null; // كل المتاجر النشطة (تُحمّل عند الحاجة فقط)
+let availStoreIngredientsCache = null; // كل سجلات store_ingredients المتوفرة (is_available=true) بكل المتاجر
 
 const CUSTOMER_STORAGE_KEY = 'akleto_customer_id';
 const CUSTOMER_NAME_KEY = 'akleto_customer_name';
@@ -716,6 +804,189 @@ window.logoutStore = () => {
   } else {
     document.getElementById('appShell').classList.add('hidden');
     document.getElementById('welcomeScreen').classList.remove('hidden');
+  }
+};
+
+/* ═══════════ منتجاتي (المتجر) — إدارة توفر المكونات وأسعارها ═══════════ */
+window.openStoreProducts = async () => {
+  document.getElementById('storeScreen').classList.add('hidden');
+  document.getElementById('storeProductsScreen').classList.remove('hidden');
+  await loadStoreProductsData();
+  renderStoreProductsTabs();
+  renderStoreProductsGrid();
+};
+
+window.closeStoreProducts = () => {
+  document.getElementById('storeProductsScreen').classList.add('hidden');
+  document.getElementById('storeScreen').classList.remove('hidden');
+};
+
+async function loadStoreProductsData() {
+  try {
+    if (!ingredientsCache.length) {
+      const ingSnap = await withTimeout(getDocs(collection(db, 'ingredients')), 15000, 'انتهت مهلة تحميل المكونات');
+      ingredientsCache = ingSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+    }
+    const siSnap = await withTimeout(
+      getDocs(query(collection(db, 'store_ingredients'), where('store_id', '==', storeId))),
+      15000, 'انتهت مهلة تحميل منتجاتك'
+    );
+    storeIngredientsCache = siSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+    storeProductsLoaded = true;
+  } catch(e) {
+    console.error('load store products error', e);
+    showToast('صار خطأ بتحميل منتجاتك ❌');
+  }
+}
+
+function getStoreIngredientEntry(ingredientId) {
+  return storeIngredientsCache.find(si => si.ingredient_id === ingredientId);
+}
+
+function bucketStoreProducts() {
+  const buckets = { new: [], available: [], unavailable: [] };
+  ingredientsCache.filter(i => i.is_active !== false).forEach(ing => {
+    const entry = getStoreIngredientEntry(ing.id);
+    if (!entry) buckets.new.push(ing);
+    else if (entry.is_available) buckets.available.push(ing);
+    else buckets.unavailable.push(ing);
+  });
+  return buckets;
+}
+
+const storeTabLabels = { new: '🆕 جديدة', available: '✅ متوفرة', unavailable: '🚫 غير متوفرة' };
+
+function renderStoreProductsTabs() {
+  const buckets = bucketStoreProducts();
+  const wrap = document.getElementById('storeProductsTabs');
+  wrap.innerHTML = ['new','available','unavailable'].map(t => `
+    <button class="store-tab ${t === storeProductsTab ? 'active' : ''}" onclick="switchStoreProductsTab('${t}')">
+      ${storeTabLabels[t]} (${buckets[t].length})
+    </button>`).join('');
+}
+
+window.switchStoreProductsTab = (tab) => {
+  storeProductsTab = tab;
+  renderStoreProductsTabs();
+  renderStoreProductsGrid();
+};
+
+function renderStoreProductsGrid() {
+  const buckets = bucketStoreProducts();
+  const list = buckets[storeProductsTab];
+  const grid = document.getElementById('storeProductsGrid');
+  if (!list.length) {
+    grid.innerHTML = `<div class="empty-state-c" style="grid-column:1/-1;padding:30px 0;">ما في منتجات هون حالياً</div>`;
+    return;
+  }
+  grid.innerHTML = list.map(ing => {
+    const thumb = ing.image_url ? `<img class="product-tile-img" src="${ing.image_url}" />` : `<div class="product-tile-img">🧺</div>`;
+    const entry = getStoreIngredientEntry(ing.id);
+    const priceToShow = entry ? entry.price_per_package : ing.price_per_package;
+    const badge = storeProductsTab === 'new' ? `<div class="product-tile-badge-new">جديد</div>`
+      : storeProductsTab === 'unavailable' ? `<div class="product-tile-badge-unavail">غير متوفر</div>` : '';
+    return `
+      <div class="product-tile" onclick="openStoreProductSheet('${ing.id}')">
+        ${badge}
+        ${thumb}
+        <div class="product-tile-body">
+          <div class="product-tile-name">${ing.name_ar || ''}</div>
+          <div class="product-tile-price">${(priceToShow || 0).toFixed(2)} د.أ / ${ing.package_label || ''}</div>
+        </div>
+      </div>`;
+  }).join('');
+}
+
+window.openStoreProductSheet = (ingredientId) => {
+  const ing = ingredientsCache.find(i => i.id === ingredientId);
+  if (!ing) return;
+  currentEditingProductId = ingredientId;
+  const entry = getStoreIngredientEntry(ingredientId);
+
+  document.getElementById('sp-name').textContent = ing.name_ar || '';
+  document.getElementById('sp-package-label').textContent = ing.package_label ? `/ ${ing.package_label}` : '';
+  const hero = document.getElementById('sp-hero');
+  hero.innerHTML = ing.image_url ? `<img src="${ing.image_url}" style="width:100%;height:100%;object-fit:cover;" />` : '🧺';
+  document.getElementById('sp-error').style.display = 'none';
+
+  const defaultPrice = entry ? entry.price_per_package : ing.price_per_package;
+  document.getElementById('sp-price-input').value = defaultPrice != null ? defaultPrice : '';
+
+  const availBtn = document.getElementById('sp-available-btn');
+  const unavailBtn = document.getElementById('sp-unavailable-btn');
+  if (entry && entry.is_available) {
+    availBtn.textContent = '💾 حفظ السعر';
+    unavailBtn.textContent = '🚫 وضعه غير متوفر';
+  } else if (entry && !entry.is_available) {
+    availBtn.textContent = '✅ متوفر الآن بهاي السعر';
+    unavailBtn.textContent = '🚫 يبقى غير متوفر';
+  } else {
+    availBtn.textContent = '✅ متوفر عندي بهاي السعر';
+    unavailBtn.textContent = '🚫 غير متوفر عندي';
+  }
+
+  document.getElementById('storeProductSheet').classList.add('open');
+};
+
+window.closeStoreProductSheet = () => {
+  document.getElementById('storeProductSheet').classList.remove('open');
+  currentEditingProductId = null;
+};
+
+async function upsertStoreIngredient(isAvailable, price) {
+  const docId = `${storeId}_${currentEditingProductId}`;
+  await withTimeout(
+    setDoc(doc(db, 'store_ingredients', docId), {
+      store_id: storeId, ingredient_id: currentEditingProductId,
+      is_available: isAvailable, price_per_package: price, updated_at: serverTimestamp()
+    }, { merge: true }),
+    15000, 'انتهت مهلة الحفظ — تأكد من الإنترنت'
+  );
+  const idx = storeIngredientsCache.findIndex(si => si.ingredient_id === currentEditingProductId);
+  const updated = { id: docId, store_id: storeId, ingredient_id: currentEditingProductId, is_available: isAvailable, price_per_package: price };
+  if (idx > -1) storeIngredientsCache[idx] = updated; else storeIngredientsCache.push(updated);
+}
+
+window.saveStoreProductAvailable = async () => {
+  const errBox = document.getElementById('sp-error');
+  const priceVal = parseFloat(document.getElementById('sp-price-input').value);
+  if (isNaN(priceVal) || priceVal < 0) {
+    errBox.textContent = 'لازم تكتب سعر صحيح للعبوة';
+    errBox.style.display = 'block';
+    return;
+  }
+  const btn = document.getElementById('sp-available-btn');
+  btn.disabled = true;
+  try {
+    await upsertStoreIngredient(true, priceVal);
+    closeStoreProductSheet();
+    renderStoreProductsTabs();
+    renderStoreProductsGrid();
+    showToast('تم تحديث المنتج ✅');
+  } catch(e) {
+    console.error('save store product error', e);
+    errBox.textContent = 'صار خطأ بالحفظ — جرب مرة ثانية';
+    errBox.style.display = 'block';
+  } finally {
+    btn.disabled = false;
+  }
+};
+
+window.saveStoreProductUnavailable = async () => {
+  const priceVal = parseFloat(document.getElementById('sp-price-input').value);
+  const btn = document.getElementById('sp-unavailable-btn');
+  btn.disabled = true;
+  try {
+    await upsertStoreIngredient(false, isNaN(priceVal) ? null : priceVal);
+    closeStoreProductSheet();
+    renderStoreProductsTabs();
+    renderStoreProductsGrid();
+    showToast('تم تحديث المنتج ✅');
+  } catch(e) {
+    console.error('save store product error', e);
+    showToast('صار خطأ بالحفظ ❌');
+  } finally {
+    btn.disabled = false;
   }
 };
 
@@ -1037,6 +1308,97 @@ function renderCartScreen() {
     </div>`;
 
   cta.classList.remove('hidden');
+  updateStoreAssignmentNote();
+}
+
+/* ═══════════ توزيع الطلب على أقرب متجر متوفر فيه كل المكونات ═══════════ */
+let resolvedStoreForCart = null;   // {id, name} أو null
+let resolvedStorePriceMap = null;  // ingredientId -> سعر خاص بالمتجر المختار (إن وُجد)
+let resolvedStoreNoStores = false; // true لو ما في ولا متجر يغطي كل المكونات
+
+function haversineKm(lat1, lng1, lat2, lng2) {
+  const R = 6371;
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLng = (lng2 - lng1) * Math.PI / 180;
+  const a = Math.sin(dLat/2)**2 + Math.cos(lat1*Math.PI/180) * Math.cos(lat2*Math.PI/180) * Math.sin(dLng/2)**2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+}
+
+function getCustomerCoords() {
+  if (customerCoords) return Promise.resolve(customerCoords);
+  if (!navigator.geolocation) return Promise.resolve(null);
+  return new Promise((resolve) => {
+    navigator.geolocation.getCurrentPosition(
+      (pos) => { customerCoords = { lat: pos.coords.latitude, lng: pos.coords.longitude }; resolve(customerCoords); },
+      () => resolve(null),
+      { enableHighAccuracy: true, timeout: 10000 }
+    );
+  });
+}
+
+/* يجيب كل المتاجر النشطة وكل سجلات توفر المكونات (is_available=true) — نحمّلها من جديد كل مرة عشان البيانات تبقى حديثة */
+async function loadStoresAndAvailability() {
+  const [storesSnap, siSnap] = await Promise.all([
+    getDocs(collection(db, 'stores')),
+    getDocs(query(collection(db, 'store_ingredients'), where('is_available', '==', true)))
+  ]);
+  const stores = storesSnap.docs.map(d => ({ id: d.id, ...d.data() })).filter(s => s.is_active !== false);
+  const availability = siSnap.docs.map(d => d.data());
+  return { stores, availability };
+}
+
+/* يلاقي أفضل متجر: لازم يتوفر عنده كل المكونات المطلوبة، وبين المتاجر المؤهلة نفضّل الأقرب للزبون جغرافياً */
+async function findBestStoreForIngredients(ingredientIds) {
+  if (!ingredientIds.length) return { store: null, priceMap: null, noneAvailable: false };
+  const { stores, availability } = await loadStoresAndAvailability();
+
+  const byStore = {};
+  availability.forEach(a => {
+    if (!byStore[a.store_id]) byStore[a.store_id] = new Map();
+    byStore[a.store_id].set(a.ingredient_id, a.price_per_package);
+  });
+
+  const candidates = stores.filter(s => {
+    const map = byStore[s.id];
+    if (!map) return false;
+    return ingredientIds.every(id => map.has(id));
+  });
+
+  if (!candidates.length) return { store: null, priceMap: null, noneAvailable: true };
+
+  const coords = await getCustomerCoords();
+  let chosen = candidates[0];
+  if (coords) {
+    const withDist = candidates.map(s => ({
+      store: s,
+      dist: (s.lat != null && s.lng != null) ? haversineKm(coords.lat, coords.lng, s.lat, s.lng) : Infinity
+    })).sort((a, b) => a.dist - b.dist);
+    chosen = withDist[0].store;
+  }
+
+  const priceMap = {};
+  byStore[chosen.id].forEach((price, ingId) => { priceMap[ingId] = price; });
+  return { store: chosen, priceMap, noneAvailable: false };
+}
+
+async function updateStoreAssignmentNote() {
+  const noteBox = document.getElementById('storeAssignmentNote');
+  if (!noteBox) return;
+  const entries = getFinalCartIngredients();
+  const ids = Object.entries(entries).filter(([, e]) => e.purchaseQty > 0).map(([id]) => id);
+  if (!ids.length) { noteBox.innerHTML = ''; resolvedStoreForCart = null; return; }
+
+  noteBox.innerHTML = `<div class="store-assignment-note">🔎 جاري تحديد المتجر الأنسب لطلبك...</div>`;
+  const result = await findBestStoreForIngredients(ids);
+  resolvedStoreForCart = result.store ? { id: result.store.id, name: result.store.name } : null;
+  resolvedStorePriceMap = result.priceMap;
+  resolvedStoreNoStores = result.noneAvailable;
+
+  if (result.store) {
+    noteBox.innerHTML = `<div class="store-assignment-note">🏪 رح تشتري من: <b>${result.store.name}</b></div>`;
+  } else {
+    noteBox.innerHTML = `<div class="store-assignment-note warn">⚠️ ما في متجر يقدر يجهز كل مكونات طلبك حالياً — جرب تعدّل السلة أو حاول لاحقاً</div>`;
+  }
 }
 
 /* ═══════════ تأكيد الطلب ═══════════ */
@@ -1049,13 +1411,27 @@ window.placeOrder = async () => {
 
   try {
     const merged = getFinalCartIngredients();
-    const mergedArray = Object.entries(merged).map(([ingredientId, v]) => ({
-      ingredient_id: ingredientId, name: v.name,
-      package_label: v.packageLabel, purchase_quantity: v.purchaseQty,
-      base_qty_needed: Math.round(v.baseQty * 100) / 100,
-      base_unit_label: (MEASURE_TYPES[v.measureType] || {}).baseUnitLabel || ''
-    }));
-    const totalPrice = Object.values(merged).reduce((sum, e) => sum + e.purchaseQty * (e.pricePerPackage || 0), 0);
+    const ids = Object.entries(merged).filter(([, e]) => e.purchaseQty > 0).map(([id]) => id);
+
+    btn.textContent = 'جاري تحديد المتجر...';
+    const routing = await findBestStoreForIngredients(ids);
+    if (!routing.store) {
+      showToast('⚠️ ما في متجر يقدر يجهز كل مكونات طلبك حالياً — عدّل السلة وجرب مرة ثانية');
+      return;
+    }
+    btn.textContent = 'جاري إرسال الطلب...';
+
+    const mergedArray = Object.entries(merged).map(([ingredientId, v]) => {
+      const storePrice = routing.priceMap && routing.priceMap[ingredientId] != null ? routing.priceMap[ingredientId] : v.pricePerPackage;
+      return {
+        ingredient_id: ingredientId, name: v.name,
+        package_label: v.packageLabel, purchase_quantity: v.purchaseQty,
+        price_per_package: storePrice,
+        base_qty_needed: Math.round(v.baseQty * 100) / 100,
+        base_unit_label: (MEASURE_TYPES[v.measureType] || {}).baseUnitLabel || ''
+      };
+    });
+    const totalPrice = mergedArray.reduce((sum, e) => sum + e.purchase_quantity * (e.price_per_package || 0), 0);
 
     await withTimeout(
       addDoc(collection(db, 'orders'), {
@@ -1065,12 +1441,15 @@ window.placeOrder = async () => {
         items: selectedMeals.map(s => ({ meal_id: s.mealId, servings: s.servings })),
         merged_ingredients: mergedArray,
         total_estimated_price: Math.round(totalPrice * 100) / 100,
+        store_id: routing.store.id,
+        store_name: routing.store.name,
         status: 'pending',
         created_at: serverTimestamp()
       }),
       20000, 'انتهت مهلة إرسال الطلب — تأكد من الإنترنت'
     );
 
+    document.getElementById('success-store-note').textContent = `رح تشتري من متجر "${routing.store.name}" — رح نجهزلك المكونات ونوصلها أقرب وقت ممكن 🚴`;
     selectedMeals = [];
     cartOverrides = {};
     updateCartBadge();

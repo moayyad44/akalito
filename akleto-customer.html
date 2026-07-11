@@ -174,6 +174,34 @@
     background: rgba(217,83,79,.08); border-color: rgba(217,83,79,.25); color:#D9534F;
   }
 
+  /* ═══ طلبات المتجر ═══ */
+  .store-orders-badge {
+    position:absolute; top:14px; left:14px; background: var(--primary); color:#fff;
+    font-size: 11px; font-weight:800; min-width:20px; height:20px; border-radius:10px;
+    display:flex; align-items:center; justify-content:center; padding: 0 6px;
+  }
+  .store-order-card {
+    background: var(--surface); border:1px solid var(--border); border-radius:16px;
+    padding: 14px 16px; margin-bottom: 12px; cursor:pointer;
+  }
+  .store-order-card-head {
+    display:flex; align-items:center; justify-content:space-between; margin-bottom: 8px;
+  }
+  .store-order-code { font-weight:800; font-size:14px; font-family:monospace; }
+  .store-order-time { font-size:11.5px; color: var(--text30); }
+  .store-order-meals { font-size:13px; color: var(--text30); margin-bottom: 6px; }
+  .store-order-status-pill {
+    display:inline-block; font-size:11px; font-weight:700; padding:3px 10px; border-radius:20px;
+  }
+  .store-order-total {
+    display:flex; align-items:center; justify-content:space-between; font-weight:800;
+    font-size:15px; margin-top:14px; padding-top:12px; border-top:1px solid var(--border);
+  }
+  .store-ing-row {
+    display:flex; align-items:center; justify-content:space-between; padding: 7px 0;
+    border-bottom: 1px solid var(--border); font-size: 13.5px;
+  }
+
   /* ═══ شاشة تفاصيل الوجبة ═══ */
   .sheet-overlay {
     position: fixed; top:0; left:0; right:0; bottom:0; background: rgba(58,42,40,.4); z-index: 200;
@@ -431,9 +459,10 @@
       </div>
     </div>
     <div style="padding: 0 18px;">
-      <div style="background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:18px;margin-bottom:14px;">
+      <div style="background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:18px;margin-bottom:14px;cursor:pointer;position:relative;" onclick="openStoreOrders()">
         <div style="font-weight:700;margin-bottom:6px;">📦 طلبات المتجر</div>
-        <div style="color:var(--text30);font-size:13px;">قريباً — رح تقدر تشوف الطلبات الجديدة وتأشر إنك جهّزت المكونات</div>
+        <div style="color:var(--text30);font-size:13px;">شوف الطلبات الجديدة وأشّر إنك جهّزت المكونات عشان السائق ياخذها ›</div>
+        <div class="store-orders-badge hidden" id="storeOrdersBadge">0</div>
       </div>
       <div style="background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:18px;margin-bottom:14px;cursor:pointer;" onclick="openStoreProducts()">
         <div style="font-weight:700;margin-bottom:6px;">🧺 منتجاتي</div>
@@ -473,6 +502,36 @@
         <div class="error-text" id="sp-error"></div>
         <button class="btn-main" style="margin-top:16px;" id="sp-available-btn" onclick="saveStoreProductAvailable()"></button>
         <button class="btn-outline" style="margin-top:10px;" id="sp-unavailable-btn" onclick="saveStoreProductUnavailable()"></button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ شاشة طلبات المتجر ═══ -->
+  <div id="storeOrdersScreen" class="hidden">
+    <div class="store-sub-topbar">
+      <button class="store-back-btn" onclick="closeStoreOrders()">←</button>
+      <div class="section-title" style="padding:0;">📦 طلبات المتجر</div>
+    </div>
+    <div class="store-tabs" id="storeOrdersTabs"></div>
+    <div id="storeOrdersList" style="padding:0 18px 24px;"></div>
+  </div>
+
+  <!-- ═══ شيت: تفاصيل طلب المتجر ═══ -->
+  <div class="sheet-overlay" id="storeOrderSheet">
+    <div class="sheet-card">
+      <div style="position:relative;padding-top:10px;">
+        <button class="sheet-close" onclick="closeStoreOrderSheet()">✕</button>
+      </div>
+      <div class="sheet-body" style="padding-top:0;">
+        <div class="sheet-title" id="so-code"></div>
+        <div style="font-size:12.5px;color:var(--text30);margin-bottom:14px;" id="so-time"></div>
+
+        <div class="merged-header">🧾 المكونات المطلوبة</div>
+        <div id="so-ingredients"></div>
+
+        <div class="store-order-total" id="so-total"></div>
+
+        <button class="btn-main" style="margin-top:16px;" id="so-action-btn" onclick="markStoreOrderReady()">✅ جهّزنا المكونات — جاهز للسائق</button>
       </div>
     </div>
   </div>
@@ -548,7 +607,7 @@
 <script type="module">
 import {
   db, collection, getDocs, addDoc, doc, updateDoc, setDoc, query, where, serverTimestamp, withTimeout,
-  MEASURE_TYPES, convertToBase, loadMeasureTypes
+  onSnapshot, MEASURE_TYPES, convertToBase, loadMeasureTypes
 } from "./firebase-init.js";
 
 let mealsCache = [];
@@ -572,6 +631,11 @@ let storeIngredientsCache = []; // كل سجلات store_ingredients الخاص�
 let storeProductsLoaded = false;
 let storeProductsTab = 'new'; // new | available | unavailable
 let currentEditingProductId = null;
+
+let storeOrdersCache = [];
+let storeOrdersTab = 'incoming'; // incoming (pending/preparing) | history (ready/delivering/done/cancelled)
+let storeOrdersUnsub = null;
+let currentStoreOrderId = null;
 
 let customerCoords = null; // {lat, lng} — تُحفظ بعد أول نجاح بتحديد الموقع لتفادي تكرار الطلب
 let storesCacheCustomer = null; // كل المتاجر النشطة (تُحمّل عند الحاجة فقط)
@@ -790,10 +854,12 @@ function enterStoreMode() {
   document.getElementById('store-greeting-name').textContent = storeName;
   document.getElementById('store-employee-name').textContent = 'مسجل دخول: ' + storeEmpName;
   switchScreen('store');
+  startStoreOrdersListener();
 }
 
 window.logoutStore = () => {
   if (!confirm('تأكيد الخروج من حساب المتجر؟')) return;
+  if (storeOrdersUnsub) { storeOrdersUnsub(); storeOrdersUnsub = null; }
   localStorage.removeItem(STORE_ID_KEY);
   localStorage.removeItem(STORE_NAME_KEY);
   localStorage.removeItem(STORE_EMP_NAME_KEY);
@@ -987,6 +1053,162 @@ window.saveStoreProductUnavailable = async () => {
     showToast('صار خطأ بالحفظ ❌');
   } finally {
     btn.disabled = false;
+  }
+};
+
+/* ═══════════ طلبات المتجر — استقبال الطلبات وتجهيزها للسائق ═══════════ */
+function ticketCode(id) { return '#' + (id || '----').slice(-4).toUpperCase(); }
+
+function timeAgo(ts) {
+  if (!ts || !ts.toDate) return '—';
+  const diffMs = Date.now() - ts.toDate().getTime();
+  const mins = Math.floor(diffMs / 60000);
+  if (mins < 1) return 'الآن';
+  if (mins < 60) return `قبل ${mins} د`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return `قبل ${hrs} س`;
+  return `قبل ${Math.floor(hrs / 24)} يوم`;
+}
+
+const STORE_INCOMING_STATUSES = ['pending', 'preparing'];
+const storeOrderStatusLabel = {
+  pending: '🟡 جديد', preparing: '🔵 جاري التجهيز', ready: '📦 جاهز للسائق',
+  delivering: '🛵 بالطريق', done: '✅ تم التوصيل', cancelled: '❌ ملغي'
+};
+
+function startStoreOrdersListener() {
+  if (storeOrdersUnsub) storeOrdersUnsub();
+  storeOrdersUnsub = onSnapshot(
+    query(collection(db, 'orders'), where('store_id', '==', storeId)),
+    (snap) => {
+      storeOrdersCache = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      updateStoreOrdersBadge();
+      if (!document.getElementById('storeOrdersScreen').classList.contains('hidden')) {
+        renderStoreOrdersTabs();
+        renderStoreOrdersList();
+      }
+    },
+    (err) => console.error('store orders listener error', err)
+  );
+}
+
+function updateStoreOrdersBadge() {
+  const badge = document.getElementById('storeOrdersBadge');
+  if (!badge) return;
+  const count = storeOrdersCache.filter(o => STORE_INCOMING_STATUSES.includes(o.status)).length;
+  if (count > 0) { badge.textContent = count; badge.classList.remove('hidden'); }
+  else { badge.classList.add('hidden'); }
+}
+
+window.openStoreOrders = () => {
+  document.getElementById('storeScreen').classList.add('hidden');
+  document.getElementById('storeOrdersScreen').classList.remove('hidden');
+  renderStoreOrdersTabs();
+  renderStoreOrdersList();
+};
+
+window.closeStoreOrders = () => {
+  document.getElementById('storeOrdersScreen').classList.add('hidden');
+  document.getElementById('storeScreen').classList.remove('hidden');
+};
+
+function bucketStoreOrders() {
+  const incoming = storeOrdersCache.filter(o => STORE_INCOMING_STATUSES.includes(o.status))
+    .sort((a, b) => (a.created_at?.toDate?.() || 0) - (b.created_at?.toDate?.() || 0));
+  const history = storeOrdersCache.filter(o => !STORE_INCOMING_STATUSES.includes(o.status))
+    .sort((a, b) => (b.created_at?.toDate?.() || 0) - (a.created_at?.toDate?.() || 0));
+  return { incoming, history };
+}
+
+function renderStoreOrdersTabs() {
+  const buckets = bucketStoreOrders();
+  const wrap = document.getElementById('storeOrdersTabs');
+  wrap.innerHTML = `
+    <button class="store-tab ${storeOrdersTab === 'incoming' ? 'active' : ''}" onclick="switchStoreOrdersTab('incoming')">📥 واردة (${buckets.incoming.length})</button>
+    <button class="store-tab ${storeOrdersTab === 'history' ? 'active' : ''}" onclick="switchStoreOrdersTab('history')">🗂️ سجل الطلبات (${buckets.history.length})</button>
+  `;
+}
+
+window.switchStoreOrdersTab = (tab) => {
+  storeOrdersTab = tab;
+  renderStoreOrdersTabs();
+  renderStoreOrdersList();
+};
+
+function renderStoreOrdersList() {
+  const buckets = bucketStoreOrders();
+  const list = buckets[storeOrdersTab];
+  const wrap = document.getElementById('storeOrdersList');
+  if (!list.length) {
+    wrap.innerHTML = `<div class="empty-state-c" style="padding:40px 0;">${storeOrdersTab === 'incoming' ? 'ما في طلبات واردة حالياً' : 'ما في طلبات بالسجل بعد'}</div>`;
+    return;
+  }
+  wrap.innerHTML = list.map(o => {
+    const mealsCount = (o.items || []).length;
+    const pillColor = o.status === 'pending' ? '#F5A65B' : o.status === 'preparing' ? '#5B9BD5' : o.status === 'ready' ? '#8E6BAF' : o.status === 'delivering' ? '#5B9BD5' : o.status === 'done' ? '#4CAF50' : '#D9534F';
+    return `
+      <div class="store-order-card" onclick="openStoreOrderSheet('${o.id}')">
+        <div class="store-order-card-head">
+          <span class="store-order-code">${ticketCode(o.id)}</span>
+          <span class="store-order-time">${timeAgo(o.created_at)}</span>
+        </div>
+        <div class="store-order-meals">🍽️ ${mealsCount} وجبة · ${(o.merged_ingredients || []).length} مكوّن</div>
+        <span class="store-order-status-pill" style="background:${pillColor}22;color:${pillColor};">${storeOrderStatusLabel[o.status] || o.status}</span>
+      </div>`;
+  }).join('');
+}
+
+window.openStoreOrderSheet = (orderId) => {
+  const o = storeOrdersCache.find(x => x.id === orderId);
+  if (!o) return;
+  currentStoreOrderId = orderId;
+
+  document.getElementById('so-code').textContent = `طلب ${ticketCode(o.id)}`;
+  document.getElementById('so-time').textContent = `${storeOrderStatusLabel[o.status] || o.status} · ${timeAgo(o.created_at)}`;
+
+  const ings = o.merged_ingredients || [];
+  document.getElementById('so-ingredients').innerHTML = ings.map(ing => `
+    <div class="store-ing-row">
+      <span>${ing.name || ''}</span>
+      <span><b>${ing.purchase_quantity}</b> × ${ing.package_label || ''}</span>
+    </div>`).join('') || '<div class="empty-state-c" style="padding:14px 0;">ما في مكونات</div>';
+
+  document.getElementById('so-total').innerHTML = `<span>الإجمالي التقديري</span><span>${(o.total_estimated_price || 0).toFixed(2)} د.أ</span>`;
+
+  const actionBtn = document.getElementById('so-action-btn');
+  if (STORE_INCOMING_STATUSES.includes(o.status)) {
+    actionBtn.classList.remove('hidden');
+    actionBtn.disabled = false;
+    actionBtn.textContent = '✅ جهّزنا المكونات — جاهز للسائق';
+  } else {
+    actionBtn.classList.add('hidden');
+  }
+
+  document.getElementById('storeOrderSheet').classList.add('open');
+};
+
+window.closeStoreOrderSheet = () => {
+  document.getElementById('storeOrderSheet').classList.remove('open');
+  currentStoreOrderId = null;
+};
+
+window.markStoreOrderReady = async () => {
+  if (!currentStoreOrderId) return;
+  const btn = document.getElementById('so-action-btn');
+  btn.disabled = true;
+  btn.textContent = 'جاري التحديث...';
+  try {
+    await withTimeout(
+      updateDoc(doc(db, 'orders', currentStoreOrderId), { status: 'ready' }),
+      15000, 'انتهت مهلة التحديث — تأكد من الإنترنت'
+    );
+    closeStoreOrderSheet();
+    showToast('تم! الطلب صار جاهز للسائق ✅');
+  } catch(e) {
+    console.error('mark order ready error', e);
+    showToast('صار خطأ — جرب مرة ثانية ❌');
+    btn.disabled = false;
+    btn.textContent = '✅ جهّزنا المكونات — جاهز للسائق';
   }
 };
 

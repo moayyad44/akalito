@@ -8,16 +8,17 @@
 <meta http-equiv="Expires" content="0">
 <title>أكليتو — المتاجر الشريكة</title>
 <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;900&family=Tajawal:wght@400;500;700;800&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="admin-style.css?v=5">
+<link rel="stylesheet" href="admin-style.css?v=6">
 <script type="module">
 import {
-  db, auth, collection, getDocs, addDoc, updateDoc, doc, serverTimestamp,
+  db, auth, collection, getDocs, addDoc, updateDoc, deleteDoc, doc, serverTimestamp,
   onAuthStateChanged, signOut, withTimeout
 } from "./firebase-init.js";
 
 let storesCache = [];
 let employeesCache = [];
 let isSavingStore = false;
+let currentEditingStoreId = null;
 
 function showToast(message, isError) {
   let toast = document.getElementById('akleto-toast');
@@ -104,7 +105,7 @@ window.addEventListener('DOMContentLoaded', () => {
         : `<div class="ing-meta" style="padding-right:4px;">ما في موظفين سجّلوا دخول بهاد المتجر لسا</div>`;
 
       return `
-        <div class="ingredient-list-item" style="align-items:flex-start;flex-wrap:wrap;">
+        <div class="ingredient-list-item" style="align-items:flex-start;flex-wrap:wrap;cursor:pointer;" onclick="openEditStoreModal('${s.id}')">
           <div class="ing-thumb">🏪</div>
           <div class="ing-info">
             <div class="ing-name">${s.name || 'بدون اسم'} ${!active ? '<span style="color:#D9534F;font-size:11px;">(غير نشط)</span>' : ''}</div>
@@ -114,16 +115,16 @@ window.addEventListener('DOMContentLoaded', () => {
               &nbsp;·&nbsp; 👥 ${emps.length} موظف
             </div>
             <button type="button" class="ing-remove" style="font-size:11px;width:auto;padding:4px 8px;margin-top:6px;"
-                    onclick="toggleEmployees('${s.id}')">عرض الموظفين ▾</button>
-            <div id="emp-${s.id}" class="hidden" style="margin-top:6px;border-top:1px solid rgba(255,255,255,0.06);padding-top:6px;">
+                    onclick="event.stopPropagation();toggleEmployees('${s.id}')">عرض الموظفين ▾</button>
+            <div id="emp-${s.id}" class="hidden" style="margin-top:6px;border-top:1px solid rgba(255,255,255,0.06);padding-top:6px;" onclick="event.stopPropagation();">
               ${empListHtml}
             </div>
           </div>
           <div style="display:flex;flex-direction:column;gap:6px;">
             <button type="button" class="ing-remove" style="font-size:12px;width:auto;padding:6px 10px;"
-                    onclick="copyPin('${s.pin}')">نسخ PIN</button>
+                    onclick="event.stopPropagation();copyPin('${s.pin}')">نسخ PIN</button>
             <button type="button" class="ing-remove" style="font-size:12px;width:auto;padding:6px 10px;"
-                    onclick="toggleStoreActive('${s.id}', ${active})">${active ? 'تعطيل' : 'تفعيل'}</button>
+                    onclick="event.stopPropagation();toggleStoreActive('${s.id}', ${active})">${active ? 'تعطيل' : 'تفعيل'}</button>
           </div>
         </div>`;
     }).join('');
@@ -156,14 +157,40 @@ window.addEventListener('DOMContentLoaded', () => {
     }
   };
 
-  /* ══════ مودال إضافة متجر جديد ══════ */
+  /* ══════ مودال إضافة/تعديل متجر ══════ */
   window.openAddStoreModal = () => {
+    currentEditingStoreId = null;
     document.getElementById('storeForm').reset();
     document.getElementById('storeFormError').style.display = 'none';
     document.getElementById('sf-locate-status').textContent = '';
+    document.getElementById('storeModalTitle').textContent = '🏪 متجر شريك جديد';
+    document.getElementById('sf-delete-btn').classList.add('hidden');
+    document.getElementById('sf-pin-hint').classList.remove('hidden');
     const saveBtn = document.getElementById('sf-save-btn');
     saveBtn.disabled = false;
     saveBtn.textContent = 'حفظ المتجر ✓';
+    document.getElementById('addStoreOverlay').classList.add('open');
+    lockBodyScroll();
+  };
+
+  window.openEditStoreModal = (id) => {
+    const s = storesCache.find(x => x.id === id);
+    if (!s) return;
+    currentEditingStoreId = id;
+    document.getElementById('storeForm').reset();
+    document.getElementById('storeFormError').style.display = 'none';
+    document.getElementById('sf-locate-status').textContent = '';
+    document.getElementById('storeModalTitle').textContent = `✏️ تعديل: ${s.name || 'متجر'}`;
+    document.getElementById('sf-name').value = s.name || '';
+    document.getElementById('sf-phone').value = s.phone || '';
+    document.getElementById('sf-address').value = s.address || '';
+    document.getElementById('sf-lat').value = s.lat != null ? s.lat : '';
+    document.getElementById('sf-lng').value = s.lng != null ? s.lng : '';
+    document.getElementById('sf-delete-btn').classList.remove('hidden');
+    document.getElementById('sf-pin-hint').classList.add('hidden');
+    const saveBtn = document.getElementById('sf-save-btn');
+    saveBtn.disabled = false;
+    saveBtn.textContent = 'حفظ التعديلات ✓';
     document.getElementById('addStoreOverlay').classList.add('open');
     lockBodyScroll();
   };
@@ -223,13 +250,24 @@ window.addEventListener('DOMContentLoaded', () => {
     saveBtn.textContent = 'جاري الحفظ...';
 
     try {
-      const pin = generateUniquePin();
-      await withTimeout(addDoc(collection(db, 'stores'), {
-        name, phone, address, lat, lng, pin, is_active: true, rating: null, created_at: serverTimestamp()
-      }), 15000, 'انتهت مهلة الحفظ — تأكد من الإنترنت');
-      closeAddStoreModal();
-      showToast(`تم إنشاء المتجر ✅ — PIN: ${pin}`);
-      await loadStores();
+      if (currentEditingStoreId) {
+        await withTimeout(updateDoc(doc(db, 'stores', currentEditingStoreId), {
+          name, phone, address, lat, lng
+        }), 15000, 'انتهت مهلة الحفظ — تأكد من الإنترنت');
+        const s = storesCache.find(x => x.id === currentEditingStoreId);
+        if (s) Object.assign(s, { name, phone, address, lat, lng });
+        closeAddStoreModal();
+        showToast('تم حفظ التعديلات ✅');
+        renderStores();
+      } else {
+        const pin = generateUniquePin();
+        await withTimeout(addDoc(collection(db, 'stores'), {
+          name, phone, address, lat, lng, pin, is_active: true, rating: null, created_at: serverTimestamp()
+        }), 15000, 'انتهت مهلة الحفظ — تأكد من الإنترنت');
+        closeAddStoreModal();
+        showToast(`تم إنشاء المتجر ✅ — PIN: ${pin}`);
+        await loadStores();
+      }
     } catch(e) {
       console.error('save store error', e);
       errBox.textContent = 'صار خطأ بالحفظ — جرب مرة ثانية';
@@ -237,7 +275,28 @@ window.addEventListener('DOMContentLoaded', () => {
     } finally {
       isSavingStore = false;
       saveBtn.disabled = false;
-      saveBtn.textContent = 'حفظ المتجر ✓';
+      saveBtn.textContent = currentEditingStoreId ? 'حفظ التعديلات ✓' : 'حفظ المتجر ✓';
+    }
+  };
+
+  window.deleteStoreFromModal = async () => {
+    if (!currentEditingStoreId) return;
+    const s = storesCache.find(x => x.id === currentEditingStoreId);
+    if (!confirm(`تأكيد حذف متجر "${s ? s.name : ''}" نهائياً؟ ما رح يظهر بعدها كخيار لأي طلب.`)) return;
+    const delBtn = document.getElementById('sf-delete-btn');
+    delBtn.disabled = true;
+    delBtn.textContent = 'جاري الحذف...';
+    try {
+      await withTimeout(deleteDoc(doc(db, 'stores', currentEditingStoreId)), 15000, 'انتهت مهلة الحذف — تأكد من الإنترنت');
+      closeAddStoreModal();
+      showToast('تم حذف المتجر ✅');
+      await loadStores();
+    } catch(e) {
+      console.error('delete store error', e);
+      showToast('صار خطأ بالحذف — جرب مرة ثانية ❌', true);
+    } finally {
+      delBtn.disabled = false;
+      delBtn.textContent = '🗑️ حذف المتجر نهائياً';
     }
   };
 
@@ -321,7 +380,7 @@ window.addEventListener('DOMContentLoaded', () => {
 <div class="modal-overlay" id="addStoreOverlay">
   <div class="modal-card" style="max-width:420px;">
     <div class="modal-header">
-      <div class="modal-title">🏪 متجر شريك جديد</div>
+      <div class="modal-title" id="storeModalTitle">🏪 متجر شريك جديد</div>
       <button type="button" class="modal-close" onclick="closeAddStoreModal()">✕</button>
     </div>
 
@@ -355,8 +414,9 @@ window.addEventListener('DOMContentLoaded', () => {
           <div id="sf-locate-status" style="font-size:11.5px;color:var(--cream30);margin-top:4px;"></div>
         </div>
 
-        <div class="field-hint">🔑 رمز PIN من 4 أرقام رح يتولّد تلقائياً بعد الحفظ — هاد الرمز يستخدمه موظفي المتجر للدخول من تطبيق الزبون (زر "الدخول كتاجر"). ⚠️ الإحداثيات مهمة — بدونها ما رح يقدر النظام يحسب هل هذا أقرب متجر للزبون عند توزيع الطلبات.</div>
+        <div class="field-hint" id="sf-pin-hint">🔑 رمز PIN من 4 أرقام رح يتولّد تلقائياً بعد الحفظ — هاد الرمز يستخدمه موظفي المتجر للدخول من تطبيق الزبون (زر "الدخول كتاجر"). ⚠️ الإحداثيات مهمة — بدونها ما رح يقدر النظام يحسب هل هذا أقرب متجر للزبون عند توزيع الطلبات.</div>
 
+        <button type="button" class="ing-remove hidden" id="sf-delete-btn" style="width:100%;margin-top:14px;padding:10px;font-size:13px;" onclick="deleteStoreFromModal()">🗑️ حذف المتجر نهائياً</button>
 
       </div>
 

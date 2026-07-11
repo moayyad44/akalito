@@ -13,7 +13,7 @@ import {
   db, auth, collection, getDocs, query, orderBy, limit, onSnapshot,
   addDoc, writeBatch, doc, serverTimestamp, getDocFromServer,
   onAuthStateChanged, signInWithEmailAndPassword, signOut,
-  uploadImage, withTimeout, MEASURE_TYPES
+  uploadImage, withTimeout, MEASURE_TYPES, loadMeasureTypes
 } from "./firebase-init.js";
 
 let ingredientsCache = []; // {id, name_ar, measure_type, category, package_label, package_qty, price_per_package, image_url}
@@ -93,6 +93,7 @@ window.addEventListener('DOMContentLoaded', () => {
   }
 
   async function loadDashboard() {
+    await loadMeasureTypes();
     // ── الوجبات: عدد + الأكثر طلباً ──
     try {
       const mealsSnap = await getDocs(collection(db, 'meals'));
@@ -650,6 +651,9 @@ window.addEventListener('DOMContentLoaded', () => {
     <a class="nav-item" href="akleto-admin-ingredients.html" style="text-decoration:none;color:inherit;">
       <span class="nav-icon">🧅</span>
       <span>المكونات</span>
+    </a>
+    <a class="nav-item" href="akleto-admin-units.html" style="text-decoration:none;color:inherit;">
+      <span class="nav-icon">⚖️</span><span>الأوزان والمقاييس</span>
     </a>
   </div>
 

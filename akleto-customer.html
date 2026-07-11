@@ -548,7 +548,7 @@
 <script type="module">
 import {
   db, collection, getDocs, addDoc, doc, updateDoc, setDoc, query, where, serverTimestamp, withTimeout,
-  MEASURE_TYPES, convertToBase
+  MEASURE_TYPES, convertToBase, loadMeasureTypes
 } from "./firebase-init.js";
 
 let mealsCache = [];
@@ -997,7 +997,8 @@ async function loadInitialData() {
     const [mealsSnap, ingSnap, linksSnap] = await Promise.all([
       getDocs(collection(db, 'meals')),
       getDocs(collection(db, 'ingredients')),
-      getDocs(collection(db, 'meal_ingredients'))
+      getDocs(collection(db, 'meal_ingredients')),
+      loadMeasureTypes()
     ]);
     mealsCache = mealsSnap.docs.map(d => ({ id: d.id, ...d.data() })).filter(m => m.is_active !== false);
     ingredientsCache = ingSnap.docs.map(d => ({ id: d.id, ...d.data() }));

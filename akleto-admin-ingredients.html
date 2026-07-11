@@ -13,7 +13,7 @@
 import {
   db, auth, collection, getDocs, addDoc, updateDoc, deleteDoc, doc, serverTimestamp, getDocFromServer,
   onAuthStateChanged, signInWithEmailAndPassword, signOut,
-  uploadImage, withTimeout, MEASURE_TYPES
+  uploadImage, withTimeout, MEASURE_TYPES, loadMeasureTypes
 } from "./firebase-init.js";
 
 let ingredientsCache = [];
@@ -52,7 +52,7 @@ window.addEventListener('DOMContentLoaded', () => {
       window.location.href = 'akleto-admin.html';
     } else {
       document.getElementById('app-shell').style.display = 'flex';
-      loadIngredients();
+      loadMeasureTypes().then(() => loadIngredients());
     }
   });
 
@@ -338,6 +338,9 @@ window.addEventListener('DOMContentLoaded', () => {
     <a class="nav-item active" href="akleto-admin-ingredients.html" style="text-decoration:none;color:inherit;">
       <span class="nav-icon">🧅</span>
       <span>المكونات</span>
+    </a>
+    <a class="nav-item" href="akleto-admin-units.html" style="text-decoration:none;color:inherit;">
+      <span class="nav-icon">⚖️</span><span>الأوزان والمقاييس</span>
     </a>
   </div>
 

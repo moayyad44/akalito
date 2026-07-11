@@ -1,0 +1,476 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
+<title>أكليتو — الأوزان والمقاييس</title>
+<link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;900&family=Tajawal:wght@400;500;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="admin-style.css?v=6">
+<script type="module">
+import {
+  db, auth, collection, getDocs, query, where, updateDoc, doc, withTimeout,
+  onAuthStateChanged, signOut, MEASURE_TYPES, loadMeasureTypes
+} from "./firebase-init.js";
+
+const TYPE_ORDER = ['weight', 'volume', 'count'];
+const TYPE_ICON = { weight: '⚖️', volume: '🧴', count: '🔢' };
+
+let currentEditingType = null;   // نوع القياس اللي فاتح فيه المودال حالياً
+let currentEditingUnitName = null; // null = وضع إضافة وحدة جديدة، غير ذلك = تعديل وحدة موجودة
+
+function showToast(message, isError) {
+  let toast = document.getElementById('akleto-toast');
+  if (!toast) {
+    toast = document.createElement('div');
+    toast.id = 'akleto-toast';
+    document.body.appendChild(toast);
+  }
+  toast.textContent = message;
+  toast.className = 'akleto-toast show' + (isError ? ' error' : '');
+  clearTimeout(window._toastTimer);
+  window._toastTimer = setTimeout(() => { toast.className = 'akleto-toast'; }, 2500);
+}
+
+let _lockCount = 0;
+function lockBodyScroll() {
+  if (_lockCount === 0) { document.documentElement.classList.add('modal-lock'); document.body.classList.add('modal-lock'); }
+  _lockCount++;
+}
+function unlockBodyScroll() {
+  _lockCount = Math.max(0, _lockCount - 1);
+  if (_lockCount === 0) { document.documentElement.classList.remove('modal-lock'); document.body.classList.remove('modal-lock'); }
+}
+
+window.addEventListener('DOMContentLoaded', () => {
+
+  onAuthStateChanged(auth, user => {
+    if (!user) {
+      window.location.href = 'akleto-admin.html';
+    } else {
+      document.getElementById('app-shell').style.display = 'flex';
+      loadUnitsConfig();
+    }
+  });
+
+  window.adminLogout = () => signOut(auth);
+
+  async function loadUnitsConfig() {
+    const wrap = document.getElementById('unitsWrap');
+    wrap.innerHTML = `<div class="empty-state" style="padding:14px 0;">جاري التحميل...</div>`;
+    try {
+      await loadMeasureTypes();
+    } catch(e) {
+      console.error('load measure types error', e);
+      wrap.innerHTML = `<div class="empty-state" style="padding:14px 0;">صار خطأ بتحميل الإعدادات — تحقق من الإنترنت</div>`;
+      return;
+    }
+    renderUnitsConfig();
+  }
+
+  function renderUnitsConfig() {
+    const wrap = document.getElementById('unitsWrap');
+    wrap.innerHTML = TYPE_ORDER.map(type => {
+      const mt = MEASURE_TYPES[type];
+      if (!mt) return '';
+      const units = Object.entries(mt.recipeUnits);
+      const rowsHtml = units.map(([name, factor]) => `
+        <div class="ingredient-list-item" style="padding:10px 14px;cursor:pointer;" onclick="openEditUnitModal('${type}','${name.replace(/'/g,"\\'")}')">
+          <div class="ing-info">
+            <div class="ing-name" style="font-size:14px;">${name}</div>
+            <div class="ing-meta">1 ${name} = ${factor} ${mt.baseUnitLabel}</div>
+          </div>
+        </div>`).join('');
+
+      return `
+        <div class="card" style="margin-bottom:16px;">
+          <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:10px;">
+            <div style="display:flex;align-items:center;gap:10px;">
+              <span style="font-size:22px;">${TYPE_ICON[type] || '📏'}</span>
+              <div>
+                <div style="font-weight:800;font-size:15px;">${mt.label}</div>
+                <div style="font-size:12px;color:var(--cream30);">وحدة الأساس: ${mt.baseUnitLabel}</div>
+              </div>
+            </div>
+            <button type="button" class="ing-remove" style="font-size:11px;width:auto;padding:5px 10px;" onclick="openTypeMetaModal('${type}')">✏️ تعديل الاسم/وحدة الأساس</button>
+          </div>
+          <div style="border-top:1px solid rgba(255,255,255,0.06);">
+            ${rowsHtml || '<div class="empty-state" style="padding:14px 0;">ما في وحدات — أضف وحدة جديدة</div>'}
+          </div>
+          <button type="button" class="btn-secondary" style="width:100%;margin-top:12px;" onclick="openAddUnitModal('${type}')">➕ إضافة وحدة جديدة لـ${mt.label}</button>
+        </div>`;
+    }).join('');
+  }
+
+  /* ══════ عدد المرات المستخدمة فيها وحدة معينة بأي وصفة (تحذير قبل الحذف/إعادة التسمية) ══════ */
+  async function countRecipesUsingUnit(unitName) {
+    try {
+      const snap = await getDocs(query(collection(db, 'meal_ingredients'), where('recipe_unit', '==', unitName)));
+      return snap.size;
+    } catch(e) {
+      console.error('count recipes using unit error', e);
+      return 0;
+    }
+  }
+
+  /* ══════ مودال إضافة/تعديل وحدة وصفة ══════ */
+  window.openAddUnitModal = (type) => {
+    currentEditingType = type;
+    currentEditingUnitName = null;
+    const mt = MEASURE_TYPES[type];
+    document.getElementById('unitModalTitle').textContent = `➕ وحدة جديدة — ${mt.label}`;
+    document.getElementById('uf-name').value = '';
+    document.getElementById('uf-name').disabled = false;
+    document.getElementById('uf-factor').value = '';
+    document.getElementById('uf-base-label').textContent = mt.baseUnitLabel;
+    document.getElementById('unitFormError').style.display = 'none';
+    document.getElementById('uf-delete-btn').classList.add('hidden');
+    document.getElementById('uf-warn').classList.add('hidden');
+    document.getElementById('unitOverlay').classList.add('open');
+    lockBodyScroll();
+  };
+
+  window.openEditUnitModal = (type, unitName) => {
+    currentEditingType = type;
+    currentEditingUnitName = unitName;
+    const mt = MEASURE_TYPES[type];
+    document.getElementById('unitModalTitle').textContent = `✏️ تعديل: ${unitName}`;
+    document.getElementById('uf-name').value = unitName;
+    document.getElementById('uf-name').disabled = false;
+    document.getElementById('uf-factor').value = mt.recipeUnits[unitName];
+    document.getElementById('uf-base-label').textContent = mt.baseUnitLabel;
+    document.getElementById('unitFormError').style.display = 'none';
+    document.getElementById('uf-warn').classList.add('hidden');
+    const onlyOneLeft = Object.keys(mt.recipeUnits).length <= 1;
+    const delBtn = document.getElementById('uf-delete-btn');
+    delBtn.classList.remove('hidden');
+    delBtn.disabled = onlyOneLeft;
+    delBtn.textContent = onlyOneLeft ? '🗑️ لازم يبقى وحدة وحدة عالأقل' : '🗑️ حذف هالوحدة';
+    document.getElementById('unitOverlay').classList.add('open');
+    lockBodyScroll();
+
+    // تحذير غير حاجب — يظهر لو في وصفات تستخدم هالوحدة
+    countRecipesUsingUnit(unitName).then(count => {
+      if (count > 0) {
+        const warn = document.getElementById('uf-warn');
+        warn.textContent = `⚠️ في ${count} مقدار بوصفات مستخدم فيها هالوحدة حالياً — تغيير الاسم أو حذفها بيأثر على حساب كمياتها.`;
+        warn.classList.remove('hidden');
+      }
+    });
+  };
+
+  window.closeUnitModal = () => {
+    document.getElementById('unitOverlay').classList.remove('open');
+    unlockBodyScroll();
+  };
+
+  window.saveUnit = async (ev) => {
+    ev.preventDefault();
+    const errBox = document.getElementById('unitFormError');
+    errBox.style.display = 'none';
+
+    const name = document.getElementById('uf-name').value.trim();
+    const factor = parseFloat(document.getElementById('uf-factor').value);
+
+    if (!name) { errBox.textContent = 'لازم تكتب اسم الوحدة'; errBox.style.display = 'block'; return; }
+    if (isNaN(factor) || factor <= 0) { errBox.textContent = 'لازم تكتب عامل تحويل رقمي أكبر من صفر'; errBox.style.display = 'block'; return; }
+
+    const mt = MEASURE_TYPES[currentEditingType];
+    const isRename = currentEditingUnitName && currentEditingUnitName !== name;
+    const isNewName = !currentEditingUnitName || isRename;
+
+    // تحقق من التكرار (اسم موجود أصلاً لنفس نوع القياس بغير هالوحدة)
+    const nameTaken = Object.keys(mt.recipeUnits).some(u => u === name && u !== currentEditingUnitName);
+    if (nameTaken) { errBox.textContent = 'في وحدة إلها نفس الاسم بهاد نوع القياس أصلاً'; errBox.style.display = 'block'; return; }
+
+    const saveBtn = document.getElementById('uf-save-btn');
+    saveBtn.disabled = true;
+    saveBtn.textContent = 'جاري الحفظ...';
+
+    try {
+      const newRecipeUnits = { ...mt.recipeUnits };
+      if (currentEditingUnitName && currentEditingUnitName !== name) delete newRecipeUnits[currentEditingUnitName];
+      newRecipeUnits[name] = factor;
+
+      const unitsArray = Object.entries(newRecipeUnits).map(([n, f]) => ({ name: n, factor: f }));
+      await withTimeout(
+        updateDoc(doc(db, 'measure_config', currentEditingType), { units: unitsArray }),
+        15000, 'انتهت مهلة الحفظ — تأكد من الإنترنت'
+      );
+
+      MEASURE_TYPES[currentEditingType].recipeUnits = newRecipeUnits;
+      closeUnitModal();
+      renderUnitsConfig();
+      showToast('تم حفظ الوحدة ✅');
+    } catch(e) {
+      console.error('save unit error', e);
+      errBox.textContent = 'صار خطأ بالحفظ — جرب مرة ثانية';
+      errBox.style.display = 'block';
+    } finally {
+      saveBtn.disabled = false;
+      saveBtn.textContent = 'حفظ ✓';
+    }
+  };
+
+  window.deleteUnitFromModal = async () => {
+    if (!currentEditingType || !currentEditingUnitName) return;
+    const mt = MEASURE_TYPES[currentEditingType];
+    if (Object.keys(mt.recipeUnits).length <= 1) return;
+
+    const count = await countRecipesUsingUnit(currentEditingUnitName);
+    const extraWarn = count > 0 ? `\n\n⚠️ تنبيه: في ${count} مقدار بوصفات يستخدم هالوحدة حالياً — حذفها رح يخلي حساب كمياتها غير صحيح.` : '';
+    if (!confirm(`تأكيد حذف وحدة "${currentEditingUnitName}"؟${extraWarn}`)) return;
+
+    const delBtn = document.getElementById('uf-delete-btn');
+    delBtn.disabled = true;
+    delBtn.textContent = 'جاري الحذف...';
+
+    try {
+      const newRecipeUnits = { ...mt.recipeUnits };
+      delete newRecipeUnits[currentEditingUnitName];
+      const unitsArray = Object.entries(newRecipeUnits).map(([n, f]) => ({ name: n, factor: f }));
+      await withTimeout(
+        updateDoc(doc(db, 'measure_config', currentEditingType), { units: unitsArray }),
+        15000, 'انتهت مهلة الحذف — تأكد من الإنترنت'
+      );
+      MEASURE_TYPES[currentEditingType].recipeUnits = newRecipeUnits;
+      closeUnitModal();
+      renderUnitsConfig();
+      showToast('تم حذف الوحدة ✅');
+    } catch(e) {
+      console.error('delete unit error', e);
+      showToast('صار خطأ بالحذف — جرب مرة ثانية ❌', true);
+      delBtn.disabled = false;
+      delBtn.textContent = '🗑️ حذف هالوحدة';
+    }
+  };
+
+  /* ══════ مودال تعديل اسم نوع القياس / تسمية وحدة الأساس ══════ */
+  window.openTypeMetaModal = (type) => {
+    currentEditingType = type;
+    const mt = MEASURE_TYPES[type];
+    document.getElementById('tm-label').value = mt.label;
+    document.getElementById('tm-base-label').value = mt.baseUnitLabel;
+    document.getElementById('typeMetaError').style.display = 'none';
+    document.getElementById('typeMetaOverlay').classList.add('open');
+    lockBodyScroll();
+  };
+
+  window.closeTypeMetaModal = () => {
+    document.getElementById('typeMetaOverlay').classList.remove('open');
+    unlockBodyScroll();
+  };
+
+  window.saveTypeMeta = async (ev) => {
+    ev.preventDefault();
+    const errBox = document.getElementById('typeMetaError');
+    const label = document.getElementById('tm-label').value.trim();
+    const baseLabel = document.getElementById('tm-base-label').value.trim();
+    if (!label || !baseLabel) {
+      errBox.textContent = 'لازم تعبي الاسم ووحدة الأساس';
+      errBox.style.display = 'block';
+      return;
+    }
+    const saveBtn = document.getElementById('tm-save-btn');
+    saveBtn.disabled = true;
+    saveBtn.textContent = 'جاري الحفظ...';
+    try {
+      await withTimeout(
+        updateDoc(doc(db, 'measure_config', currentEditingType), { label, base_unit_label: baseLabel }),
+        15000, 'انتهت مهلة الحفظ — تأكد من الإنترنت'
+      );
+      MEASURE_TYPES[currentEditingType].label = label;
+      MEASURE_TYPES[currentEditingType].baseUnitLabel = baseLabel;
+      closeTypeMetaModal();
+      renderUnitsConfig();
+      showToast('تم الحفظ ✅');
+    } catch(e) {
+      console.error('save type meta error', e);
+      errBox.textContent = 'صار خطأ بالحفظ — جرب مرة ثانية';
+      errBox.style.display = 'block';
+    } finally {
+      saveBtn.disabled = false;
+      saveBtn.textContent = 'حفظ ✓';
+    }
+  };
+
+});
+</script>
+</head>
+<body>
+
+<div id="app-shell" style="display:none;width:100%;">
+
+<div class="sidebar-overlay" id="sidebarOverlay" onclick="closeSidebar()"></div>
+
+<aside class="sidebar" id="sidebar">
+  <div class="logo">
+    <div class="logo-text">أكليتو 🍽️</div>
+    <div class="logo-sub">لوحة التحكم — ADMIN</div>
+  </div>
+
+  <div class="nav-section">
+    <div class="nav-label">الرئيسية</div>
+    <a class="nav-item" href="akleto-admin.html" style="text-decoration:none;color:inherit;">
+      <span class="nav-icon">📊</span><span>نظرة عامة</span>
+    </a>
+    <a class="nav-item" href="akleto-admin-orders.html" style="text-decoration:none;color:inherit;"><span class="nav-icon">🛒</span><span>الطلبات</span></a>
+    <a class="nav-item" href="akleto-admin-meals.html" style="text-decoration:none;color:inherit;">
+      <span class="nav-icon">🍖</span><span>الوجبات</span>
+    </a>
+    <a class="nav-item" href="akleto-admin-ingredients.html" style="text-decoration:none;color:inherit;">
+      <span class="nav-icon">🧅</span><span>المكونات</span>
+    </a>
+    <a class="nav-item active" href="akleto-admin-units.html" style="text-decoration:none;color:inherit;">
+      <span class="nav-icon">⚖️</span><span>الأوزان والمقاييس</span>
+    </a>
+  </div>
+
+  <div class="nav-section">
+    <div class="nav-label">المستخدمون</div>
+    <a class="nav-item" href="akleto-admin-customers.html" style="text-decoration:none;color:inherit;">
+      <span class="nav-icon">👤</span><span>الزبائن</span>
+    </a>
+    <a class="nav-item" href="akleto-admin-drivers.html" style="text-decoration:none;color:inherit;"><span class="nav-icon">🛵</span><span>السائقين</span></a>
+    <a class="nav-item" href="akleto-admin-stores.html" style="text-decoration:none;color:inherit;"><span class="nav-icon">🏪</span><span>المتاجر الشريكة</span></a>
+  </div>
+
+  <div class="nav-section">
+    <div class="nav-label">الإعدادات</div>
+    <div class="nav-item"><span class="nav-icon">📣</span><span>الإشعارات</span></div>
+    <div class="nav-item"><span class="nav-icon">⚙️</span><span>الإعدادات</span></div>
+  </div>
+
+  <div class="sidebar-footer">
+    <div class="admin-card">
+      <div class="admin-avatar">م</div>
+      <div>
+        <div class="admin-name">مؤيد</div>
+        <div class="admin-role">مدير المنصة 👑</div>
+      </div>
+      <button onclick="adminLogout()" title="خروج" style="margin-right:auto;background:none;border:none;color:var(--cream30);cursor:pointer;font-size:16px;">⏻</button>
+    </div>
+  </div>
+</aside>
+
+<main class="main">
+  <div class="topbar">
+    <div>
+      <div class="page-title">⚖️ الأوزان والمقاييس</div>
+      <div class="page-subtitle">وحدات الوصفة المستخدمة عند إدخال مقادير الوجبات</div>
+    </div>
+    <div class="topbar-actions">
+      <button class="menu-toggle" id="menuBtn" onclick="toggleSidebar()" title="القائمة">☰</button>
+      <button class="theme-toggle" id="themeBtn" onclick="toggleTheme()" title="تبديل الوضع">🌙</button>
+    </div>
+  </div>
+
+  <div id="unitsWrap"></div>
+</main>
+
+</div>
+
+<!-- ══════ MODAL: إضافة/تعديل وحدة وصفة ══════ -->
+<div class="modal-overlay" id="unitOverlay">
+  <div class="modal-card" style="max-width:400px;">
+    <div class="modal-header">
+      <div class="modal-title" id="unitModalTitle">وحدة جديدة</div>
+      <button type="button" class="modal-close" onclick="closeUnitModal()">✕</button>
+    </div>
+
+    <form id="unitForm" onsubmit="saveUnit(event)">
+      <div class="modal-body">
+
+        <div class="modal-error" id="unitFormError"></div>
+        <div class="field-hint" id="uf-warn" style="display:none;color:#E0A030;"></div>
+
+        <div class="form-group">
+          <label>اسم الوحدة (متل: رشة، كوب، نص كوب)</label>
+          <input type="text" id="uf-name" placeholder="مثال: كوب" required />
+        </div>
+
+        <div class="form-group">
+          <label>يساوي كم <span id="uf-base-label">غرام</span>؟</label>
+          <input type="number" step="any" min="0.01" id="uf-factor" placeholder="مثال: 240" required />
+        </div>
+
+        <div class="field-hint">مثال: لو "كوب" = 240 غرام، اكتب 240. هاد الرقم هو اللي بيحسب عليه النظام الكمية الحقيقية المطلوبة من كل مكوّن.</div>
+
+      </div>
+
+      <div class="modal-footer" style="flex-direction:column;gap:8px;">
+        <div style="display:flex;gap:8px;width:100%;">
+          <button type="button" class="btn-secondary" style="flex:1;" onclick="closeUnitModal()">إلغاء</button>
+          <button type="submit" class="btn-primary" style="flex:1;" id="uf-save-btn">حفظ ✓</button>
+        </div>
+        <button type="button" class="ing-remove hidden" id="uf-delete-btn" style="width:100%;padding:10px;font-size:13px;" onclick="deleteUnitFromModal()">🗑️ حذف هالوحدة</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- ══════ MODAL: تعديل اسم نوع القياس ووحدة الأساس ══════ -->
+<div class="modal-overlay" id="typeMetaOverlay">
+  <div class="modal-card" style="max-width:380px;">
+    <div class="modal-header">
+      <div class="modal-title">✏️ تعديل نوع القياس</div>
+      <button type="button" class="modal-close" onclick="closeTypeMetaModal()">✕</button>
+    </div>
+
+    <form id="typeMetaForm" onsubmit="saveTypeMeta(event)">
+      <div class="modal-body">
+
+        <div class="modal-error" id="typeMetaError"></div>
+
+        <div class="form-group">
+          <label>اسم نوع القياس (يظهر بشاشة إضافة مكوّن)</label>
+          <input type="text" id="tm-label" placeholder="مثال: وزن" required />
+        </div>
+
+        <div class="form-group">
+          <label>اسم وحدة الأساس (اللي تُحسب فيها كل الكميات داخلياً)</label>
+          <input type="text" id="tm-base-label" placeholder="مثال: غرام" required />
+        </div>
+
+        <div class="field-hint">⚠️ تغيير اسم وحدة الأساس هون تسمية فقط (نص العرض) وما بيغيّر آلية الحساب الداخلية.</div>
+
+      </div>
+
+      <div class="modal-footer">
+        <button type="button" class="btn-secondary" onclick="closeTypeMetaModal()">إلغاء</button>
+        <button type="submit" class="btn-primary" id="tm-save-btn">حفظ ✓</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+  function toggleSidebar() {
+    document.getElementById('sidebar').classList.toggle('open');
+    document.getElementById('sidebarOverlay').classList.toggle('open');
+  }
+  function closeSidebar() {
+    document.getElementById('sidebar').classList.remove('open');
+    document.getElementById('sidebarOverlay').classList.remove('open');
+  }
+  document.addEventListener('DOMContentLoaded', () => {
+    document.querySelectorAll('.nav-item').forEach(item => {
+      item.addEventListener('click', () => { if (window.innerWidth <= 860) closeSidebar(); });
+    });
+  });
+  function toggleTheme() {
+    const body = document.body;
+    const btn  = document.getElementById('themeBtn');
+    body.classList.toggle('light');
+    btn.textContent = body.classList.contains('light') ? '🌙' : '☀️';
+    localStorage.setItem('akleto-theme', body.classList.contains('light') ? 'light' : 'dark');
+  }
+  if (localStorage.getItem('akleto-theme') === 'light') {
+    document.body.classList.add('light');
+    document.addEventListener('DOMContentLoaded', () => { document.getElementById('themeBtn').textContent = '🌙'; });
+  }
+</script>
+</body>
+</html>

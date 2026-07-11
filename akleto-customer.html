@@ -169,6 +169,45 @@
     border-radius: 8px; padding: 6px 10px; margin: -4px 0 8px; line-height:1.5;
   }
 
+  .cart-ing-row {
+    display:flex; align-items:center; gap:8px;
+    padding: 12px 0; border-bottom: 1px solid var(--border);
+  }
+  .cart-ing-row:last-child { border-bottom:none; }
+  .cart-ing-info { flex:1; min-width:0; }
+  .cart-ing-name { font-size:13.5px; font-weight:700; }
+  .cart-ing-price { font-size:11.5px; color:var(--text30); margin-top:2px; }
+  .mini-stepper { display:flex; align-items:center; gap:8px; flex-shrink:0; }
+  .mini-stepper button {
+    width:26px; height:26px; border-radius:50%; border:1.5px solid var(--primary);
+    background:#fff; color:var(--primary); font-size:14px; font-weight:800; line-height:1;
+  }
+  .mini-stepper span { font-size:14px; font-weight:800; min-width:16px; text-align:center; }
+  .cart-ing-total { font-size:13px; font-weight:800; color:var(--primary); min-width:52px; text-align:left; flex-shrink:0; }
+  .cart-ing-remove {
+    width:26px; height:26px; border-radius:50%; border:none; background:var(--bg);
+    color:var(--text30); font-size:13px; flex-shrink:0;
+  }
+  .btn-add-ingredient {
+    width:100%; margin-top:12px; padding:12px; border-radius:12px; border:1.5px dashed var(--primary);
+    background:transparent; color:var(--primary); font-family:'Cairo',sans-serif; font-weight:700; font-size:13.5px;
+  }
+  .ingredient-picker-row {
+    display:flex; align-items:center; justify-content:space-between; gap:10px;
+    padding: 10px 0; border-bottom: 1px solid var(--border);
+  }
+  .ingredient-picker-row:last-child { border-bottom:none; }
+  .ingredient-picker-name { font-size:13.5px; font-weight:700; }
+  .ingredient-picker-price { font-size:11.5px; color:var(--text30); margin-top:2px; }
+  .btn-picker-add {
+    padding:8px 16px; border-radius:10px; border:none; background:var(--primary);
+    color:#fff; font-family:'Cairo',sans-serif; font-weight:700; font-size:12.5px; flex-shrink:0;
+  }
+  .ingredient-search-input {
+    width:100%; padding:10px 14px; border-radius:12px; border:1px solid var(--border);
+    margin-bottom:14px; font-family:'Cairo',sans-serif; font-size:14px; background:var(--surface); color:var(--text);
+  }
+
   /* ═══ Bottom Nav ═══ */
   .bottom-nav {
     position:fixed; bottom:0; right:0; left:0; background: var(--surface);
@@ -303,6 +342,21 @@
     </div>
   </div>
 
+  <!-- ═══ شيت: ضيف مكوّن للشراء ═══ -->
+  <div class="sheet-overlay" id="ingredientPickerSheet">
+    <div class="sheet-card" style="max-height:82vh;">
+      <div class="sheet-body" style="padding-top:20px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
+          <div class="sheet-title" style="margin:0;font-size:18px;">➕ ضيف مكوّن للشراء</div>
+          <button class="sheet-close" style="position:static;" onclick="closeIngredientPicker()">✕</button>
+        </div>
+        <input type="text" id="ingredientPickerSearch" class="ingredient-search-input"
+               placeholder="دور على مكوّن..." oninput="renderIngredientPickerList()" />
+        <div id="ingredientPickerList"></div>
+      </div>
+    </div>
+  </div>
+
   <!-- ═══ شاشة حسابي ═══ -->
   <div id="accountScreen" class="hidden">
     <div class="topbar">
@@ -422,6 +476,7 @@ let mealsCache = [];
 let ingredientsCache = [];
 let mealIngredientsCache = []; // كل روابط meal_ingredients محمّلة مرة وحدة
 let selectedMeals = []; // {mealId, servings}
+let cartOverrides = {}; // ingredientId -> عدد العبوات النهائي بعد تعديل الزبون يدوياً (0 = محذوف من السلة)
 let currentSheetMealId = null;
 let currentSheetServings = 2;
 let customerId = null;
@@ -815,6 +870,7 @@ function updateCartBadge() {
 /* ═══════════ شاشة السلة + الدمج الذكي ═══════════ */
 window.removeMealFromCart = (mealId) => {
   selectedMeals = selectedMeals.filter(s => s.mealId !== mealId);
+  if (!selectedMeals.length) cartOverrides = {};
   updateCartBadge();
   renderCartScreen();
   renderMealsGrid();
@@ -843,6 +899,79 @@ function computeMergedIngredients() {
   return merged;
 }
 
+// القائمة النهائية للسلة: الكمية المحسوبة تلقائياً من الوصفات، بعد ما نطبق فوقها
+// أي تعديل يدوي سواه الزبون (زيادة/نقصان/حذف/إضافة مكوّن مو من وصفة أصلاً).
+function getFinalCartIngredients() {
+  const merged = computeMergedIngredients();
+  const result = {};
+  Object.entries(merged).forEach(([id, e]) => {
+    const qty = cartOverrides.hasOwnProperty(id) ? cartOverrides[id] : e.purchaseQty;
+    if (qty > 0) result[id] = { ...e, purchaseQty: qty };
+  });
+  Object.keys(cartOverrides).forEach(id => {
+    if (!merged[id] && cartOverrides[id] > 0) {
+      const ing = ingredientsCache.find(i => i.id === id);
+      if (ing) {
+        result[id] = {
+          name: ing.name_ar, measureType: ing.measure_type,
+          packageLabel: ing.package_label, packageQty: ing.package_qty,
+          pricePerPackage: ing.price_per_package,
+          baseQty: 0, purchaseQty: cartOverrides[id]
+        };
+      }
+    }
+  });
+  return result;
+}
+
+window.adjustCartIngredient = (id, delta) => {
+  const current = getFinalCartIngredients()[id];
+  const currentQty = current ? current.purchaseQty : 0;
+  cartOverrides[id] = Math.max(0, currentQty + delta);
+  renderCartScreen();
+};
+
+window.removeCartIngredient = (id) => {
+  cartOverrides[id] = 0;
+  renderCartScreen();
+};
+
+window.openIngredientPicker = () => {
+  document.getElementById('ingredientPickerSearch').value = '';
+  renderIngredientPickerList();
+  document.getElementById('ingredientPickerSheet').classList.add('open');
+};
+
+window.closeIngredientPicker = () => {
+  document.getElementById('ingredientPickerSheet').classList.remove('open');
+};
+
+function renderIngredientPickerList() {
+  const q = document.getElementById('ingredientPickerSearch').value.trim();
+  const list = document.getElementById('ingredientPickerList');
+  const filtered = ingredientsCache.filter(i => !q || (i.name_ar || '').includes(q));
+  if (!filtered.length) {
+    list.innerHTML = `<div class="empty-state-c" style="padding:20px 0;">ما في نتائج</div>`;
+    return;
+  }
+  list.innerHTML = filtered.map(i => `
+    <div class="ingredient-picker-row">
+      <div>
+        <div class="ingredient-picker-name">${i.name_ar || ''}</div>
+        <div class="ingredient-picker-price">${(i.price_per_package || 0).toFixed(2)} د.أ / ${i.package_label || ''}</div>
+      </div>
+      <button class="btn-picker-add" onclick="addIngredientToCart('${i.id}')">أضف +</button>
+    </div>`).join('');
+}
+
+window.addIngredientToCart = (id) => {
+  const current = getFinalCartIngredients()[id];
+  cartOverrides[id] = (current ? current.purchaseQty : 0) + 1;
+  closeIngredientPicker();
+  renderCartScreen();
+  showToast('تمت الإضافة للسلة ✅');
+};
+
 function renderCartScreen() {
   const content = document.getElementById('cartContent');
   const mergedWrap = document.getElementById('mergedSection');
@@ -869,26 +998,39 @@ function renderCartScreen() {
       </div>`;
   }).join('');
 
-  const merged = computeMergedIngredients();
-  const entries = Object.values(merged);
+  const entries = Object.entries(getFinalCartIngredients());
   let totalPrice = 0;
-  const rows = entries.map(e => {
+  const rows = entries.map(([id, e]) => {
     const lineTotal = e.purchaseQty * (e.pricePerPackage || 0);
     totalPrice += lineTotal;
     const mt = MEASURE_TYPES[e.measureType];
     const baseLabel = mt ? mt.baseUnitLabel : '';
     const purchasedBase = e.purchaseQty * e.packageQty;
-    const roundedUp = purchasedBase > e.baseQty + 0.001;
+    const roundedUp = e.baseQty > 0 && purchasedBase > e.baseQty + 0.001;
     const note = roundedUp
       ? `<div class="ing-preview-note">🧾 الوصفة تحتاج تقريبًا ${formatQty(e.baseQty)} ${baseLabel} — رح تشتري ${e.purchaseQty} ${e.packageLabel} (${formatQty(purchasedBase)} ${baseLabel}) وتقدر تستخدم الباقي بوجبات جاية</div>`
       : '';
-    return `<div class="ing-preview-item"><span>${e.name}</span><span class="amt">${e.purchaseQty} ${e.packageLabel}</span></div>${note}`;
+    return `
+      <div class="cart-ing-row">
+        <div class="cart-ing-info">
+          <div class="cart-ing-name">${e.name}</div>
+          <div class="cart-ing-price">${(e.pricePerPackage || 0).toFixed(2)} د.أ / ${e.packageLabel}</div>
+        </div>
+        <div class="mini-stepper">
+          <button onclick="adjustCartIngredient('${id}',-1)">−</button>
+          <span>${e.purchaseQty}</span>
+          <button onclick="adjustCartIngredient('${id}',1)">+</button>
+        </div>
+        <div class="cart-ing-total">${lineTotal.toFixed(2)} د.أ</div>
+        <button class="cart-ing-remove" onclick="removeCartIngredient('${id}')">✕</button>
+      </div>${note}`;
   }).join('');
 
   mergedWrap.innerHTML = `
     <div class="merged-card">
       <div class="merged-header">🧠 قائمة المكونات المدمجة (الدمج الذكي)</div>
-      ${rows}
+      ${rows || '<div class="empty-state-c" style="padding:14px 0;">ما في مكونات — ضيف وحدة يدوياً</div>'}
+      <button type="button" class="btn-add-ingredient" onclick="openIngredientPicker()">➕ ضيف مكوّن للشراء</button>
       ${totalPrice > 0 ? `<div class="ing-preview-item" style="border-top:2px solid var(--border);margin-top:6px;padding-top:12px;font-weight:800;">
         <span>السعر التقديري</span><span class="amt" style="color:var(--primary);font-weight:800;">${totalPrice.toFixed(2)} د.أ</span>
       </div>` : ''}
@@ -906,7 +1048,7 @@ window.placeOrder = async () => {
   btn.textContent = 'جاري إرسال الطلب...';
 
   try {
-    const merged = computeMergedIngredients();
+    const merged = getFinalCartIngredients();
     const mergedArray = Object.entries(merged).map(([ingredientId, v]) => ({
       ingredient_id: ingredientId, name: v.name,
       package_label: v.packageLabel, purchase_quantity: v.purchaseQty,
@@ -930,6 +1072,7 @@ window.placeOrder = async () => {
     );
 
     selectedMeals = [];
+    cartOverrides = {};
     updateCartBadge();
     document.getElementById('homeScreen').classList.add('hidden');
     document.getElementById('cartScreen').classList.add('hidden');

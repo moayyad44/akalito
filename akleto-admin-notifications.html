@@ -79,6 +79,7 @@ let inboxCache = [];
 let sentCache = [];
 let customersCache = [];
 let driversCache = [];
+let storesCache = [];
 
 const TYPE_META = {
   new_order:        { icon: '🛒', label: 'طلب جديد' },
@@ -205,12 +206,14 @@ window.addEventListener('DOMContentLoaded', () => {
   // ══════════ جمهور الإرسال ══════════
   async function loadDirectory() {
     try {
-      const [custSnap, drvSnap] = await Promise.all([
+      const [custSnap, drvSnap, storeSnap] = await Promise.all([
         getDocs(collection(db, 'customers')),
         getDocs(collection(db, 'drivers')),
+        getDocs(collection(db, 'stores')),
       ]);
       customersCache = custSnap.docs.map(d => ({ id: d.id, ...d.data() }));
       driversCache = drvSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+      storesCache = storeSnap.docs.map(d => ({ id: d.id, ...d.data() }));
     } catch (e) {
       console.error('loadDirectory error', e);
     }
@@ -230,6 +233,11 @@ window.addEventListener('DOMContentLoaded', () => {
       select.innerHTML = driversCache.length
         ? driversCache.map(d => `<option value="${d.id}">${d.name || 'بدون اسم'} — ${d.phone || '—'}</option>`).join('')
         : `<option value="">ما في سائقين مسجّلين</option>`;
+    } else if (val === 'store') {
+      wrap.style.display = 'block';
+      select.innerHTML = storesCache.length
+        ? storesCache.map(s => `<option value="${s.id}">${s.name || 'بدون اسم'}</option>`).join('')
+        : `<option value="">ما في متاجر مسجّلة</option>`;
     } else {
       wrap.style.display = 'none';
       select.innerHTML = '';
@@ -246,10 +254,10 @@ window.addEventListener('DOMContentLoaded', () => {
     if (!title || !message) { showToast('لازم تعبي العنوان والنص ❌', true); return; }
 
     let targetId = null, targetName = null;
-    if (audience === 'customer' || audience === 'driver') {
+    if (audience === 'customer' || audience === 'driver' || audience === 'store') {
       targetId = document.getElementById('targetSelect').value;
       if (!targetId) { showToast('اختر المستلم أولاً ❌', true); return; }
-      const list = audience === 'customer' ? customersCache : driversCache;
+      const list = audience === 'customer' ? customersCache : (audience === 'driver' ? driversCache : storesCache);
       const t = list.find(x => x.id === targetId);
       targetName = t ? t.name : null;
     }
@@ -286,8 +294,10 @@ window.addEventListener('DOMContentLoaded', () => {
   function audienceLabel(n) {
     if (n.audience === 'all_customers') return 'كل الزبائن';
     if (n.audience === 'all_drivers') return 'كل السائقين';
+    if (n.audience === 'all_stores') return 'كل المتاجر';
     if (n.audience === 'customer') return `زبون: ${n.target_name || '—'}`;
     if (n.audience === 'driver') return `سائق: ${n.target_name || '—'}`;
+    if (n.audience === 'store') return `متجر: ${n.target_name || '—'}`;
     return n.audience || '—';
   }
 
@@ -406,8 +416,10 @@ if ("serviceWorker" in navigator) {
           <select id="audienceSelect" onchange="onAudienceChange()">
             <option value="all_customers">كل الزبائن</option>
             <option value="all_drivers">كل السائقين</option>
+            <option value="all_stores">كل المتاجر</option>
             <option value="customer">زبون محدد</option>
             <option value="driver">سائق محدد</option>
+            <option value="store">متجر محدد</option>
           </select>
         </div>
         <div class="form-group" id="targetWrap" style="display:none;">

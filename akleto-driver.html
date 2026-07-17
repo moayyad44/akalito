@@ -557,6 +557,15 @@ window.claimOrder = async (orderId) => {
         picked_up_at: serverTimestamp()
       });
     });
+    const o = availableOrders.find(x => x.id === orderId);
+    addDoc(collection(db, 'admin_notifications'), {
+      type: 'order_claimed',
+      title: `طلب استلمه سائق ${ticketCode(orderId)}`,
+      message: `${driverName || 'سائق'} استلم طلب ${o ? (o.customer_name || 'زبون') : ''} وبده يوصّله`,
+      related_id: orderId,
+      created_at: serverTimestamp(),
+      read: false
+    }).catch(e => console.error('admin_notifications write error', e));
     showToast('✅ تم استلام الطلب — روح توصّله');
     closeOrderSheet();
     switchScreen('my');
@@ -628,10 +637,19 @@ function renderMyOrders() {
 
 window.markDelivered = async (orderId) => {
   try {
+    const o = myOrders.find(x => x.id === orderId);
     await withTimeout(
       updateDoc(doc(db, 'orders', orderId), { status: 'done', delivered_at: serverTimestamp() }),
       10000, 'انتهت مهلة تحديث الحالة'
     );
+    addDoc(collection(db, 'admin_notifications'), {
+      type: 'order_delivered',
+      title: `تم التوصيل ${ticketCode(orderId)}`,
+      message: `السائق ${driverName || ''} وصّل طلب ${o ? (o.customer_name || 'زبون') : ''} بنجاح`,
+      related_id: orderId,
+      created_at: serverTimestamp(),
+      read: false
+    }).catch(e => console.error('admin_notifications write error', e));
     showToast('✅ تم تسجيل التوصيل — شكراً!');
     closeOrderSheet();
   } catch (e) {

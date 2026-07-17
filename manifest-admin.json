@@ -1,0 +1,17 @@
+{
+  "name": "أكليتو - لوحة التحكم",
+  "short_name": "لوحة أكليتو",
+  "description": "لوحة تحكم الأدمن - أكليتو",
+  "start_url": "./akleto-admin.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "dir": "rtl",
+  "lang": "ar",
+  "background_color": "#130609",
+  "theme_color": "#130609",
+  "icons": [
+    { "src": "icons/admin-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icons/admin-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" }
+  ]
+}

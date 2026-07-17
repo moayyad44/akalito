@@ -18,6 +18,7 @@
 <link rel="stylesheet" href="admin-style.css?v=6">
 <script type="module">
 import {
+  watchUnreadNotifications,
   db, auth, collection, getDocs, addDoc, updateDoc, deleteDoc, doc, serverTimestamp,
   onAuthStateChanged, signOut, withTimeout
 } from "./firebase-init.js";
@@ -57,6 +58,10 @@ window.addEventListener('DOMContentLoaded', () => {
       window.location.href = 'akleto-admin.html';
     } else {
       document.getElementById('app-shell').style.display = 'flex';
+      watchUnreadNotifications(count => {
+        const badge = document.getElementById('notifNavBadge');
+        if (badge) { badge.textContent = count; badge.classList.toggle('hidden', count === 0); }
+      });
       loadStores();
     }
   });
@@ -357,7 +362,7 @@ if ("serviceWorker" in navigator) {
 
   <div class="nav-section">
     <div class="nav-label">الإعدادات</div>
-    <div class="nav-item"><span class="nav-icon">📣</span><span>الإشعارات</span></div>
+    <a class="nav-item" href="akleto-admin-notifications.html" style="text-decoration:none;color:inherit;"><span class="nav-icon">📣</span><span>الإشعارات</span><span class="nav-badge hidden" id="notifNavBadge">0</span></a>
     <div class="nav-item"><span class="nav-icon">⚙️</span><span>الإعدادات</span></div>
   </div>
 

@@ -17,6 +17,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;900&family=Tajawal:wght@400;500;700;800&display=swap" rel="stylesheet">
 <script type="module">
 import {
+  watchUnreadNotifications,
   db, auth, collection, getDocs, query, orderBy, limit, onSnapshot,
   addDoc, writeBatch, doc, serverTimestamp, getDocFromServer,
   onAuthStateChanged, signInWithEmailAndPassword, signOut,
@@ -97,6 +98,12 @@ window.addEventListener('DOMContentLoaded', () => {
   function hideLoginGate() {
     document.getElementById('login-gate').style.display = 'none';
     document.getElementById('app-shell').style.display = 'flex';
+      watchUnreadNotifications(count => {
+        const badge = document.getElementById('notifNavBadge');
+        if (badge) { badge.textContent = count; badge.classList.toggle('hidden', count === 0); }
+        const dot = document.getElementById('topbarNotifDot');
+        if (dot) { dot.classList.toggle('hidden', count === 0); }
+      });
   }
 
   async function loadDashboard() {
@@ -689,10 +696,7 @@ if ("serviceWorker" in navigator) {
 
   <div class="nav-section">
     <div class="nav-label">الإعدادات</div>
-    <div class="nav-item">
-      <span class="nav-icon">📣</span>
-      <span>الإشعارات</span>
-    </div>
+    <a class="nav-item" href="akleto-admin-notifications.html" style="text-decoration:none;color:inherit;"><span class="nav-icon">📣</span><span>الإشعارات</span><span class="nav-badge hidden" id="notifNavBadge">0</span></a>
     <div class="nav-item">
       <span class="nav-icon">⚙️</span>
       <span>الإعدادات</span>
@@ -723,10 +727,10 @@ if ("serviceWorker" in navigator) {
     <div class="topbar-actions">
       <button class="menu-toggle" id="menuBtn" onclick="toggleSidebar()" title="القائمة">☰</button>
       <button class="theme-toggle" id="themeBtn" onclick="toggleTheme()" title="تبديل الوضع">🌙</button>
-      <div class="btn-notif">
+      <a class="btn-notif" href="akleto-admin-notifications.html" style="text-decoration:none;color:inherit;" title="الإشعارات">
         🔔
-        <span class="notif-dot"></span>
-      </div>
+        <span class="notif-dot hidden" id="topbarNotifDot"></span>
+      </a>
       <button class="btn-primary" onclick="openAddMealModal()">➕ <span class="btn-primary-label">إضافة وجبة</span></button>
     </div>
   </div>

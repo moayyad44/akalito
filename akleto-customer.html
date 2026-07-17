@@ -82,6 +82,11 @@
     cursor:pointer; transition: background .15s ease;
   }
   .icon-btn:active { background: var(--border); }
+  .bell-wrap { position:relative; display:inline-flex; }
+  .bell-dot {
+    position:absolute; top:1px; left:1px; width:11px; height:11px; border-radius:50%;
+    background: var(--primary); border:2px solid var(--bg);
+  }
 
   /* ═══ القائمة الجانبية ═══ */
   .cs-overlay {
@@ -413,6 +418,10 @@ if ("serviceWorker" in navigator) {
       </div>
       <div style="display:flex;align-items:center;gap:10px;">
         <div class="topbar-logo">أكليتو 🍽️</div>
+        <div class="bell-wrap">
+          <button class="icon-btn" onclick="openNotifSheet()" title="الإشعارات">🔔</button>
+          <span class="bell-dot hidden" id="bellDotHome"></span>
+        </div>
         <button class="icon-btn" onclick="toggleCustomerMenu()" title="القائمة">☰</button>
       </div>
     </div>
@@ -470,6 +479,10 @@ if ("serviceWorker" in navigator) {
       <div>
         <div class="greeting">🏪 <b id="store-greeting-name"></b></div>
         <div style="color:var(--text30);font-size:12px;" id="store-employee-name"></div>
+      </div>
+      <div class="bell-wrap">
+        <button class="icon-btn" onclick="openNotifSheet()" title="الإشعارات">🔔</button>
+        <span class="bell-dot hidden" id="bellDotStore"></span>
       </div>
     </div>
     <div style="padding: 0 18px;">
@@ -550,6 +563,17 @@ if ("serviceWorker" in navigator) {
     </div>
   </div>
 
+  <!-- ═══ شيت: الإشعارات ═══ -->
+  <div class="sheet-overlay" id="notifSheet" onclick="if(event.target===this) closeNotifSheet()">
+    <div class="sheet-card" style="max-height:80vh;">
+      <button class="sheet-close" onclick="closeNotifSheet()">✕</button>
+      <div class="sheet-body">
+        <div class="sheet-title">🔔 الإشعارات</div>
+        <div id="notifList"></div>
+      </div>
+    </div>
+  </div>
+
   <!-- ═══ شاشة نجاح الطلب ═══ -->
   <div id="successScreen" class="hidden success-screen">
     <div class="emoji">✅</div>
@@ -623,6 +647,10 @@ import {
   db, collection, getDocs, addDoc, doc, updateDoc, setDoc, query, where, serverTimestamp, withTimeout,
   onSnapshot, MEASURE_TYPES, convertToBase, loadMeasureTypes
 } from "./firebase-init.js";
+
+let notifItems = [];
+let notifBuckets = { all: [], mine: [] };
+let notifUnsubs = [];
 
 let mealsCache = [];
 let ingredientsCache = [];
@@ -725,6 +753,7 @@ function enterApp() {
   document.getElementById('acc-name').textContent = customerName;
   document.getElementById('acc-phone').textContent = customerPhone;
   loadInitialData();
+  startNotifListeners();
 }
 
 window.toggleCustomerMenu = () => {
@@ -869,6 +898,7 @@ function enterStoreMode() {
   document.getElementById('store-employee-name').textContent = 'مسجل دخول: ' + storeEmpName;
   switchScreen('store');
   startStoreOrdersListener();
+  startNotifListeners();
 }
 
 window.logoutStore = () => {
@@ -1744,6 +1774,79 @@ async function renderOrdersHistory() {
       </div>`;
   }).join('');
 }
+
+/* ═══════════ الإشعارات (زبون/متجر) ═══════════ */
+function notifSeenKey() {
+  return storeId ? 'akleto_store_notif_seen' : 'akleto_customer_notif_seen';
+}
+
+function startNotifListeners() {
+  notifUnsubs.forEach(u => u && u());
+  notifUnsubs = [];
+  notifBuckets = { all: [], mine: [] };
+  notifItems = [];
+
+  if (storeId) {
+    const qAll = query(collection(db, 'user_notifications'), where('audience', '==', 'all_stores'));
+    const qMine = query(collection(db, 'user_notifications'), where('audience', '==', 'store'), where('target_id', '==', storeId));
+    notifUnsubs.push(onSnapshot(qAll, snap => mergeNotifSnap('all', snap), e => console.error('notif all_stores error', e)));
+    notifUnsubs.push(onSnapshot(qMine, snap => mergeNotifSnap('mine', snap), e => console.error('notif store error', e)));
+  } else if (customerId) {
+    const qAll = query(collection(db, 'user_notifications'), where('audience', '==', 'all_customers'));
+    const qMine = query(collection(db, 'user_notifications'), where('audience', '==', 'customer'), where('target_id', '==', customerId));
+    notifUnsubs.push(onSnapshot(qAll, snap => mergeNotifSnap('all', snap), e => console.error('notif all_customers error', e)));
+    notifUnsubs.push(onSnapshot(qMine, snap => mergeNotifSnap('mine', snap), e => console.error('notif customer error', e)));
+  }
+}
+
+function mergeNotifSnap(bucket, snap) {
+  notifBuckets[bucket] = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+  notifItems = [...notifBuckets.all, ...notifBuckets.mine].sort(
+    (a, b) => (b.created_at?.toMillis?.() || 0) - (a.created_at?.toMillis?.() || 0)
+  );
+  updateNotifBadge();
+  if (document.getElementById('notifSheet').classList.contains('open')) renderNotifList();
+}
+
+function updateNotifBadge() {
+  const seen = parseInt(localStorage.getItem(notifSeenKey()) || '0', 10);
+  const unread = notifItems.filter(n => (n.created_at?.toMillis?.() || 0) > seen).length;
+  document.querySelectorAll('.bell-dot').forEach(d => d.classList.toggle('hidden', unread === 0));
+}
+
+function timeAgoNotif(ts) {
+  if (!ts || !ts.toDate) return '—';
+  const d = ts.toDate();
+  const diffSec = Math.floor((Date.now() - d.getTime()) / 1000);
+  if (diffSec < 60) return 'الآن';
+  if (diffSec < 3600) return `منذ ${Math.floor(diffSec / 60)} دقيقة`;
+  if (diffSec < 86400) return `منذ ${Math.floor(diffSec / 3600)} ساعة`;
+  if (diffSec < 2592000) return `منذ ${Math.floor(diffSec / 86400)} يوم`;
+  return d.toLocaleDateString('ar-JO');
+}
+
+function renderNotifList() {
+  const wrap = document.getElementById('notifList');
+  if (!notifItems.length) {
+    wrap.innerHTML = `<div class="empty-state-c" style="padding:30px 0;">ولا إشعار لسا 🔕</div>`;
+    return;
+  }
+  wrap.innerHTML = notifItems.map(n => `
+    <div style="background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:14px 16px;margin-bottom:10px;">
+      <div style="font-weight:800;font-size:14px;margin-bottom:4px;">${n.title || ''}</div>
+      <div style="font-size:13px;color:var(--text30);line-height:1.5;">${n.message || ''}</div>
+      <div style="font-size:11px;color:var(--text30);margin-top:6px;">${timeAgoNotif(n.created_at)}</div>
+    </div>`).join('');
+}
+
+window.openNotifSheet = () => {
+  document.getElementById('notifSheet').classList.add('open');
+  renderNotifList();
+  const latest = notifItems.reduce((max, n) => Math.max(max, n.created_at?.toMillis?.() || 0), 0);
+  localStorage.setItem(notifSeenKey(), String(latest || Date.now()));
+  updateNotifBadge();
+};
+window.closeNotifSheet = () => document.getElementById('notifSheet').classList.remove('open');
 
 /* ═══════════ نقطة البداية ═══════════ */
 window.addEventListener('DOMContentLoaded', () => {

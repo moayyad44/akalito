@@ -77,6 +77,18 @@
   .topbar .greeting { font-size: 13px; color: var(--text30); }
   .topbar .greeting b { color: var(--text); }
   .topbar-logo { font-family:'Tajawal',sans-serif; font-weight:900; color: var(--primary); font-size: 20px; }
+  .icon-btn {
+    width:38px; height:38px; border-radius:50%; flex-shrink:0;
+    border:1.5px solid var(--border); background: var(--surface); color: var(--primary);
+    font-size:16px; display:flex; align-items:center; justify-content:center;
+    cursor:pointer; transition: background .15s ease;
+  }
+  .icon-btn:active { background: var(--border); }
+  .bell-wrap { position:relative; display:inline-flex; }
+  .bell-dot {
+    position:absolute; top:1px; left:1px; width:11px; height:11px; border-radius:50%;
+    background: var(--primary); border:2px solid var(--bg);
+  }
 
   .section-title { font-size: 16px; font-weight: 800; padding: 6px 18px 12px; font-family:'Tajawal',sans-serif; }
   .content-wrap { max-width: 640px; margin: 0 auto; }
@@ -216,6 +228,10 @@ if ("serviceWorker" in navigator) {
       <div class="topbar-logo">أكليتو 🛵</div>
       <div class="greeting">أهلاً <b id="greet-name">—</b></div>
     </div>
+    <div class="bell-wrap">
+      <button class="icon-btn" onclick="openNotifSheet()" title="الإشعارات">🔔</button>
+      <span class="bell-dot hidden" id="bellDotDriver"></span>
+    </div>
   </div>
 
   <!-- شاشة الطلبات المتاحة -->
@@ -264,6 +280,17 @@ if ("serviceWorker" in navigator) {
   </div>
 </div>
 
+<!-- ══════ ورقة الإشعارات ══════ -->
+<div class="sheet-overlay" id="notifSheet" onclick="if(event.target===this) closeNotifSheet()">
+  <div class="sheet-card" style="max-height:80vh;">
+    <button class="sheet-close" onclick="closeNotifSheet()">✕</button>
+    <div class="sheet-body">
+      <div class="sheet-title">🔔 الإشعارات</div>
+      <div id="notifList"></div>
+    </div>
+  </div>
+</div>
+
 <!-- ══════ ورقة تفاصيل الطلب ══════ -->
 <div class="sheet-overlay" id="orderSheet" onclick="if(event.target===this) closeOrderSheet()">
   <div class="sheet-card">
@@ -293,6 +320,9 @@ import {
   db, collection, getDocs, addDoc, doc, query, where, onSnapshot, serverTimestamp,
   updateDoc, runTransaction, withTimeout
 } from "./firebase-init.js";
+
+let notifItems = [];
+let notifUnsubs = [];
 
 let mealsCache = {};        // meal_id -> name_ar
 let availableOrders = [];   // status === 'ready'
@@ -390,7 +420,69 @@ function enterApp() {
   document.getElementById('acc-phone').textContent = driverPhone;
   document.getElementById('acc-avatar').textContent = driverName.trim().charAt(0) || '؟';
   loadMealsThenListen();
+  startNotifListeners();
 }
+
+/* ═══════════ الإشعارات ═══════════ */
+function startNotifListeners() {
+  notifUnsubs.forEach(u => u && u());
+  notifUnsubs = [];
+  let buckets = { all: [], mine: [] };
+
+  const mergeSnap = (bucket, snap) => {
+    buckets[bucket] = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    notifItems = [...buckets.all, ...buckets.mine].sort(
+      (a, b) => (b.created_at?.toMillis?.() || 0) - (a.created_at?.toMillis?.() || 0)
+    );
+    updateNotifBadge();
+    if (document.getElementById('notifSheet').classList.contains('open')) renderNotifList();
+  };
+
+  const qAll = query(collection(db, 'user_notifications'), where('audience', '==', 'all_drivers'));
+  const qMine = query(collection(db, 'user_notifications'), where('audience', '==', 'driver'), where('target_id', '==', driverId));
+  notifUnsubs.push(onSnapshot(qAll, snap => mergeSnap('all', snap), e => console.error('notif all_drivers error', e)));
+  notifUnsubs.push(onSnapshot(qMine, snap => mergeSnap('mine', snap), e => console.error('notif driver error', e)));
+}
+
+function updateNotifBadge() {
+  const seen = parseInt(localStorage.getItem('akleto_driver_notif_seen') || '0', 10);
+  const unread = notifItems.filter(n => (n.created_at?.toMillis?.() || 0) > seen).length;
+  document.querySelectorAll('.bell-dot').forEach(d => d.classList.toggle('hidden', unread === 0));
+}
+
+function timeAgoNotif(ts) {
+  if (!ts || !ts.toDate) return '—';
+  const d = ts.toDate();
+  const diffSec = Math.floor((Date.now() - d.getTime()) / 1000);
+  if (diffSec < 60) return 'الآن';
+  if (diffSec < 3600) return `منذ ${Math.floor(diffSec / 60)} دقيقة`;
+  if (diffSec < 86400) return `منذ ${Math.floor(diffSec / 3600)} ساعة`;
+  if (diffSec < 2592000) return `منذ ${Math.floor(diffSec / 86400)} يوم`;
+  return d.toLocaleDateString('ar-JO');
+}
+
+function renderNotifList() {
+  const wrap = document.getElementById('notifList');
+  if (!notifItems.length) {
+    wrap.innerHTML = `<div class="empty-state-c" style="padding:30px 0;">ولا إشعار لسا 🔕</div>`;
+    return;
+  }
+  wrap.innerHTML = notifItems.map(n => `
+    <div style="background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:14px 16px;margin-bottom:10px;">
+      <div style="font-weight:800;font-size:14px;margin-bottom:4px;">${n.title || ''}</div>
+      <div style="font-size:13px;color:var(--text30);line-height:1.5;">${n.message || ''}</div>
+      <div style="font-size:11px;color:var(--text30);margin-top:6px;">${timeAgoNotif(n.created_at)}</div>
+    </div>`).join('');
+}
+
+window.openNotifSheet = () => {
+  document.getElementById('notifSheet').classList.add('open');
+  renderNotifList();
+  const latest = notifItems.reduce((max, n) => Math.max(max, n.created_at?.toMillis?.() || 0), 0);
+  localStorage.setItem('akleto_driver_notif_seen', String(latest || Date.now()));
+  updateNotifBadge();
+};
+window.closeNotifSheet = () => document.getElementById('notifSheet').classList.remove('open');
 
 /* ═══════════ تحميل الوجبات (لعرض أسمائها بالتفاصيل) ═══════════ */
 async function loadMealsThenListen() {

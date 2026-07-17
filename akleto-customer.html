@@ -1242,10 +1242,19 @@ window.markStoreOrderReady = async () => {
   btn.disabled = true;
   btn.textContent = 'جاري التحديث...';
   try {
+    const o = storeOrdersCache.find(x => x.id === currentStoreOrderId);
     await withTimeout(
       updateDoc(doc(db, 'orders', currentStoreOrderId), { status: 'ready' }),
       15000, 'انتهت مهلة التحديث — تأكد من الإنترنت'
     );
+    addDoc(collection(db, 'admin_notifications'), {
+      type: 'order_ready',
+      title: `طلب جاهز ${ticketCode(currentStoreOrderId)}`,
+      message: `متجر "${storeName}" جهّز طلب ${o ? (o.customer_name || 'زبون') : ''} — بانتظار سائق`,
+      related_id: currentStoreOrderId,
+      created_at: serverTimestamp(),
+      read: false
+    }).catch(e => console.error('admin_notifications write error', e));
     closeStoreOrderSheet();
     showToast('تم! الطلب صار جاهز للسائق ✅');
   } catch(e) {
@@ -1700,7 +1709,7 @@ window.placeOrder = async () => {
     });
     const totalPrice = mergedArray.reduce((sum, e) => sum + e.purchase_quantity * (e.price_per_package || 0), 0);
 
-    await withTimeout(
+    const newOrderRef = await withTimeout(
       addDoc(collection(db, 'orders'), {
         customer_id: customerId,
         customer_name: customerName,
@@ -1715,6 +1724,15 @@ window.placeOrder = async () => {
       }),
       20000, 'انتهت مهلة إرسال الطلب — تأكد من الإنترنت'
     );
+
+    addDoc(collection(db, 'admin_notifications'), {
+      type: 'new_order',
+      title: `طلب جديد ${ticketCode(newOrderRef.id)}`,
+      message: `${customerName || 'زبون'} طلب من متجر "${routing.store.name}" بقيمة ${Math.round(totalPrice * 100) / 100} د.أ تقريباً`,
+      related_id: newOrderRef.id,
+      created_at: serverTimestamp(),
+      read: false
+    }).catch(e => console.error('admin_notifications write error', e));
 
     document.getElementById('success-store-note').textContent = `رح تشتري من متجر "${routing.store.name}" — رح نجهزلك المكونات ونوصلها أقرب وقت ممكن 🚴`;
     selectedMeals = [];

@@ -312,6 +312,8 @@ if ("serviceWorker" in navigator) {
       <div class="receipt-section-title">🍽️ الوجبات</div>
       <div id="sheet-meals"></div>
 
+      <div id="sheet-tip-wrap"></div>
+
       <div class="receipt-total">
         <span id="sheet-price-label">المبلغ المطلوب تحصيله</span>
         <span class="mono" id="sheet-price">—</span>
@@ -695,6 +697,12 @@ window.openOrderSheet = (orderId, mode) => {
     `<div class="receipt-row"><span>🍽️ ${mealsCache[it.meal_id] || 'وجبة'}</span><span class="mono">× ${it.servings || 1}</span></div>`
   ).join('') || `<div class="empty-state-c" style="padding:8px 0;">لا توجد عناصر</div>`;
   document.getElementById('sheet-meals').innerHTML = mealsHtml;
+
+  const tipWrap = document.getElementById('sheet-tip-wrap');
+  tipWrap.innerHTML = o.driver_tip
+    ? `<div class="receipt-note" style="color:#2ED573;background:rgba(46,213,115,.12);">🎁 منها إكرامية لك: ${o.driver_tip.toFixed(2)} د.أ</div>`
+    : '';
+
   document.getElementById('sheet-price').textContent = (o.total_estimated_price || 0).toFixed(2) + ' د.أ';
 
   const actionsWrap = document.getElementById('sheet-actions');

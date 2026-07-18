@@ -331,10 +331,6 @@
     font-size: 11.5px; color: var(--secondary); background: rgba(245,166,91,.12);
     border-radius: 8px; padding: 6px 10px; margin: -4px 0 8px; line-height:1.5;
   }
-  .ing-preview-banner {
-    font-size: 11.5px; color: var(--text30); background: var(--surface); border: 1px solid var(--border);
-    border-radius: 10px; padding: 9px 12px; margin-bottom: 6px; line-height:1.6;
-  }
 
   .cart-ing-row {
     display:flex; align-items:center; gap:8px;
@@ -1535,7 +1531,7 @@ function renderSheetServings() {
         <span class="amt">يحتاج ${formatQty(total)} ${ing.recipeUnit}</span>
       </div>`;
   }).join('');
-  wrap.innerHTML = `<div class="ing-preview-banner">💡 "يحتاج" هاي كمية الوصفة بالضبط. "رح تشتري" هاي أقل عدد عبوات/أكياس رح نشتريها فعلياً عشان تغطي الوصفة — ممكن توصلك كمية زيادة تكفيك لمرة جاية.</div>${rows}`;
+  wrap.innerHTML = rows;
 }
 
 function formatQty(n) {

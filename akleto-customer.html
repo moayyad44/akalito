@@ -49,11 +49,12 @@
   #welcomeScreen p { color: var(--text30); font-size: 14px; margin-bottom: 28px; }
   .field-group { text-align: right; margin-bottom: 14px; }
   .field-group label { font-size: 13px; font-weight: 600; display:block; margin-bottom: 6px; }
-  .field-group input {
+  .field-group input, .field-group textarea {
     width: 100%; padding: 13px 16px; border-radius: 12px; border: 1.5px solid var(--border);
     background: var(--surface); font-family: inherit; font-size: 15px; color: var(--text);
   }
-  .field-group input:focus { outline: none; border-color: var(--primary); }
+  .field-group textarea { resize: vertical; min-height: 64px; line-height:1.5; }
+  .field-group input:focus, .field-group textarea:focus { outline: none; border-color: var(--primary); }
 
   .btn-main {
     width: 100%; padding: 15px; border-radius: 14px; border: none;
@@ -702,8 +703,50 @@ if ("serviceWorker" in navigator) {
     <div class="cs-nav-item" onclick="menuSwitch('home')"><span class="ic-box">🏠</span><span>الرئيسية</span><span class="chev">‹</span></div>
     <div class="cs-nav-item" onclick="menuSwitch('cart')"><span class="ic-box">🛒</span><span>سلتي</span><span class="chev">‹</span></div>
     <div class="cs-nav-item" onclick="menuSwitch('account')"><span class="ic-box">📦</span><span>طلباتي وحسابي</span><span class="chev">‹</span></div>
+    <div class="cs-nav-section-label">الحساب</div>
+    <div class="cs-nav-item" onclick="menuOpenAddress()"><span class="ic-box">📍</span><span>عنواني</span><span class="chev">‹</span></div>
+    <div class="cs-nav-item" onclick="menuOpenComingSoon('payment')"><span class="ic-box">💳</span><span>معلومات الدفع</span><span class="chev">‹</span></div>
+    <div class="cs-nav-item" onclick="menuOpenComingSoon('settings')"><span class="ic-box">⚙️</span><span>الإعدادات</span><span class="chev">‹</span></div>
     <div class="cs-nav-item danger" onclick="logoutCustomer()"><span class="ic-box">⏻</span><span>تسجيل الخروج</span></div>
     <div class="cs-drawer-footer">أكليتو 🍽️</div>
+  </div>
+</div>
+
+  <!-- ═══ شاشة عنواني ═══ -->
+  <div id="addressScreen" class="hidden">
+    <div class="store-sub-topbar">
+      <button class="store-back-btn" onclick="closeAddressScreen()">←</button>
+      <div class="section-title" style="padding:0;">📍 عنواني</div>
+    </div>
+    <div style="padding: 6px 18px 24px;">
+      <div class="field-group">
+        <label>المنطقة / الحي</label>
+        <input type="text" id="addr-area" placeholder="مثال: أم أذينة، عمّان" />
+      </div>
+      <div class="field-group">
+        <label>تفاصيل العنوان</label>
+        <textarea id="addr-details" placeholder="اسم الشارع، رقم البناية، الطابق..."></textarea>
+      </div>
+      <div class="field-group">
+        <label>ملاحظات إضافية (اختياري)</label>
+        <textarea id="addr-notes" placeholder="مثال: قرب صيدلية كذا، البوابة الزرقاء..."></textarea>
+      </div>
+      <button class="btn-main" id="addr-save-btn" onclick="saveAddress()">حفظ العنوان ✅</button>
+      <div class="error-text" id="addr-error"></div>
+    </div>
+  </div>
+
+<!-- ═══ شيت: قريباً ═══ -->
+<div class="sheet-overlay" id="comingSoonSheet">
+  <div class="sheet-card" style="max-height:56vh;">
+    <div style="position:relative;">
+      <button class="sheet-close" onclick="closeComingSoon()">✕</button>
+    </div>
+    <div class="sheet-body" style="text-align:center;padding-top:38px;">
+      <div style="font-size:44px;margin-bottom:14px;" id="soon-icon">🛠️</div>
+      <div class="sheet-title" style="margin-bottom:8px;" id="soon-title"></div>
+      <div class="sheet-desc" style="margin-bottom:4px;" id="soon-desc"></div>
+    </div>
   </div>
 </div>
 
@@ -739,7 +782,7 @@ if ("serviceWorker" in navigator) {
 
 <script type="module">
 import {
-  db, collection, getDocs, addDoc, doc, updateDoc, setDoc, query, where, serverTimestamp, withTimeout,
+  db, collection, getDocs, getDoc, addDoc, doc, updateDoc, setDoc, query, where, serverTimestamp, withTimeout,
   onSnapshot, MEASURE_TYPES, convertToBase, loadMeasureTypes
 } from "./firebase-init.js";
 
@@ -867,6 +910,98 @@ window.closeCustomerMenu = () => {
 window.menuSwitch = (name) => {
   closeCustomerMenu();
   switchScreen(name);
+};
+
+/* ═══════════ عنواني ═══════════ */
+window.menuOpenAddress = () => {
+  closeCustomerMenu();
+  openAddressScreen();
+};
+
+window.openAddressScreen = async () => {
+  document.getElementById('homeScreen').classList.add('hidden');
+  document.getElementById('cartScreen').classList.add('hidden');
+  document.getElementById('accountScreen').classList.add('hidden');
+  document.getElementById('bottomNav').classList.add('hidden');
+  document.getElementById('addressScreen').classList.remove('hidden');
+  updateCartFab();
+
+  const errBox = document.getElementById('addr-error');
+  errBox.style.display = 'none';
+  document.getElementById('addr-area').value = '';
+  document.getElementById('addr-details').value = '';
+  document.getElementById('addr-notes').value = '';
+  try {
+    const snap = await getDoc(doc(db, 'customers', customerId));
+    if (snap.exists()) {
+      const d = snap.data();
+      document.getElementById('addr-area').value = d.address_area || '';
+      document.getElementById('addr-details').value = d.address_details || '';
+      document.getElementById('addr-notes').value = d.address_notes || '';
+    }
+  } catch(e) {
+    console.error('load address error', e);
+  }
+};
+
+window.closeAddressScreen = () => {
+  document.getElementById('addressScreen').classList.add('hidden');
+  switchScreen('home');
+};
+
+window.saveAddress = async () => {
+  const area = document.getElementById('addr-area').value.trim();
+  const details = document.getElementById('addr-details').value.trim();
+  const notes = document.getElementById('addr-notes').value.trim();
+  const errBox = document.getElementById('addr-error');
+  errBox.style.display = 'none';
+
+  if (!area) {
+    errBox.textContent = 'لازم تكتب اسم المنطقة أو الحي على الأقل';
+    errBox.style.display = 'block';
+    return;
+  }
+
+  const btn = document.getElementById('addr-save-btn');
+  btn.disabled = true;
+  btn.textContent = 'جاري الحفظ...';
+  try {
+    await withTimeout(
+      updateDoc(doc(db, 'customers', customerId), {
+        address_area: area, address_details: details, address_notes: notes,
+        address_updated_at: serverTimestamp()
+      }),
+      15000, 'انتهت مهلة الحفظ — تأكد من الإنترنت'
+    );
+    showToast('تم حفظ العنوان ✅');
+    closeAddressScreen();
+  } catch(e) {
+    console.error('save address error', e);
+    errBox.textContent = 'صار خطأ بالحفظ — جرب مرة ثانية';
+    errBox.style.display = 'block';
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'حفظ العنوان ✅';
+  }
+};
+
+/* ═══════════ شيت "قريباً" (معلومات الدفع / الإعدادات) ═══════════ */
+const COMING_SOON_CONTENT = {
+  payment: { icon:'💳', title:'معلومات الدفع', desc:'الدفع حالياً كاش عند الاستلام 💵 — رح نضيف خيارات دفع إلكتروني قريباً.' },
+  settings: { icon:'⚙️', title:'الإعدادات', desc:'قريباً رح تقدر تتحكم بإعداداتك من هون.' }
+};
+
+window.menuOpenComingSoon = (type) => {
+  closeCustomerMenu();
+  const c = COMING_SOON_CONTENT[type] || { icon:'🛠️', title:'قريباً', desc:'هاي الميزة قيد التطوير.' };
+  document.getElementById('soon-icon').textContent = c.icon;
+  document.getElementById('soon-title').textContent = c.title;
+  document.getElementById('soon-desc').textContent = c.desc;
+  document.getElementById('comingSoonSheet').classList.add('open');
+};
+
+window.closeComingSoon = () => {
+  document.getElementById('comingSoonSheet').classList.remove('open');
 };
 
 window.logoutCustomer = () => {

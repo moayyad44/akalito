@@ -321,14 +321,19 @@
   .stepper span { font-size:16px; font-weight:800; min-width:20px; text-align:center; }
 
   .ing-preview-item {
-    display:flex; justify-content:space-between; align-items:center;
-    padding: 10px 0; border-bottom: 1px solid var(--border); font-size: 13.5px;
+    display:flex; justify-content:space-between; align-items:flex-start;
+    padding: 10px 0; border-bottom: 1px solid var(--border); font-size: 13.5px; gap:10px;
   }
   .ing-preview-item:last-child { border-bottom:none; }
-  .ing-preview-item .amt { color: var(--text30); font-size:12.5px; }
+  .ing-preview-item .amt { color: var(--text30); font-size:12px; text-align:left; flex-shrink:0; white-space:nowrap; }
+  .ing-preview-purchase { font-size:11.5px; color: var(--olive); font-weight:700; margin-top:4px; }
   .ing-preview-note {
     font-size: 11.5px; color: var(--secondary); background: rgba(245,166,91,.12);
     border-radius: 8px; padding: 6px 10px; margin: -4px 0 8px; line-height:1.5;
+  }
+  .ing-preview-banner {
+    font-size: 11.5px; color: var(--text30); background: var(--surface); border: 1px solid var(--border);
+    border-radius: 10px; padding: 9px 12px; margin-bottom: 6px; line-height:1.6;
   }
 
   .cart-ing-row {
@@ -1513,10 +1518,24 @@ function renderSheetServings() {
     wrap.innerHTML = `<div class="empty-state-c" style="padding:20px 0;">ما في مكونات مسجّلة لهاي الوجبة بعد</div>`;
     return;
   }
-  wrap.innerHTML = ings.map(ing => {
+  const rows = ings.map(ing => {
     const total = (ing.recipeQtyPerPerson * currentSheetServings);
-    return `<div class="ing-preview-item"><span>${ing.name}</span><span class="amt">${formatQty(total)} ${ing.recipeUnit}</span></div>`;
+    const baseTotal = ing.baseQtyPerPerson * currentSheetServings;
+    let purchaseNote = '';
+    if (ing.packageLabel && ing.packageQty > 0) {
+      const purchaseQty = Math.max(1, Math.ceil(baseTotal / ing.packageQty));
+      purchaseNote = `<div class="ing-preview-purchase">🛍️ رح تشتري: ${purchaseQty} ${ing.packageLabel}</div>`;
+    }
+    return `
+      <div class="ing-preview-item">
+        <div style="min-width:0;">
+          <div>${ing.name}</div>
+          ${purchaseNote}
+        </div>
+        <span class="amt">يحتاج ${formatQty(total)} ${ing.recipeUnit}</span>
+      </div>`;
   }).join('');
+  wrap.innerHTML = `<div class="ing-preview-banner">💡 "يحتاج" هاي كمية الوصفة بالضبط. "رح تشتري" هاي أقل عدد عبوات/أكياس رح نشتريها فعلياً عشان تغطي الوصفة — ممكن توصلك كمية زيادة تكفيك لمرة جاية.</div>${rows}`;
 }
 
 function formatQty(n) {

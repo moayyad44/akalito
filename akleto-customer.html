@@ -448,12 +448,21 @@
   }
   .confirm-detail-label { font-size:11.5px; color: var(--text30); margin-bottom:2px; }
   .confirm-detail-value { font-size:13.5px; font-weight:700; line-height:1.5; }
+  .confirm-eta-banner {
+    background: rgba(162,62,72,.06); border:1px solid var(--border); border-radius:14px;
+    padding:12px 16px; font-size:13.5px; font-weight:700; text-align:center; margin-bottom:16px; color: var(--text);
+  }
   .confirm-pay-option {
     display:flex; justify-content:space-between; align-items:center; border:1.5px solid var(--primary);
-    background: rgba(162,62,72,.05); border-radius:14px; padding:14px 16px; font-weight:700; font-size:14px; margin-bottom:18px;
+    background: rgba(162,62,72,.05); border-radius:14px; padding:14px 16px; font-weight:700; font-size:14px; margin-bottom:12px;
   }
+  .confirm-pay-option.disabled {
+    border-color: var(--border); background: var(--surface); opacity:.5; pointer-events:none; margin-bottom:18px;
+  }
+  .soon-tag { font-size:10px; font-weight:800; color: var(--text30); background: var(--border); padding:2px 8px; border-radius:10px; margin-right:6px; font-style:normal; }
   .confirm-radio { width:18px; height:18px; border-radius:50%; border:2px solid var(--primary); position:relative; display:inline-block; flex-shrink:0; }
   .confirm-radio.checked::after { content:''; position:absolute; inset:3px; border-radius:50%; background: var(--primary); }
+  .confirm-radio-off { width:18px; height:18px; border-radius:50%; border:2px solid var(--border); display:inline-block; flex-shrink:0; }
   .confirm-summary-row { display:flex; justify-content:space-between; font-size:13.5px; color: var(--text30); padding:7px 0; }
   .confirm-summary-row b { color: var(--text); font-weight:700; }
   .confirm-summary-total {
@@ -465,6 +474,8 @@
     font-size:12.5px; color:#D9534F; background: rgba(217,83,79,.08); border-radius:10px; padding:10px 12px; line-height:1.6;
   }
   .confirm-address-missing a { font-weight:800; text-decoration:underline; cursor:pointer; }
+  .btn-main.counting { background: var(--text); display:flex; align-items:center; justify-content:center; gap:8px; }
+  .oc-cancel-link { text-decoration:underline; font-weight:800; }
 
   /* ═══ عناويني: قائمة العناوين المحفوظة ═══ */
   .addr-card {
@@ -871,6 +882,8 @@ if ("serviceWorker" in navigator) {
     </div>
     <div style="padding: 6px 18px 20px;">
 
+      <div class="confirm-eta-banner" id="oc-eta-banner">⏱️ جاري حساب مدة التوصيل...</div>
+
       <div class="confirm-card">
         <div class="confirm-card-title-row"><span id="oc-items-count"></span><span>عناصر الطلب</span></div>
         <div id="oc-items-list"></div>
@@ -895,20 +908,47 @@ if ("serviceWorker" in navigator) {
           <span class="confirm-radio checked"></span>
         </div>
       </div>
+      <div class="confirm-pay-option disabled">
+        <span>بطاقة فيزا / ماستركارد <em class="soon-tag">قريباً</em></span>
+        <div style="display:flex;align-items:center;gap:10px;">
+          <span style="font-size:18px;">💳</span>
+          <span class="confirm-radio-off"></span>
+        </div>
+      </div>
+
+      <div class="confirm-card">
+        <div class="confirm-card-title-row"><span></span><span>🚴 إكرامية السائق (اختياري)</span></div>
+        <div class="cat-chips-row" style="padding:0;" id="oc-tip-chips"></div>
+        <div class="field-group hidden" id="oc-tip-custom-wrap" style="margin-top:12px;margin-bottom:0;">
+          <input type="number" min="0" step="0.05" id="oc-tip-custom-input" placeholder="اكتب مبلغ الإكرامية (د.أ)" oninput="onCustomTipInput(this.value)" />
+        </div>
+      </div>
+
+      <div class="confirm-card">
+        <div class="confirm-card-title-row"><span></span><span>🎟️ قسيمة الشراء</span></div>
+        <div id="oc-coupon-applied-wrap" class="hidden"></div>
+        <div id="oc-coupon-input-wrap" style="display:flex;gap:8px;">
+          <input type="text" id="oc-coupon-input" placeholder="أدخل كود الخصم" style="flex:1;padding:12px 14px;border-radius:12px;border:1.5px solid var(--border);background:var(--surface);font-family:inherit;font-size:14px;color:var(--text);" />
+          <button type="button" class="btn-outline" style="width:auto;padding:0 18px;" id="oc-coupon-apply-btn" onclick="applyCoupon()">تطبيق</button>
+        </div>
+        <div class="error-text" id="oc-coupon-error"></div>
+      </div>
 
       <div class="confirm-card" style="margin-bottom:0;">
         <div class="confirm-card-title-row" style="margin-bottom:4px;"><span></span><span>ملخص الفاتورة</span></div>
         <div class="confirm-summary-row"><b id="oc-subtotal"></b><span>إجمالي الطلب</span></div>
+        <div class="confirm-summary-row hidden" id="oc-discount-row"><b id="oc-discount" style="color:#2ED573;"></b><span>خصم القسيمة</span></div>
         <div class="confirm-summary-row"><b id="oc-delivery"></b><span>رسوم التوصيل</span></div>
         <div class="confirm-summary-row"><b id="oc-service"></b><span>بدل الخدمة</span></div>
+        <div class="confirm-summary-row hidden" id="oc-tip-row"><b id="oc-tip-line"></b><span>إكرامية السائق</span></div>
         <div class="confirm-summary-total"><span id="oc-total"></span><span>المجموع النهائي</span></div>
       </div>
 
     </div>
     <div class="sticky-cta" id="ocCta">
       <div class="error-text" id="oc-error"></div>
-      <button class="btn-main" id="oc-confirm-btn" onclick="finalizeOrder()">تأكيد الطلب ✅</button>
-      <div class="confirm-terms-note">بالضغط على "تأكيد الطلب" فإنك توافق على الشروط والأحكام</div>
+      <button class="btn-main" id="oc-confirm-btn" onclick="startOrderCountdown()">تنفيذ الطلب ✅</button>
+      <div class="confirm-terms-note">بالضغط على "تنفيذ الطلب" فإنك توافق على الشروط والأحكام</div>
     </div>
   </div>
 
@@ -959,7 +999,7 @@ if ("serviceWorker" in navigator) {
 <script type="module">
 import {
   db, collection, getDocs, getDoc, addDoc, doc, updateDoc, setDoc, deleteDoc, query, where, serverTimestamp, withTimeout,
-  onSnapshot, MEASURE_TYPES, convertToBase, loadMeasureTypes
+  onSnapshot, MEASURE_TYPES, convertToBase, loadMeasureTypes, runTransaction
 } from "./firebase-init.js";
 
 let notifItems = [];
@@ -2374,7 +2414,22 @@ function computeServiceFee(subtotal) {
   return Math.round(Math.min(SERVICE_FEE_MAX, Math.max(SERVICE_FEE_MIN, subtotal * SERVICE_FEE_RATE)) * 100) / 100;
 }
 
-let ocResolvedAddress = null; // بيانات العنوان المحمّلة من حساب الزبون لهاي الشاشة
+let ocResolvedAddress = null; // العنوان الافتراضي المختار لهاي الشاشة
+let ocEtaRange = null;        // {min,max} مدة التوصيل المتوقعة بالدقائق
+let selectedTip = 0;
+let customTipMode = false;
+let appliedCoupon = null;     // { id: CODE, ...بيانات الكوبون } لو انطبق بنجاح
+let couponDiscountAmount = 0;
+let orderCountdownInterval = null;
+
+const TIP_PRESETS = [0, 0.25, 0.5, 1];
+const AVG_DELIVERY_SPEED_KMH = 25;
+const DELIVERY_HANDOFF_BUFFER_MIN = 10;
+
+function getOcSubtotal() {
+  const entries = Object.entries(getFinalCartIngredients());
+  return entries.reduce((sum, [, e]) => sum + e.purchaseQty * (e.pricePerPackage || 0), 0);
+}
 
 window.openOrderConfirm = async () => {
   if (!selectedMeals.length) return;
@@ -2389,9 +2444,23 @@ window.openOrderConfirm = async () => {
   document.getElementById('oc-full-details').classList.add('hidden');
   document.getElementById('oc-toggle-btn').textContent = 'عرض التفاصيل الكاملة ˅';
 
+  // تصفير حالة الإكرامية والقسيمة كل ما تُفتح الشاشة من جديد
+  selectedTip = 0;
+  customTipMode = false;
+  appliedCoupon = null;
+  couponDiscountAmount = 0;
+  document.getElementById('oc-tip-custom-wrap').classList.add('hidden');
+  document.getElementById('oc-tip-custom-input').value = '';
+  document.getElementById('oc-coupon-input').value = '';
+  document.getElementById('oc-coupon-error').style.display = 'none';
+  document.getElementById('oc-coupon-applied-wrap').classList.add('hidden');
+  document.getElementById('oc-coupon-input-wrap').classList.remove('hidden');
+  renderTipChips();
+
   renderOcItems();
   renderOcSummary();
   await renderOcDeliveryDetails();
+  computeEstimatedDelivery(); // ما ننتظرها — تتحدث البانر لحالها لما تخلص
 };
 
 window.closeOrderConfirm = () => {
@@ -2462,34 +2531,220 @@ async function renderOcDeliveryDetails() {
     addressValueEl.innerHTML = `<b>${addressIconFor(a.label)} ${a.label}</b><div style="margin-top:2px;">${line}</div>${a.notes ? `<div style="color:var(--text30);font-weight:500;margin-top:2px;">${a.notes}</div>` : ''}`;
   } else {
     addressValueEl.parentElement.parentElement.innerHTML = `
-      <div class="confirm-address-missing">📍 ما ضفت عنوان توصيل بعد — <a onclick="menuOpenAddresses()">أضف عنوانك الآن</a> قبل ما تأكّد الطلب</div>`;
+      <div class="confirm-address-missing">📍 ما ضفت عنوان توصيل بعد — <a onclick="menuOpenAddresses()">أضف عنوانك الآن</a> قبل ما تنفّذ الطلب</div>`;
   }
 }
 
+/* ═══ مدة التوصيل المتوقعة: وقت تحضير أطول وجبة + مسافة المتجر المرشّح عن الزبون ═══ */
+async function computeEstimatedDelivery() {
+  const banner = document.getElementById('oc-eta-banner');
+  try {
+    const prepTime = selectedMeals.reduce((max, sel) => {
+      const meal = mealsCache.find(m => m.id === sel.mealId);
+      return Math.max(max, meal ? (meal.prep_time_min || 0) : 0);
+    }, 0);
+
+    const ids = Object.entries(getFinalCartIngredients()).filter(([, e]) => e.purchaseQty > 0).map(([id]) => id);
+    const routing = await findBestStoreForIngredients(ids);
+
+    let travelMin = 15; // افتراضي لو ما قدرنا نحسب مسافة فعلية
+    if (routing.store && routing.store.lat != null && routing.store.lng != null) {
+      const coords = await getCustomerCoords();
+      if (coords) {
+        const distKm = haversineKm(coords.lat, coords.lng, routing.store.lat, routing.store.lng);
+        travelMin = Math.max(5, Math.round((distKm / AVG_DELIVERY_SPEED_KMH) * 60));
+      }
+    }
+
+    const total = prepTime + travelMin + DELIVERY_HANDOFF_BUFFER_MIN;
+    ocEtaRange = { min: total, max: total + 10 };
+    banner.textContent = `⏱️ مدة التوصيل المتوقعة: ${ocEtaRange.min}-${ocEtaRange.max} دقيقة`;
+  } catch(e) {
+    console.error('compute eta error', e);
+    ocEtaRange = null;
+    banner.textContent = '⏱️ مدة التوصيل المتوقعة: غير متاحة حالياً';
+  }
+}
+
+/* ═══ إكرامية السائق ═══ */
+function renderTipChips() {
+  const wrap = document.getElementById('oc-tip-chips');
+  wrap.innerHTML = TIP_PRESETS.map(v =>
+    `<button type="button" class="cat-chip ${(!customTipMode && selectedTip === v) ? 'active' : ''}" onclick="pickTip(${v})">${v === 0 ? 'بدون' : v.toFixed(2) + ' د.أ'}</button>`
+  ).join('') + `<button type="button" class="cat-chip ${customTipMode ? 'active' : ''}" onclick="pickCustomTip()">مبلغ آخر</button>`;
+}
+window.pickTip = (v) => {
+  selectedTip = v;
+  customTipMode = false;
+  document.getElementById('oc-tip-custom-wrap').classList.add('hidden');
+  renderTipChips();
+  renderOcSummary();
+};
+window.pickCustomTip = () => {
+  customTipMode = true;
+  document.getElementById('oc-tip-custom-wrap').classList.remove('hidden');
+  renderTipChips();
+  document.getElementById('oc-tip-custom-input').focus();
+};
+window.onCustomTipInput = (val) => {
+  const n = parseFloat(val);
+  selectedTip = (isNaN(n) || n < 0) ? 0 : Math.round(n * 100) / 100;
+  renderOcSummary();
+};
+
+/* ═══ قسيمة الشراء ═══ */
+window.applyCoupon = async () => {
+  const codeRaw = document.getElementById('oc-coupon-input').value.trim();
+  const errBox = document.getElementById('oc-coupon-error');
+  errBox.style.display = 'none';
+  if (!codeRaw) return;
+  const code = codeRaw.toUpperCase();
+  const btn = document.getElementById('oc-coupon-apply-btn');
+  btn.disabled = true;
+  btn.textContent = 'جاري التحقق...';
+  try {
+    const snap = await getDoc(doc(db, 'coupons', code));
+    if (!snap.exists() || snap.data().is_active === false) {
+      errBox.textContent = 'كود الخصم غير صحيح أو غير مفعّل';
+      errBox.style.display = 'block';
+      return;
+    }
+    const c = snap.data();
+    if (c.expires_at && c.expires_at.toDate && c.expires_at.toDate() < new Date()) {
+      errBox.textContent = 'انتهت صلاحية هذا الكود';
+      errBox.style.display = 'block';
+      return;
+    }
+    if (c.usage_limit != null && (c.used_count || 0) >= c.usage_limit) {
+      errBox.textContent = 'هذا الكود وصل للحد الأقصى من الاستخدام';
+      errBox.style.display = 'block';
+      return;
+    }
+    const subtotal = getOcSubtotal();
+    if (c.min_order_amount && subtotal < c.min_order_amount) {
+      errBox.textContent = `الحد الأدنى لاستخدام هذا الكود ${c.min_order_amount} د.أ`;
+      errBox.style.display = 'block';
+      return;
+    }
+    let discount = c.discount_type === 'percentage' ? subtotal * (c.discount_value / 100) : c.discount_value;
+    if (c.max_discount_amount != null) discount = Math.min(discount, c.max_discount_amount);
+    discount = Math.max(0, Math.min(discount, subtotal));
+    discount = Math.round(discount * 100) / 100;
+
+    appliedCoupon = { id: code, ...c };
+    couponDiscountAmount = discount;
+    renderCouponApplied();
+    renderOcSummary();
+    showToast('تم تطبيق كود الخصم ✅');
+  } catch(e) {
+    console.error('apply coupon error', e);
+    errBox.textContent = 'صار خطأ بالتحقق من الكود — جرب مرة ثانية';
+    errBox.style.display = 'block';
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'تطبيق';
+  }
+};
+
+function renderCouponApplied() {
+  document.getElementById('oc-coupon-input-wrap').classList.add('hidden');
+  const wrap = document.getElementById('oc-coupon-applied-wrap');
+  wrap.classList.remove('hidden');
+  wrap.innerHTML = `
+    <div style="display:flex;justify-content:space-between;align-items:center;background:rgba(46,213,115,.08);border:1px solid rgba(46,213,115,.35);border-radius:12px;padding:10px 14px;">
+      <div>
+        <div style="font-weight:800;font-size:13.5px;color:#1a8a4d;">✅ ${appliedCoupon.id}</div>
+        <div style="font-size:11.5px;color:var(--text30);">خصم ${couponDiscountAmount.toFixed(2)} د.أ</div>
+      </div>
+      <button type="button" onclick="removeCoupon()" style="background:none;border:none;color:#D9534F;font-weight:800;font-size:12px;">إزالة</button>
+    </div>`;
+}
+
+window.removeCoupon = () => {
+  appliedCoupon = null;
+  couponDiscountAmount = 0;
+  document.getElementById('oc-coupon-input').value = '';
+  document.getElementById('oc-coupon-applied-wrap').classList.add('hidden');
+  document.getElementById('oc-coupon-applied-wrap').innerHTML = '';
+  document.getElementById('oc-coupon-input-wrap').classList.remove('hidden');
+  renderOcSummary();
+};
+
 function renderOcSummary() {
-  const entries = Object.entries(getFinalCartIngredients());
-  const subtotal = entries.reduce((sum, [, e]) => sum + e.purchaseQty * (e.pricePerPackage || 0), 0);
-  const serviceFee = computeServiceFee(subtotal);
-  const total = subtotal + DELIVERY_FEE + serviceFee;
+  const subtotal = getOcSubtotal();
+  const serviceFee = computeServiceFee(subtotal); // على القيمة الأصلية دايماً، قبل أي خصم
+  const discount = couponDiscountAmount || 0;
+  const tip = selectedTip || 0;
+  const total = Math.max(0, subtotal - discount) + DELIVERY_FEE + serviceFee + tip;
+
   document.getElementById('oc-subtotal').textContent = subtotal.toFixed(2) + ' د.أ';
   document.getElementById('oc-delivery').textContent = DELIVERY_FEE.toFixed(2) + ' د.أ';
   document.getElementById('oc-service').textContent = serviceFee.toFixed(2) + ' د.أ';
+
+  const discountRow = document.getElementById('oc-discount-row');
+  if (discount > 0) {
+    discountRow.classList.remove('hidden');
+    document.getElementById('oc-discount').textContent = '-' + discount.toFixed(2) + ' د.أ';
+  } else {
+    discountRow.classList.add('hidden');
+  }
+
+  const tipRow = document.getElementById('oc-tip-row');
+  if (tip > 0) {
+    tipRow.classList.remove('hidden');
+    document.getElementById('oc-tip-line').textContent = tip.toFixed(2) + ' د.أ';
+  } else {
+    tipRow.classList.add('hidden');
+  }
+
   document.getElementById('oc-total').textContent = total.toFixed(2) + ' د.أ';
 }
 
-window.finalizeOrder = async () => {
+/* ═══ تنفيذ الطلب: عدّاد تراجع 3 ثواني قبل الإرسال الفعلي ═══ */
+function renderCountdownBtn(seconds) {
+  const btn = document.getElementById('oc-confirm-btn');
+  btn.innerHTML = `⏳ جاري التنفيذ خلال ${seconds}... <span class="oc-cancel-link" onclick="event.stopPropagation();cancelOrderCountdown()">إلغاء</span>`;
+}
+
+window.cancelOrderCountdown = () => {
+  if (orderCountdownInterval) { clearInterval(orderCountdownInterval); orderCountdownInterval = null; }
+  isPlacingOrder = false;
+  const btn = document.getElementById('oc-confirm-btn');
+  btn.classList.remove('counting');
+  btn.textContent = 'تنفيذ الطلب ✅';
+};
+
+window.startOrderCountdown = () => {
   if (isPlacingOrder || !selectedMeals.length) return;
   const errBox = document.getElementById('oc-error');
   errBox.style.display = 'none';
 
   if (!ocResolvedAddress) {
-    errBox.textContent = 'لازم تضيف عنوان توصيل قبل ما تأكّد الطلب';
+    errBox.textContent = 'لازم تضيف عنوان توصيل قبل ما تنفّذ الطلب';
     errBox.style.display = 'block';
     return;
   }
 
   isPlacingOrder = true;
+  let seconds = 3;
   const btn = document.getElementById('oc-confirm-btn');
+  btn.classList.add('counting');
+  renderCountdownBtn(seconds);
+  orderCountdownInterval = setInterval(() => {
+    seconds--;
+    if (seconds <= 0) {
+      clearInterval(orderCountdownInterval);
+      orderCountdownInterval = null;
+      executeOrderSubmit();
+    } else {
+      renderCountdownBtn(seconds);
+    }
+  }, 1000);
+};
+
+async function executeOrderSubmit() {
+  const btn = document.getElementById('oc-confirm-btn');
+  btn.classList.remove('counting');
   btn.disabled = true;
   btn.textContent = 'جاري إرسال الطلب...';
 
@@ -2517,12 +2772,32 @@ window.finalizeOrder = async () => {
     });
     const subtotal = mergedArray.reduce((sum, e) => sum + e.purchase_quantity * (e.price_per_package || 0), 0);
     const serviceFee = computeServiceFee(subtotal);
-    const totalPrice = subtotal + DELIVERY_FEE + serviceFee;
+    const discount = couponDiscountAmount || 0;
+    const tip = selectedTip || 0;
+    const totalPrice = Math.max(0, subtotal - discount) + DELIVERY_FEE + serviceFee + tip;
 
     const a = ocResolvedAddress;
     const line = addressLineFor(a);
     const deliveryAddress = `${a.label ? a.label + ': ' : ''}${line}${a.notes ? ' (' + a.notes + ')' : ''}`;
     const customerNotes = (document.getElementById('oc-notes').value || '').trim();
+
+    // لو في كود خصم مطبّق، نزوّد عداد استخدامه بمعاملة آمنة (تمنع تجاوز الحد الأقصى بسبب تزامن الاستخدام)
+    if (appliedCoupon) {
+      try {
+        await runTransaction(db, async (tx) => {
+          const cRef = doc(db, 'coupons', appliedCoupon.id);
+          const cSnap = await tx.get(cRef);
+          if (!cSnap.exists()) throw new Error('coupon-missing');
+          const cData = cSnap.data();
+          if (cData.usage_limit != null && (cData.used_count || 0) >= cData.usage_limit) throw new Error('coupon-exhausted');
+          tx.update(cRef, { used_count: (cData.used_count || 0) + 1 });
+        });
+      } catch(ce) {
+        console.error('coupon transaction error', ce);
+        showToast('⚠️ كود الخصم انتهى أو صار فيه مشكلة — احذفه من الطلب وجرب بدونه');
+        return;
+      }
+    }
 
     const newOrderRef = await withTimeout(
       addDoc(collection(db, 'orders'), {
@@ -2538,7 +2813,12 @@ window.finalizeOrder = async () => {
         subtotal_price: Math.round(subtotal * 100) / 100,
         delivery_fee: DELIVERY_FEE,
         service_fee: serviceFee,
+        coupon_code: appliedCoupon ? appliedCoupon.id : null,
+        coupon_discount: discount,
+        driver_tip: tip,
         total_estimated_price: Math.round(totalPrice * 100) / 100,
+        estimated_delivery_min: ocEtaRange ? ocEtaRange.min : null,
+        estimated_delivery_max: ocEtaRange ? ocEtaRange.max : null,
         payment_method: 'cash_on_delivery',
         store_id: routing.store.id,
         store_name: routing.store.name,
@@ -2560,6 +2840,10 @@ window.finalizeOrder = async () => {
     document.getElementById('success-store-note').textContent = `رح تشتري من متجر "${routing.store.name}" — رح نجهزلك المكونات ونوصلها أقرب وقت ممكن 🚴`;
     selectedMeals = [];
     cartOverrides = {};
+    appliedCoupon = null;
+    couponDiscountAmount = 0;
+    selectedTip = 0;
+    customTipMode = false;
     updateCartBadge();
     document.getElementById('oc-notes').value = '';
     document.getElementById('orderConfirmScreen').classList.add('hidden');
@@ -2573,10 +2857,12 @@ window.finalizeOrder = async () => {
     showToast('صار خطأ بإرسال الطلب ❌ جرب مرة ثانية');
   } finally {
     isPlacingOrder = false;
+    btn.classList.remove('counting');
     btn.disabled = false;
-    btn.textContent = 'تأكيد الطلب ✅';
+    btn.textContent = 'تنفيذ الطلب ✅';
   }
-};
+}
+
 
 window.backToHomeFromSuccess = () => {
   document.getElementById('successScreen').classList.add('hidden');

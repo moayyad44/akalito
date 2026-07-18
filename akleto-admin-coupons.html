@@ -1,0 +1,440 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
+<title>أكليتو — قسائم الخصم</title>
+<link rel="manifest" href="manifest-admin.json">
+<meta name="theme-color" content="#130609">
+<link rel="apple-touch-icon" href="icons/admin-180.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="لوحة أكليتو">
+<meta name="mobile-web-app-capable" content="yes">
+<link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;900&family=Tajawal:wght@400;500;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="admin-style.css?v=6">
+<script type="module">
+import {
+  watchUnreadNotifications,
+  db, auth, collection, getDocs, getDoc, setDoc, updateDoc, deleteDoc, doc, serverTimestamp, withTimeout,
+  onAuthStateChanged, signOut
+} from "./firebase-init.js";
+
+let couponsCache = [];
+let currentEditingCode = null; // null = وضع إضافة كود جديد
+
+function showToast(message, isError) {
+  let toast = document.getElementById('akleto-toast');
+  if (!toast) {
+    toast = document.createElement('div');
+    toast.id = 'akleto-toast';
+    document.body.appendChild(toast);
+  }
+  toast.textContent = message;
+  toast.className = 'akleto-toast show' + (isError ? ' error' : '');
+  clearTimeout(window._toastTimer);
+  window._toastTimer = setTimeout(() => { toast.className = 'akleto-toast'; }, 2500);
+}
+
+let _lockCount = 0;
+function lockBodyScroll() {
+  if (_lockCount === 0) { document.documentElement.classList.add('modal-lock'); document.body.classList.add('modal-lock'); }
+  _lockCount++;
+}
+function unlockBodyScroll() {
+  _lockCount = Math.max(0, _lockCount - 1);
+  if (_lockCount === 0) { document.documentElement.classList.remove('modal-lock'); document.body.classList.remove('modal-lock'); }
+}
+
+window.addEventListener('DOMContentLoaded', () => {
+
+  onAuthStateChanged(auth, user => {
+    if (!user) {
+      window.location.href = 'akleto-admin.html';
+    } else {
+      document.getElementById('app-shell').style.display = 'flex';
+      watchUnreadNotifications(count => {
+        const badge = document.getElementById('notifNavBadge');
+        if (badge) { badge.textContent = count; badge.classList.toggle('hidden', count === 0); }
+      });
+      loadCoupons();
+    }
+  });
+
+  window.adminLogout = () => signOut(auth);
+
+  async function loadCoupons() {
+    const wrap = document.getElementById('couponsWrap');
+    wrap.innerHTML = `<div class="empty-state" style="padding:14px 0;">جاري التحميل...</div>`;
+    try {
+      const snap = await getDocs(collection(db, 'coupons'));
+      couponsCache = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    } catch(e) {
+      console.error('load coupons error', e);
+      wrap.innerHTML = `<div class="empty-state" style="padding:14px 0;">صار خطأ بتحميل الأكواد — تحقق من الإنترنت</div>`;
+      return;
+    }
+    renderCoupons();
+  }
+
+  function fmtDate(ts) {
+    try { return ts.toDate().toLocaleDateString('ar-EG'); } catch(e) { return ''; }
+  }
+
+  function renderCoupons() {
+    const wrap = document.getElementById('couponsWrap');
+    if (!couponsCache.length) {
+      wrap.innerHTML = `<div class="empty-state" style="padding:30px 0;">
+        ما في أكواد خصم مضافة بعد 🎟️<br/>
+        <span style="font-size:12px;color:var(--cream30);">اضغط "كود جديد" فوق عشان تضيف أول كود</span>
+      </div>`;
+      return;
+    }
+    const sorted = [...couponsCache].sort((a, b) =>
+      (b.created_at?.toMillis?.() || 0) - (a.created_at?.toMillis?.() || 0));
+
+    wrap.innerHTML = sorted.map(c => {
+      const active = c.is_active !== false;
+      const discountText = c.discount_type === 'percentage'
+        ? `خصم ${c.discount_value}%${c.max_discount_amount != null ? ' (بحد أقصى ' + c.max_discount_amount + ' د.أ)' : ''}`
+        : `خصم ${c.discount_value} د.أ ثابت`;
+      const usageText = `استُخدم ${c.used_count || 0}${c.usage_limit != null ? ' من ' + c.usage_limit : ' (بلا حد)'} مرة`;
+      const minText = c.min_order_amount ? ` · حد أدنى للطلب ${c.min_order_amount} د.أ` : '';
+      const expiryText = c.expires_at ? ` · ينتهي ${fmtDate(c.expires_at)}` : '';
+
+      return `
+        <div class="ingredient-list-item" style="cursor:pointer;" onclick="openEditCouponModal('${c.id}')">
+          <div class="ing-thumb">🎟️</div>
+          <div class="ing-info">
+            <div class="ing-name" style="font-family:monospace;letter-spacing:1px;">${c.id} ${!active ? '<span style="color:#D9534F;font-size:11px;">(موقوف)</span>' : ''}</div>
+            <div class="ing-meta">${discountText}</div>
+            <div class="ing-meta">${usageText}${minText}${expiryText}</div>
+          </div>
+        </div>`;
+    }).join('');
+  }
+
+  window.toggleMaxDiscountField = () => {
+    const isPercentage = document.getElementById('cf-type').value === 'percentage';
+    document.getElementById('cf-max-wrap').classList.toggle('hidden', !isPercentage);
+  };
+
+  window.openAddCouponModal = () => {
+    currentEditingCode = null;
+    document.getElementById('couponModalTitle').textContent = '🎟️ كود خصم جديد';
+    document.getElementById('cf-code').value = '';
+    document.getElementById('cf-code').disabled = false;
+    document.getElementById('cf-type').value = 'percentage';
+    document.getElementById('cf-value').value = '';
+    document.getElementById('cf-max').value = '';
+    document.getElementById('cf-min').value = '';
+    document.getElementById('cf-limit').value = '';
+    document.getElementById('cf-expires').value = '';
+    document.getElementById('cf-active').checked = true;
+    document.getElementById('couponFormError').style.display = 'none';
+    document.getElementById('cf-delete-btn').classList.add('hidden');
+    document.getElementById('cf-usage-note').classList.add('hidden');
+    toggleMaxDiscountField();
+    document.getElementById('couponOverlay').classList.add('open');
+    lockBodyScroll();
+  };
+
+  window.openEditCouponModal = (code) => {
+    const c = couponsCache.find(x => x.id === code);
+    if (!c) return;
+    currentEditingCode = code;
+    document.getElementById('couponModalTitle').textContent = `✏️ تعديل: ${code}`;
+    document.getElementById('cf-code').value = code;
+    document.getElementById('cf-code').disabled = true;
+    document.getElementById('cf-type').value = c.discount_type || 'percentage';
+    document.getElementById('cf-value').value = c.discount_value != null ? c.discount_value : '';
+    document.getElementById('cf-max').value = c.max_discount_amount != null ? c.max_discount_amount : '';
+    document.getElementById('cf-min').value = c.min_order_amount != null ? c.min_order_amount : '';
+    document.getElementById('cf-limit').value = c.usage_limit != null ? c.usage_limit : '';
+    document.getElementById('cf-expires').value = c.expires_at ? new Date(c.expires_at.toMillis()).toISOString().slice(0, 10) : '';
+    document.getElementById('cf-active').checked = c.is_active !== false;
+    document.getElementById('couponFormError').style.display = 'none';
+    document.getElementById('cf-delete-btn').classList.remove('hidden');
+    const usageNote = document.getElementById('cf-usage-note');
+    usageNote.textContent = `📊 استُخدم هالكود ${c.used_count || 0} مرة لحد هلق`;
+    usageNote.classList.remove('hidden');
+    toggleMaxDiscountField();
+    document.getElementById('couponOverlay').classList.add('open');
+    lockBodyScroll();
+  };
+
+  window.closeCouponModal = () => {
+    document.getElementById('couponOverlay').classList.remove('open');
+    unlockBodyScroll();
+  };
+
+  window.saveCoupon = async (ev) => {
+    ev.preventDefault();
+    const errBox = document.getElementById('couponFormError');
+    errBox.style.display = 'none';
+
+    const code = document.getElementById('cf-code').value.trim().toUpperCase();
+    const discountType = document.getElementById('cf-type').value;
+    const discountValue = parseFloat(document.getElementById('cf-value').value);
+    const maxDiscountRaw = document.getElementById('cf-max').value.trim();
+    const minOrderRaw = document.getElementById('cf-min').value.trim();
+    const usageLimitRaw = document.getElementById('cf-limit').value.trim();
+    const expiresRaw = document.getElementById('cf-expires').value;
+    const isActive = document.getElementById('cf-active').checked;
+
+    if (!code) { errBox.textContent = 'لازم تكتب كود الخصم'; errBox.style.display = 'block'; return; }
+    if (!/^[A-Z0-9_-]+$/.test(code)) { errBox.textContent = 'الكود لازم يكون حروف إنجليزية وأرقام فقط (بدون مسافات)'; errBox.style.display = 'block'; return; }
+    if (isNaN(discountValue) || discountValue <= 0) { errBox.textContent = 'قيمة الخصم لازم تكون رقم أكبر من صفر'; errBox.style.display = 'block'; return; }
+    if (discountType === 'percentage' && discountValue > 100) { errBox.textContent = 'نسبة الخصم ما تقدر تتجاوز 100%'; errBox.style.display = 'block'; return; }
+
+    const data = {
+      discount_type: discountType,
+      discount_value: discountValue,
+      max_discount_amount: (discountType === 'percentage' && maxDiscountRaw !== '') ? parseFloat(maxDiscountRaw) : null,
+      min_order_amount: minOrderRaw !== '' ? parseFloat(minOrderRaw) : null,
+      usage_limit: usageLimitRaw !== '' ? parseInt(usageLimitRaw, 10) : null,
+      expires_at: expiresRaw ? new Date(expiresRaw + 'T23:59:59') : null,
+      is_active: isActive,
+      updated_at: serverTimestamp()
+    };
+
+    const saveBtn = document.getElementById('cf-save-btn');
+    saveBtn.disabled = true;
+    saveBtn.textContent = 'جاري الحفظ...';
+    try {
+      if (currentEditingCode) {
+        await withTimeout(updateDoc(doc(db, 'coupons', currentEditingCode), data), 15000, 'انتهت مهلة الحفظ — تأكد من الإنترنت');
+        const idx = couponsCache.findIndex(c => c.id === currentEditingCode);
+        if (idx > -1) couponsCache[idx] = { ...couponsCache[idx], ...data };
+      } else {
+        const existing = await getDoc(doc(db, 'coupons', code));
+        if (existing.exists()) {
+          errBox.textContent = 'في كود بنفس الاسم موجود أصلاً — اختر كود ثاني';
+          errBox.style.display = 'block';
+          return;
+        }
+        data.used_count = 0;
+        data.created_at = serverTimestamp();
+        await withTimeout(setDoc(doc(db, 'coupons', code), data), 15000, 'انتهت مهلة الحفظ — تأكد من الإنترنت');
+        couponsCache.push({ id: code, ...data });
+      }
+      closeCouponModal();
+      renderCoupons();
+      showToast('تم حفظ كود الخصم ✅');
+    } catch(e) {
+      console.error('save coupon error', e);
+      errBox.textContent = 'صار خطأ بالحفظ — جرب مرة ثانية';
+      errBox.style.display = 'block';
+    } finally {
+      saveBtn.disabled = false;
+      saveBtn.textContent = 'حفظ ✓';
+    }
+  };
+
+  window.deleteCouponFromModal = async () => {
+    if (!currentEditingCode) return;
+    if (!confirm(`متأكد إنك بدك تحذف كود "${currentEditingCode}"؟`)) return;
+    try {
+      await withTimeout(deleteDoc(doc(db, 'coupons', currentEditingCode)), 15000, 'انتهت مهلة الحذف — تأكد من الإنترنت');
+      couponsCache = couponsCache.filter(c => c.id !== currentEditingCode);
+      closeCouponModal();
+      renderCoupons();
+      showToast('تم حذف الكود');
+    } catch(e) {
+      console.error('delete coupon error', e);
+      showToast('صار خطأ بالحذف', true);
+    }
+  };
+
+});
+</script>
+<script>
+if ("serviceWorker" in navigator) {
+  window.addEventListener("load", () => {
+    navigator.serviceWorker.register("./sw.js").catch(() => {});
+  });
+}
+</script>
+</head>
+<body>
+
+<div id="app-shell" style="display:none;width:100%;">
+
+<div class="sidebar-overlay" id="sidebarOverlay" onclick="closeSidebar()"></div>
+
+<aside class="sidebar" id="sidebar">
+  <div class="logo">
+    <div class="logo-text">أكليتو 🍽️</div>
+    <div class="logo-sub">لوحة التحكم — ADMIN</div>
+  </div>
+
+  <div class="nav-section">
+    <div class="nav-label">الرئيسية</div>
+    <a class="nav-item" href="akleto-admin.html" style="text-decoration:none;color:inherit;">
+      <span class="nav-icon">📊</span><span>نظرة عامة</span>
+    </a>
+    <a class="nav-item" href="akleto-admin-orders.html" style="text-decoration:none;color:inherit;"><span class="nav-icon">🛒</span><span>الطلبات</span></a>
+    <a class="nav-item" href="akleto-admin-meals.html" style="text-decoration:none;color:inherit;">
+      <span class="nav-icon">🍖</span><span>الوجبات</span>
+    </a>
+    <a class="nav-item" href="akleto-admin-ingredients.html" style="text-decoration:none;color:inherit;">
+      <span class="nav-icon">🧅</span><span>المكونات</span>
+    </a>
+    <a class="nav-item" href="akleto-admin-units.html" style="text-decoration:none;color:inherit;">
+      <span class="nav-icon">⚖️</span><span>الأوزان والمقاييس</span>
+    </a>
+  </div>
+
+  <div class="nav-section">
+    <div class="nav-label">المستخدمون</div>
+    <a class="nav-item" href="akleto-admin-customers.html" style="text-decoration:none;color:inherit;">
+      <span class="nav-icon">👤</span><span>الزبائن</span>
+    </a>
+    <a class="nav-item" href="akleto-admin-drivers.html" style="text-decoration:none;color:inherit;"><span class="nav-icon">🛵</span><span>السائقين</span></a>
+    <a class="nav-item" href="akleto-admin-stores.html" style="text-decoration:none;color:inherit;"><span class="nav-icon">🏪</span><span>المتاجر الشريكة</span></a>
+  </div>
+
+  <div class="nav-section">
+    <div class="nav-label">التسويق</div>
+    <a class="nav-item active" href="akleto-admin-coupons.html" style="text-decoration:none;color:inherit;"><span class="nav-icon">🎟️</span><span>قسائم الخصم</span></a>
+  </div>
+
+  <div class="nav-section">
+    <div class="nav-label">الإعدادات</div>
+    <a class="nav-item" href="akleto-admin-notifications.html" style="text-decoration:none;color:inherit;"><span class="nav-icon">📣</span><span>الإشعارات</span><span class="nav-badge hidden" id="notifNavBadge">0</span></a>
+    <div class="nav-item"><span class="nav-icon">⚙️</span><span>الإعدادات</span></div>
+  </div>
+
+  <div class="sidebar-footer">
+    <div class="admin-card">
+      <div class="admin-avatar">م</div>
+      <div>
+        <div class="admin-name">مؤيد</div>
+        <div class="admin-role">مدير المنصة 👑</div>
+      </div>
+      <button onclick="adminLogout()" title="خروج" style="margin-right:auto;background:none;border:none;color:var(--cream30);cursor:pointer;font-size:16px;">⏻</button>
+    </div>
+  </div>
+</aside>
+
+<main class="main">
+  <div class="topbar">
+    <div>
+      <div class="page-title">🎟️ قسائم الخصم</div>
+      <div class="page-subtitle">أكواد خصم يقدر الزبون يستخدمها بشاشة تأكيد الطلب</div>
+    </div>
+    <div class="topbar-actions">
+      <button class="menu-toggle" id="menuBtn" onclick="toggleSidebar()" title="القائمة">☰</button>
+      <button class="theme-toggle" id="themeBtn" onclick="toggleTheme()" title="تبديل الوضع">🌙</button>
+      <button class="btn-primary" style="width:auto;padding:10px 18px;" onclick="openAddCouponModal()">➕ كود جديد</button>
+    </div>
+  </div>
+
+  <div id="couponsWrap"></div>
+</main>
+
+</div>
+
+<!-- ══════ MODAL: إضافة/تعديل كود خصم ══════ -->
+<div class="modal-overlay" id="couponOverlay">
+  <div class="modal-card" style="max-width:420px;">
+    <div class="modal-header">
+      <div class="modal-title" id="couponModalTitle">كود خصم جديد</div>
+      <button type="button" class="modal-close" onclick="closeCouponModal()">✕</button>
+    </div>
+
+    <form id="couponForm" onsubmit="saveCoupon(event)">
+      <div class="modal-body">
+
+        <div class="modal-error" id="couponFormError"></div>
+        <div class="field-hint" id="cf-usage-note" style="display:none;color:#E0A030;"></div>
+
+        <div class="form-group">
+          <label>كود الخصم (حروف إنجليزية وأرقام، بدون مسافات)</label>
+          <input type="text" id="cf-code" placeholder="مثال: RAMADAN25" style="font-family:monospace;letter-spacing:1px;text-transform:uppercase;" required />
+        </div>
+
+        <div class="form-group">
+          <label>نوع الخصم</label>
+          <select id="cf-type" onchange="toggleMaxDiscountField()">
+            <option value="percentage">نسبة مئوية (%)</option>
+            <option value="fixed">مبلغ ثابت (د.أ)</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label>قيمة الخصم</label>
+          <input type="number" step="any" min="0.01" id="cf-value" placeholder="مثال: 10" required />
+        </div>
+
+        <div class="form-group" id="cf-max-wrap">
+          <label>حد أقصى لمبلغ الخصم (اختياري — للنسبة المئوية فقط)</label>
+          <input type="number" step="any" min="0" id="cf-max" placeholder="مثال: 2 (يعني الخصم ما يتجاوز 2 د.أ حتى لو النسبة أعلى)" />
+        </div>
+
+        <div class="form-group">
+          <label>حد أدنى لقيمة الطلب (اختياري)</label>
+          <input type="number" step="any" min="0" id="cf-min" placeholder="مثال: 10" />
+        </div>
+
+        <div class="form-group">
+          <label>الحد الأقصى لعدد مرات الاستخدام (اختياري — فاضي = بلا حد)</label>
+          <input type="number" step="1" min="1" id="cf-limit" placeholder="مثال: 100" />
+        </div>
+
+        <div class="form-group">
+          <label>تاريخ الانتهاء (اختياري)</label>
+          <input type="date" id="cf-expires" />
+        </div>
+
+        <div class="form-group" style="display:flex;align-items:center;gap:10px;">
+          <input type="checkbox" id="cf-active" style="width:18px;height:18px;" />
+          <label style="margin:0;">الكود فعّال حالياً</label>
+        </div>
+
+        <div class="field-hint">لو الزبون كتب هالكود بشاشة تأكيد الطلب وانطبقت الشروط فوق، بينحسم الخصم من إجمالي الطلب قبل رسوم التوصيل وبدل الخدمة.</div>
+
+      </div>
+
+      <div class="modal-footer" style="flex-direction:column;gap:8px;">
+        <div style="display:flex;gap:8px;width:100%;">
+          <button type="button" class="btn-secondary" style="flex:1;" onclick="closeCouponModal()">إلغاء</button>
+          <button type="submit" class="btn-primary" style="flex:1;" id="cf-save-btn">حفظ ✓</button>
+        </div>
+        <button type="button" class="ing-remove hidden" id="cf-delete-btn" style="width:100%;padding:10px;font-size:13px;" onclick="deleteCouponFromModal()">🗑️ حذف هالكود</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+  function toggleSidebar() {
+    document.getElementById('sidebar').classList.toggle('open');
+    document.getElementById('sidebarOverlay').classList.toggle('open');
+  }
+  function closeSidebar() {
+    document.getElementById('sidebar').classList.remove('open');
+    document.getElementById('sidebarOverlay').classList.remove('open');
+  }
+  document.addEventListener('DOMContentLoaded', () => {
+    document.querySelectorAll('.nav-item').forEach(item => {
+      item.addEventListener('click', () => { if (window.innerWidth <= 860) closeSidebar(); });
+    });
+  });
+  function toggleTheme() {
+    const body = document.body;
+    const btn  = document.getElementById('themeBtn');
+    body.classList.toggle('light');
+    btn.textContent = body.classList.contains('light') ? '🌙' : '☀️';
+    localStorage.setItem('akleto-theme', body.classList.contains('light') ? 'light' : 'dark');
+  }
+  if (localStorage.getItem('akleto-theme') === 'light') {
+    document.body.classList.add('light');
+    document.addEventListener('DOMContentLoaded', () => { document.getElementById('themeBtn').textContent = '🌙'; });
+  }
+</script>
+</body>
+</html>

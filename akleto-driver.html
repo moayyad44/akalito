@@ -176,6 +176,10 @@
   .receipt-row span:last-child { color: var(--text30); flex-shrink:0; }
   .receipt-section-title { font-size:12px; font-weight:700; color:var(--text30); margin: 14px 0 6px; }
   .receipt-note { font-size: 12.5px; color: var(--secondary); background: rgba(245,166,91,.12); border-radius: 8px; padding: 8px 10px; margin: 8px 0; line-height:1.6; }
+  .map-link-btn {
+    display:block; text-align:center; font-size:12.5px; font-weight:800; color: var(--primary);
+    background: rgba(162,62,72,.08); border-radius: 8px; padding: 9px 10px; margin: 8px 0; text-decoration:none;
+  }
   .receipt-total { display:flex; justify-content:space-between; font-weight:800; font-size:16px; padding-top:14px; margin-top:10px; border-top: 2px dashed var(--border); color: var(--primary); }
   .sheet-footer { padding: 16px 20px 4px; }
 
@@ -302,6 +306,7 @@ if ("serviceWorker" in navigator) {
       <div class="receipt-row"><span>👤 الزبون</span><span id="sheet-cust-name">—</span></div>
       <div class="receipt-row"><span>📞 الهاتف</span><span id="sheet-cust-phone" class="mono">—</span></div>
       <div class="receipt-row" id="sheet-address-row" style="align-items:flex-start;"><span>📍 عنوان التوصيل</span><span id="sheet-address" style="text-align:left;max-width:65%;">—</span></div>
+      <div id="sheet-map-link-wrap"></div>
       <div id="sheet-notes-wrap"></div>
 
       <div class="receipt-section-title">🍽️ الوجبات</div>
@@ -674,6 +679,14 @@ window.openOrderSheet = (orderId, mode) => {
   document.getElementById('sheet-cust-name').textContent = o.customer_name || 'زبون';
   document.getElementById('sheet-cust-phone').textContent = o.customer_phone || '—';
   document.getElementById('sheet-address').textContent = o.delivery_address || 'ما في عنوان محفوظ — تواصل مع الزبون';
+  const mapLinkWrap = document.getElementById('sheet-map-link-wrap');
+  if (mapLinkWrap) {
+    if (o.delivery_lat != null && o.delivery_lng != null) {
+      mapLinkWrap.innerHTML = `<a href="https://www.openstreetmap.org/?mlat=${o.delivery_lat}&mlon=${o.delivery_lng}#map=17/${o.delivery_lat}/${o.delivery_lng}" target="_blank" class="map-link-btn">🗺️ فتح الموقع على الخريطة</a>`;
+    } else {
+      mapLinkWrap.innerHTML = '';
+    }
+  }
 
   const notesWrap = document.getElementById('sheet-notes-wrap');
   notesWrap.innerHTML = o.customer_notes ? `<div class="receipt-note">📝 ${o.customer_notes}</div>` : '';

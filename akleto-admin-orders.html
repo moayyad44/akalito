@@ -228,15 +228,24 @@ window.addEventListener('DOMContentLoaded', () => {
     }).join('') || '<div class="ord-empty" style="padding:8px 0;">لا توجد مكونات</div>';
     document.getElementById('sheetIngredients').innerHTML = ingHtml;
 
-    // تفصيل الفاتورة (رسوم توصيل + بدل خدمة) — يظهر فقط للطلبات الحديثة اللي فيها هاي الحقول
+    // تفصيل الفاتورة (رسوم توصيل + بدل خدمة + خصم قسيمة + إكرامية سائق) — يظهر فقط للطلبات الحديثة اللي فيها هاي الحقول
     const feesWrap = document.getElementById('sheetFeesWrap');
     if (o.subtotal_price != null) {
-      feesWrap.innerHTML = `
-        <div class="receipt-subrow"><span>إجمالي الطلب</span><span class="mono">${o.subtotal_price.toFixed(2)} د.أ</span></div>
-        <div class="receipt-subrow"><span>رسوم التوصيل</span><span class="mono">${(o.delivery_fee || 0).toFixed(2)} د.أ</span></div>
-        <div class="receipt-subrow"><span>بدل الخدمة</span><span class="mono">${(o.service_fee || 0).toFixed(2)} د.أ</span></div>`;
+      let html = `<div class="receipt-subrow"><span>إجمالي الطلب</span><span class="mono">${o.subtotal_price.toFixed(2)} د.أ</span></div>`;
+      if (o.coupon_discount) {
+        html += `<div class="receipt-subrow" style="color:#2ED573;"><span>خصم قسيمة ${o.coupon_code ? '(' + o.coupon_code + ')' : ''}</span><span class="mono">-${o.coupon_discount.toFixed(2)} د.أ</span></div>`;
+      }
+      html += `<div class="receipt-subrow"><span>رسوم التوصيل</span><span class="mono">${(o.delivery_fee || 0).toFixed(2)} د.أ</span></div>`;
+      html += `<div class="receipt-subrow"><span>بدل الخدمة</span><span class="mono">${(o.service_fee || 0).toFixed(2)} د.أ</span></div>`;
+      if (o.driver_tip) {
+        html += `<div class="receipt-subrow"><span>🎁 إكرامية السائق</span><span class="mono">${o.driver_tip.toFixed(2)} د.أ</span></div>`;
+      }
+      feesWrap.innerHTML = html;
     } else {
       feesWrap.innerHTML = '';
+    }
+    if (o.estimated_delivery_min != null) {
+      document.getElementById('sheetTime').textContent += ` · ⏱️ متوقع خلال ${o.estimated_delivery_min}-${o.estimated_delivery_max} دقيقة`;
     }
     document.getElementById('sheetPrice').textContent = (o.total_estimated_price || 0).toFixed(2) + ' د.أ';
 
@@ -513,6 +522,11 @@ if ("serviceWorker" in navigator) {
     <a class="nav-item" href="akleto-admin-drivers.html" style="text-decoration:none;color:inherit;"><span class="nav-icon">🛵</span><span>السائقين</span></a>
     <a class="nav-item" href="akleto-admin-stores.html" style="text-decoration:none;color:inherit;"><span class="nav-icon">🏪</span><span>المتاجر الشريكة</span></a>
   </div>
+  <div class="nav-section">
+    <div class="nav-label">التسويق</div>
+    <a class="nav-item" href="akleto-admin-coupons.html" style="text-decoration:none;color:inherit;"><span class="nav-icon">🎟️</span><span>قسائم الخصم</span></a>
+  </div>
+
 
   <div class="nav-section">
     <div class="nav-label">الإعدادات</div>

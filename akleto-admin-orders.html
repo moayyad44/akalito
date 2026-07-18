@@ -166,6 +166,7 @@ window.addEventListener('DOMContentLoaded', () => {
             <span>📞 ${o.customer_phone || '—'}</span>
             <span>🍽️ ${itemsCount} وجبة</span>
             ${o.store_name ? `<span>🏪 ${o.store_name}</span>` : ''}
+            ${o.customer_notes ? `<span>📝 ملاحظة</span>` : ''}
           </div>
           <div class="tix-foot">
             <span class="stamp">${st.emoji} ${st.label}</span>
@@ -192,6 +193,22 @@ window.addEventListener('DOMContentLoaded', () => {
     document.getElementById('sheetTime').textContent = timeAgo(o.created_at);
     document.getElementById('sheetStatusBadge').innerHTML = `${st.emoji} ${st.label}`;
 
+    // معلومات التوصيل: العنوان المحفوظ + ملاحظة الزبون (إن وُجدت)
+    const deliveryWrap = document.getElementById('sheetDeliveryWrap');
+    if (o.delivery_address || o.customer_notes) {
+      let html = '';
+      if (o.delivery_address) {
+        html += `<div class="receipt-address-value">${o.delivery_address}</div>`;
+      }
+      if (o.customer_notes) {
+        html += `<div class="receipt-note">📝 ${o.customer_notes}</div>`;
+      }
+      document.getElementById('sheetDeliveryInfo').innerHTML = html;
+      deliveryWrap.style.display = '';
+    } else {
+      deliveryWrap.style.display = 'none';
+    }
+
     const mealsHtml = (o.items || []).map(it =>
       `<div class="receipt-row">
          <span>🍽️ ${mealsCache[it.meal_id] || 'وجبة'}</span>
@@ -211,6 +228,16 @@ window.addEventListener('DOMContentLoaded', () => {
     }).join('') || '<div class="ord-empty" style="padding:8px 0;">لا توجد مكونات</div>';
     document.getElementById('sheetIngredients').innerHTML = ingHtml;
 
+    // تفصيل الفاتورة (رسوم توصيل + بدل خدمة) — يظهر فقط للطلبات الحديثة اللي فيها هاي الحقول
+    const feesWrap = document.getElementById('sheetFeesWrap');
+    if (o.subtotal_price != null) {
+      feesWrap.innerHTML = `
+        <div class="receipt-subrow"><span>إجمالي الطلب</span><span class="mono">${o.subtotal_price.toFixed(2)} د.أ</span></div>
+        <div class="receipt-subrow"><span>رسوم التوصيل</span><span class="mono">${(o.delivery_fee || 0).toFixed(2)} د.أ</span></div>
+        <div class="receipt-subrow"><span>بدل الخدمة</span><span class="mono">${(o.service_fee || 0).toFixed(2)} د.أ</span></div>`;
+    } else {
+      feesWrap.innerHTML = '';
+    }
     document.getElementById('sheetPrice').textContent = (o.total_estimated_price || 0).toFixed(2) + ' د.أ';
 
     // معلومات المتجر (تظهر إذا انربط الطلب بمتجر عن طريق التوزيع التلقائي)
@@ -418,6 +445,13 @@ window.addEventListener('DOMContentLoaded', () => {
     font-weight: 700; font-size: 16px; color: var(--cream);
     padding-top: 14px; margin-top: 14px; border-top: 3px double var(--border);
   }
+  .receipt-subrow { display: flex; justify-content: space-between; gap: 10px; padding: 5px 0; font-size: 13px; color: var(--cream60); }
+
+  .receipt-note {
+    font-size: 12.5px; color: var(--orange); background: var(--orange-glow);
+    border-radius: 8px; padding: 8px 11px; margin-top: 4px; line-height: 1.6;
+  }
+  .receipt-address-value { font-size: 13.5px; color: var(--cream); line-height: 1.6; }
 
   .sheet-footer { padding: 14px 20px; border-top: 1px solid var(--border); flex-shrink: 0; }
 
@@ -545,6 +579,12 @@ if ("serviceWorker" in navigator) {
     </div>
 
     <div class="sheet-body">
+      <div id="sheetDeliveryWrap" style="display:none;">
+        <div class="receipt-section-title">📍 التوصيل</div>
+        <div id="sheetDeliveryInfo"></div>
+        <div class="receipt-divider"></div>
+      </div>
+
       <div class="receipt-section-title">🍽️ الوجبات المطلوبة</div>
       <div id="sheetMeals"></div>
 
@@ -564,6 +604,7 @@ if ("serviceWorker" in navigator) {
         <div id="sheetDriverInfo"></div>
       </div>
 
+      <div id="sheetFeesWrap"></div>
       <div class="receipt-total">
         <span>الإجمالي التقديري</span>
         <span class="mono" id="sheetPrice">—</span>

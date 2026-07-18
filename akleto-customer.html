@@ -414,6 +414,44 @@
     box-shadow: 0 -8px 16px -8px rgba(0,0,0,.06);
   }
 
+  /* ═══ شاشة تأكيد الطلب ═══ */
+  .confirm-card { background: var(--surface); border:1px solid var(--border); border-radius:16px; padding:16px; margin-bottom:16px; }
+  .confirm-card-title-row { display:flex; justify-content:space-between; align-items:center; font-weight:800; font-size:14.5px; margin-bottom:10px; font-family:'Tajawal',sans-serif; }
+  .confirm-edit-link { color: var(--primary); font-size:12.5px; font-weight:700; cursor:pointer; }
+  .confirm-item-row { display:flex; align-items:center; gap:10px; padding:9px 0; border-bottom:1px solid var(--border); font-size:13.5px; }
+  .confirm-item-row:last-child { border-bottom:none; }
+  .confirm-item-icon {
+    width:34px; height:34px; border-radius:10px; background:rgba(162,62,72,.08); object-fit:cover;
+    display:flex; align-items:center; justify-content:center; font-size:16px; flex-shrink:0;
+  }
+  .confirm-item-name { font-weight:700; flex:1; min-width:0; }
+  .confirm-item-servings { font-size:11.5px; color:var(--text30); margin-top:2px; }
+  .confirm-toggle-details { background:none; border:none; color: var(--primary); font-weight:700; font-size:12.5px; width:100%; text-align:center; padding-top:10px; font-family:inherit; }
+  .confirm-detail-row { display:flex; align-items:flex-start; gap:10px; padding:9px 0; }
+  .confirm-detail-icon {
+    width:32px; height:32px; border-radius:50%; background:rgba(162,62,72,.08); color: var(--primary);
+    display:flex; align-items:center; justify-content:center; font-size:14px; flex-shrink:0;
+  }
+  .confirm-detail-label { font-size:11.5px; color: var(--text30); margin-bottom:2px; }
+  .confirm-detail-value { font-size:13.5px; font-weight:700; line-height:1.5; }
+  .confirm-pay-option {
+    display:flex; justify-content:space-between; align-items:center; border:1.5px solid var(--primary);
+    background: rgba(162,62,72,.05); border-radius:14px; padding:14px 16px; font-weight:700; font-size:14px; margin-bottom:18px;
+  }
+  .confirm-radio { width:18px; height:18px; border-radius:50%; border:2px solid var(--primary); position:relative; display:inline-block; flex-shrink:0; }
+  .confirm-radio.checked::after { content:''; position:absolute; inset:3px; border-radius:50%; background: var(--primary); }
+  .confirm-summary-row { display:flex; justify-content:space-between; font-size:13.5px; color: var(--text30); padding:7px 0; }
+  .confirm-summary-row b { color: var(--text); font-weight:700; }
+  .confirm-summary-total {
+    display:flex; justify-content:space-between; font-weight:800; font-size:18px; color: var(--primary);
+    padding-top:13px; margin-top:9px; border-top:2px dashed var(--border);
+  }
+  .confirm-terms-note { font-size:10.5px; color: var(--text30); text-align:center; margin-top:9px; }
+  .confirm-address-missing {
+    font-size:12.5px; color:#D9534F; background: rgba(217,83,79,.08); border-radius:10px; padding:10px 12px; line-height:1.6;
+  }
+  .confirm-address-missing a { font-weight:800; text-decoration:underline; cursor:pointer; }
+
   .toast {
     position:fixed; bottom:90px; right:50%; transform:translateX(50%) translateY(20px);
     background: var(--text); color:#fff; padding: 12px 22px; border-radius: 30px;
@@ -532,7 +570,7 @@ if ("serviceWorker" in navigator) {
     <div id="mergedSection"></div>
     <div id="storeAssignmentNote"></div>
     <div class="sticky-cta hidden" id="cartCta">
-      <button class="btn-main" onclick="placeOrder()" id="place-order-btn">تأكيد الطلب ✅</button>
+      <button class="btn-main" onclick="openOrderConfirm()" id="place-order-btn">تأكيد الطلب ✅</button>
     </div>
   </div>
 
@@ -647,6 +685,8 @@ if ("serviceWorker" in navigator) {
         <div class="sheet-title" id="so-code"></div>
         <div style="font-size:12.5px;color:var(--text30);margin-bottom:14px;" id="so-time"></div>
 
+        <div id="so-notes-wrap" class="hidden"></div>
+
         <div class="merged-header">🧾 المكونات المطلوبة</div>
         <div id="so-ingredients"></div>
 
@@ -733,6 +773,55 @@ if ("serviceWorker" in navigator) {
       </div>
       <button class="btn-main" id="addr-save-btn" onclick="saveAddress()">حفظ العنوان ✅</button>
       <div class="error-text" id="addr-error"></div>
+    </div>
+  </div>
+
+  <!-- ═══ شاشة تأكيد الطلب ═══ -->
+  <div id="orderConfirmScreen" class="hidden">
+    <div class="store-sub-topbar">
+      <button class="store-back-btn" onclick="closeOrderConfirm()">←</button>
+      <div class="section-title" style="padding:0;">✅ تأكيد الطلب</div>
+    </div>
+    <div style="padding: 6px 18px 20px;">
+
+      <div class="confirm-card">
+        <div class="confirm-card-title-row"><span id="oc-items-count"></span><span>عناصر الطلب</span></div>
+        <div id="oc-items-list"></div>
+        <button type="button" class="confirm-toggle-details" id="oc-toggle-btn" onclick="toggleOcDetails()">عرض التفاصيل الكاملة ˅</button>
+        <div id="oc-full-details" class="hidden"></div>
+      </div>
+
+      <div class="confirm-card">
+        <div class="confirm-card-title-row"><span class="confirm-edit-link" onclick="menuOpenAddress()">تعديل</span><span>تفاصيل التوصيل</span></div>
+        <div id="oc-delivery-details"></div>
+        <div class="field-group" style="margin-top:12px;margin-bottom:0;">
+          <label style="font-size:12px;">ملاحظات إضافية للتاجر أو السائق (اختياري)</label>
+          <textarea id="oc-notes" placeholder="مثال: بدون بصل، اتصل قبل ما توصل..." style="min-height:52px;"></textarea>
+        </div>
+      </div>
+
+      <div class="section-title" style="padding:2px 0 10px;font-size:15px;">طريقة الدفع</div>
+      <div class="confirm-pay-option">
+        <span>الدفع عند الاستلام</span>
+        <div style="display:flex;align-items:center;gap:10px;">
+          <span style="font-size:18px;">💵</span>
+          <span class="confirm-radio checked"></span>
+        </div>
+      </div>
+
+      <div class="confirm-card" style="margin-bottom:0;">
+        <div class="confirm-card-title-row" style="margin-bottom:4px;"><span></span><span>ملخص الفاتورة</span></div>
+        <div class="confirm-summary-row"><b id="oc-subtotal"></b><span>إجمالي الطلب</span></div>
+        <div class="confirm-summary-row"><b id="oc-delivery"></b><span>رسوم التوصيل</span></div>
+        <div class="confirm-summary-row"><b id="oc-service"></b><span>بدل الخدمة</span></div>
+        <div class="confirm-summary-total"><span id="oc-total"></span><span>المجموع النهائي</span></div>
+      </div>
+
+    </div>
+    <div class="sticky-cta" id="ocCta">
+      <div class="error-text" id="oc-error"></div>
+      <button class="btn-main" id="oc-confirm-btn" onclick="finalizeOrder()">تأكيد الطلب ✅</button>
+      <div class="confirm-terms-note">بالضغط على "تأكيد الطلب" فإنك توافق على الشروط والأحكام</div>
     </div>
   </div>
 
@@ -1429,6 +1518,15 @@ window.openStoreOrderSheet = (orderId) => {
   document.getElementById('so-code').textContent = `طلب ${ticketCode(o.id)}`;
   document.getElementById('so-time').textContent = `${storeOrderStatusLabel[o.status] || o.status} · ${timeAgo(o.created_at)}`;
 
+  const notesWrap = document.getElementById('so-notes-wrap');
+  if (o.customer_notes) {
+    notesWrap.innerHTML = `<div class="ing-preview-note" style="margin-top:0;">📝 ملاحظة الزبون: ${o.customer_notes}</div>`;
+    notesWrap.classList.remove('hidden');
+  } else {
+    notesWrap.classList.add('hidden');
+    notesWrap.innerHTML = '';
+  }
+
   const ings = o.merged_ingredients || [];
   document.getElementById('so-ingredients').innerHTML = ings.map(ing => `
     <div class="store-ing-row">
@@ -1979,10 +2077,138 @@ async function updateStoreAssignmentNote() {
 }
 
 /* ═══════════ تأكيد الطلب ═══════════ */
-window.placeOrder = async () => {
+/* ═══════════ شاشة تأكيد الطلب ═══════════ */
+const DELIVERY_FEE = 1.00;
+const SERVICE_FEE_RATE = 0.04;
+const SERVICE_FEE_MIN = 0.3;
+const SERVICE_FEE_MAX = 1.0;
+function computeServiceFee(subtotal) {
+  if (subtotal <= 0) return 0;
+  return Math.round(Math.min(SERVICE_FEE_MAX, Math.max(SERVICE_FEE_MIN, subtotal * SERVICE_FEE_RATE)) * 100) / 100;
+}
+
+let ocResolvedAddress = null; // بيانات العنوان المحمّلة من حساب الزبون لهاي الشاشة
+
+window.openOrderConfirm = async () => {
+  if (!selectedMeals.length) return;
+  document.getElementById('homeScreen').classList.add('hidden');
+  document.getElementById('cartScreen').classList.add('hidden');
+  document.getElementById('accountScreen').classList.add('hidden');
+  document.getElementById('bottomNav').classList.add('hidden');
+  document.getElementById('orderConfirmScreen').classList.remove('hidden');
+  updateCartFab();
+
+  document.getElementById('oc-error').style.display = 'none';
+  document.getElementById('oc-full-details').classList.add('hidden');
+  document.getElementById('oc-toggle-btn').textContent = 'عرض التفاصيل الكاملة ˅';
+
+  renderOcItems();
+  renderOcSummary();
+  await renderOcDeliveryDetails();
+};
+
+window.closeOrderConfirm = () => {
+  document.getElementById('orderConfirmScreen').classList.add('hidden');
+  switchScreen('cart');
+};
+
+function renderOcItems() {
+  document.getElementById('oc-items-count').textContent = selectedMeals.length + ' عناصر';
+  document.getElementById('oc-items-list').innerHTML = selectedMeals.map(sel => {
+    const meal = mealsCache.find(m => m.id === sel.mealId) || {};
+    const thumb = meal.image_url ? `<img class="confirm-item-icon" src="${meal.image_url}" />` : `<div class="confirm-item-icon">🍽️</div>`;
+    return `
+      <div class="confirm-item-row">
+        ${thumb}
+        <div>
+          <div class="confirm-item-name">${meal.name_ar || ''}</div>
+          <div class="confirm-item-servings">👥 ${sel.servings} أشخاص</div>
+        </div>
+      </div>`;
+  }).join('');
+}
+
+window.toggleOcDetails = () => {
+  const wrap = document.getElementById('oc-full-details');
+  const btn = document.getElementById('oc-toggle-btn');
+  if (!wrap.classList.contains('hidden')) {
+    wrap.classList.add('hidden');
+    btn.textContent = 'عرض التفاصيل الكاملة ˅';
+    return;
+  }
+  const entries = Object.entries(getFinalCartIngredients());
+  wrap.innerHTML = entries.map(([, e]) => `
+    <div class="cart-ing-row" style="cursor:default;">
+      <div class="cart-ing-info">
+        <div class="cart-ing-name">${e.name}</div>
+        <div class="cart-ing-price">${(e.pricePerPackage || 0).toFixed(2)} د.أ / ${e.packageLabel}</div>
+      </div>
+      <div style="font-weight:800;">× ${e.purchaseQty}</div>
+    </div>`).join('') || '<div class="empty-state-c" style="padding:14px 0;">ما في مكونات</div>';
+  wrap.classList.remove('hidden');
+  btn.textContent = 'إخفاء التفاصيل ˄';
+};
+
+async function renderOcDeliveryDetails() {
+  const wrap = document.getElementById('oc-delivery-details');
+  wrap.innerHTML = `
+    <div class="confirm-detail-row">
+      <div class="confirm-detail-icon">👤</div>
+      <div><div class="confirm-detail-label">اسم المستلم</div><div class="confirm-detail-value">${customerName || '—'}</div></div>
+    </div>
+    <div class="confirm-detail-row">
+      <div class="confirm-detail-icon">📞</div>
+      <div><div class="confirm-detail-label">رقم الهاتف</div><div class="confirm-detail-value">${customerPhone || '—'}</div></div>
+    </div>
+    <div class="confirm-detail-row">
+      <div class="confirm-detail-icon">📍</div>
+      <div><div class="confirm-detail-label">عنوان التوصيل</div><div class="confirm-detail-value">جاري التحميل...</div></div>
+    </div>`;
+
+  try {
+    const snap = await getDoc(doc(db, 'customers', customerId));
+    ocResolvedAddress = snap.exists() ? snap.data() : null;
+  } catch(e) {
+    console.error('load address for confirm error', e);
+    ocResolvedAddress = null;
+  }
+
+  const area = ocResolvedAddress && ocResolvedAddress.address_area;
+  const addressValueEl = wrap.querySelector('.confirm-detail-row:last-child .confirm-detail-value');
+  if (area) {
+    const details = ocResolvedAddress.address_details;
+    const notes = ocResolvedAddress.address_notes;
+    addressValueEl.innerHTML = `${area}${details ? '، ' + details : ''}${notes ? `<div style="color:var(--text30);font-weight:500;margin-top:2px;">${notes}</div>` : ''}`;
+  } else {
+    addressValueEl.parentElement.parentElement.innerHTML = `
+      <div class="confirm-address-missing">📍 ما ضفت عنوان توصيل بعد — <a onclick="menuOpenAddress()">أضف عنوانك الآن</a> قبل ما تأكّد الطلب</div>`;
+  }
+}
+
+function renderOcSummary() {
+  const entries = Object.entries(getFinalCartIngredients());
+  const subtotal = entries.reduce((sum, [, e]) => sum + e.purchaseQty * (e.pricePerPackage || 0), 0);
+  const serviceFee = computeServiceFee(subtotal);
+  const total = subtotal + DELIVERY_FEE + serviceFee;
+  document.getElementById('oc-subtotal').textContent = subtotal.toFixed(2) + ' د.أ';
+  document.getElementById('oc-delivery').textContent = DELIVERY_FEE.toFixed(2) + ' د.أ';
+  document.getElementById('oc-service').textContent = serviceFee.toFixed(2) + ' د.أ';
+  document.getElementById('oc-total').textContent = total.toFixed(2) + ' د.أ';
+}
+
+window.finalizeOrder = async () => {
   if (isPlacingOrder || !selectedMeals.length) return;
+  const errBox = document.getElementById('oc-error');
+  errBox.style.display = 'none';
+
+  if (!ocResolvedAddress || !ocResolvedAddress.address_area) {
+    errBox.textContent = 'لازم تضيف عنوان توصيل قبل ما تأكّد الطلب';
+    errBox.style.display = 'block';
+    return;
+  }
+
   isPlacingOrder = true;
-  const btn = document.getElementById('place-order-btn');
+  const btn = document.getElementById('oc-confirm-btn');
   btn.disabled = true;
   btn.textContent = 'جاري إرسال الطلب...';
 
@@ -2008,16 +2234,30 @@ window.placeOrder = async () => {
         base_unit_label: (MEASURE_TYPES[v.measureType] || {}).baseUnitLabel || ''
       };
     });
-    const totalPrice = mergedArray.reduce((sum, e) => sum + e.purchase_quantity * (e.price_per_package || 0), 0);
+    const subtotal = mergedArray.reduce((sum, e) => sum + e.purchase_quantity * (e.price_per_package || 0), 0);
+    const serviceFee = computeServiceFee(subtotal);
+    const totalPrice = subtotal + DELIVERY_FEE + serviceFee;
+
+    const area = ocResolvedAddress.address_area || '';
+    const details = ocResolvedAddress.address_details || '';
+    const addrNotes = ocResolvedAddress.address_notes || '';
+    const deliveryAddress = `${area}${details ? '، ' + details : ''}${addrNotes ? ' (' + addrNotes + ')' : ''}`;
+    const customerNotes = (document.getElementById('oc-notes').value || '').trim();
 
     const newOrderRef = await withTimeout(
       addDoc(collection(db, 'orders'), {
         customer_id: customerId,
         customer_name: customerName,
         customer_phone: customerPhone,
+        delivery_address: deliveryAddress,
+        customer_notes: customerNotes,
         items: selectedMeals.map(s => ({ meal_id: s.mealId, servings: s.servings })),
         merged_ingredients: mergedArray,
+        subtotal_price: Math.round(subtotal * 100) / 100,
+        delivery_fee: DELIVERY_FEE,
+        service_fee: serviceFee,
         total_estimated_price: Math.round(totalPrice * 100) / 100,
+        payment_method: 'cash_on_delivery',
         store_id: routing.store.id,
         store_name: routing.store.name,
         status: 'pending',
@@ -2039,6 +2279,8 @@ window.placeOrder = async () => {
     selectedMeals = [];
     cartOverrides = {};
     updateCartBadge();
+    document.getElementById('oc-notes').value = '';
+    document.getElementById('orderConfirmScreen').classList.add('hidden');
     document.getElementById('homeScreen').classList.add('hidden');
     document.getElementById('cartScreen').classList.add('hidden');
     document.getElementById('accountScreen').classList.add('hidden');

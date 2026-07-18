@@ -175,6 +175,7 @@
   .receipt-row:last-child { border-bottom:none; }
   .receipt-row span:last-child { color: var(--text30); flex-shrink:0; }
   .receipt-section-title { font-size:12px; font-weight:700; color:var(--text30); margin: 14px 0 6px; }
+  .receipt-note { font-size: 12.5px; color: var(--secondary); background: rgba(245,166,91,.12); border-radius: 8px; padding: 8px 10px; margin: 8px 0; line-height:1.6; }
   .receipt-total { display:flex; justify-content:space-between; font-weight:800; font-size:16px; padding-top:14px; margin-top:10px; border-top: 2px dashed var(--border); color: var(--primary); }
   .sheet-footer { padding: 16px 20px 4px; }
 
@@ -300,6 +301,8 @@ if ("serviceWorker" in navigator) {
       <div class="receipt-row"><span>🏪 الاستلام من</span><span id="sheet-store-name">—</span></div>
       <div class="receipt-row"><span>👤 الزبون</span><span id="sheet-cust-name">—</span></div>
       <div class="receipt-row"><span>📞 الهاتف</span><span id="sheet-cust-phone" class="mono">—</span></div>
+      <div class="receipt-row" id="sheet-address-row" style="align-items:flex-start;"><span>📍 عنوان التوصيل</span><span id="sheet-address" style="text-align:left;max-width:65%;">—</span></div>
+      <div id="sheet-notes-wrap"></div>
 
       <div class="receipt-section-title">🍽️ الوجبات</div>
       <div id="sheet-meals"></div>
@@ -670,6 +673,10 @@ window.openOrderSheet = (orderId, mode) => {
   document.getElementById('sheet-store-name').textContent = o.store_name || 'غير محدد';
   document.getElementById('sheet-cust-name').textContent = o.customer_name || 'زبون';
   document.getElementById('sheet-cust-phone').textContent = o.customer_phone || '—';
+  document.getElementById('sheet-address').textContent = o.delivery_address || 'ما في عنوان محفوظ — تواصل مع الزبون';
+
+  const notesWrap = document.getElementById('sheet-notes-wrap');
+  notesWrap.innerHTML = o.customer_notes ? `<div class="receipt-note">📝 ${o.customer_notes}</div>` : '';
 
   const mealsHtml = (o.items || []).map(it =>
     `<div class="receipt-row"><span>🍽️ ${mealsCache[it.meal_id] || 'وجبة'}</span><span class="mono">× ${it.servings || 1}</span></div>`

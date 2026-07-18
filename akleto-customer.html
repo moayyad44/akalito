@@ -125,18 +125,68 @@
   .meal-tile {
     background: var(--surface); border-radius: 18px; overflow:hidden;
     border: 1px solid var(--border); position: relative;
+    transition: transform .12s ease;
   }
+  .meal-tile:active { transform: scale(.97); }
   .meal-tile-img {
-    width:100%; height: 110px; object-fit: cover; background: var(--border);
+    width:100%; height: 118px; object-fit: cover; background: var(--border);
     display:flex; align-items:center; justify-content:center; font-size: 30px;
   }
-  .meal-tile-body { padding: 10px 12px 12px; }
-  .meal-tile-name { font-size: 13.5px; font-weight: 700; margin-bottom: 3px; }
-  .meal-tile-meta { font-size: 11px; color: var(--text30); }
+  .meal-tile-body { padding: 11px 12px 13px; }
+  .meal-tile-name { font-size: 14px; font-weight: 800; margin-bottom: 5px; }
+  .meal-tile-tags { display:flex; align-items:center; gap:6px; flex-wrap:wrap; font-size: 11px; color: var(--text30); margin-bottom:7px; }
+  .meal-tile-tags span { display:flex; align-items:center; gap:2px; }
+  .meal-tile-footer { display:flex; align-items:center; justify-content:space-between; padding-top:7px; border-top:1px dashed var(--border); }
+  .meal-tile-price { font-size: 13px; font-weight: 800; color: var(--primary); }
+  .meal-tile-price small { font-size:10px; font-weight:600; color:var(--text30); }
+  .meal-tile-add {
+    width:26px; height:26px; border-radius:50%; border:none; background: var(--primary);
+    color:#fff; font-size:15px; font-weight:800; display:flex; align-items:center; justify-content:center; flex-shrink:0;
+  }
   .meal-tile-badge {
     position:absolute; top:8px; left:8px; background: var(--olive); color:#fff;
-    font-size: 11px; font-weight:700; padding: 3px 9px; border-radius: 20px;
+    font-size: 11px; font-weight:700; padding: 3px 9px; border-radius: 20px; z-index:2;
   }
+
+  /* ═══ بحث + تصنيفات الشاشة الرئيسية ═══ */
+  .home-hero {
+    margin: 0 18px 16px; padding: 18px 18px 20px; border-radius: 20px;
+    background: linear-gradient(135deg, var(--primary), #B8535E);
+    color:#fff; position:relative; overflow:hidden;
+  }
+  .home-hero::after {
+    content:"🍽️"; position:absolute; font-size:90px; opacity:.14; left:-14px; bottom:-24px;
+  }
+  .home-hero-title { font-family:'Tajawal',sans-serif; font-weight:800; font-size:16.5px; margin-bottom:4px; }
+  .home-hero-sub { font-size:12px; opacity:.92; margin-bottom:14px; max-width:80%; }
+  .home-search-box {
+    display:flex; align-items:center; gap:8px; background:#fff; border-radius:14px;
+    padding: 11px 14px; box-shadow: 0 6px 18px rgba(0,0,0,.12);
+  }
+  .home-search-box .ic { font-size:15px; color: var(--text30); flex-shrink:0; }
+  .home-search-box input {
+    flex:1; border:none; outline:none; font-family:'Cairo',sans-serif; font-size:13.5px;
+    color: var(--text); background:transparent; min-width:0;
+  }
+  .cat-chips-row { display:flex; gap:8px; padding: 0 18px 14px; overflow-x:auto; scrollbar-width:none; }
+  .cat-chips-row::-webkit-scrollbar { display:none; }
+  .cat-chip {
+    flex-shrink:0; padding: 8px 16px; border-radius: 20px; border: 1.5px solid var(--border);
+    background: var(--surface); font-family:'Cairo',sans-serif; font-weight:700; font-size: 12.5px;
+    color: var(--text30); white-space:nowrap;
+  }
+  .cat-chip.active { background: var(--primary); border-color: var(--primary); color:#fff; }
+
+  /* ═══ الشريط العائم للسلة ═══ */
+  .cart-fab {
+    position:fixed; right:18px; left:18px; bottom: calc(76px + env(safe-area-inset-bottom) + 10px);
+    background: var(--text); color:#fff; border-radius:16px; padding: 13px 16px; z-index: 140;
+    display:flex; align-items:center; justify-content:space-between; gap:10px;
+    box-shadow: 0 10px 24px rgba(58,42,40,.28); cursor:pointer;
+  }
+  .cart-fab-info { font-size:13px; font-weight:700; }
+  .cart-fab-info b { color: var(--secondary); }
+  .cart-fab-cta { font-size:12.5px; font-weight:800; background: var(--secondary); color:#fff; padding:8px 14px; border-radius:10px; white-space:nowrap; }
 
   /* ═══ منتجاتي (المتجر) ═══ */
   .store-tabs {
@@ -425,8 +475,26 @@ if ("serviceWorker" in navigator) {
         <button class="icon-btn" onclick="toggleCustomerMenu()" title="القائمة">☰</button>
       </div>
     </div>
-    <div class="section-title">🍲 وجبات متوفرة</div>
+
+    <div class="home-hero">
+      <div class="home-hero-title">وش نطبخ اليوم؟ 👨‍🍳</div>
+      <div class="home-hero-sub">اختار وجباتك ونجهزلك مكوناتها بالكمية الصح من أقرب متجر</div>
+      <div class="home-search-box">
+        <span class="ic">🔍</span>
+        <input type="text" id="homeSearchInput" placeholder="دور على وجبة... منسف، مقلوبة، فلافل" oninput="onHomeSearchInput(this.value)" />
+      </div>
+    </div>
+
+    <div class="cat-chips-row" id="catChipsRow"></div>
+
+    <div class="section-title" id="homeSectionTitle">🍲 وجبات متوفرة</div>
     <div class="meals-scroll-grid" id="mealsGrid"></div>
+  </div>
+
+  <!-- ═══ الشريط العائم للسلة ═══ -->
+  <div class="cart-fab hidden" id="cartFab" onclick="switchScreen('cart')">
+    <div class="cart-fab-info"><b id="cartFabCount">0</b> وجبة بسلتك</div>
+    <div class="cart-fab-cta">أكمل الطلب ←</div>
   </div>
 
   <!-- ═══ شاشة السلة ═══ -->
@@ -1283,31 +1351,97 @@ async function loadInitialData() {
     document.getElementById('mealsGrid').innerHTML = `<div class="empty-state-c" style="grid-column:1/-1;">صار خطأ بتحميل الوجبات — تحقق من الإنترنت 🔌</div>`;
     return;
   }
+  renderCategoryChips();
   renderMealsGrid();
+  updateCartFab();
 }
 
 const difficultyLabel = { easy:'🟢 سهل', medium:'🟡 متوسط', hard:'🔴 صعب' };
+let homeSearchQuery = '';
+let homeSelectedCategory = 'الكل';
+
+window.onHomeSearchInput = (val) => {
+  homeSearchQuery = (val || '').trim();
+  renderMealsGrid();
+};
+
+window.selectHomeCategory = (cat) => {
+  homeSelectedCategory = cat;
+  renderCategoryChips();
+  renderMealsGrid();
+};
+
+function renderCategoryChips() {
+  const row = document.getElementById('catChipsRow');
+  if (!row) return;
+  const cats = ['الكل'];
+  mealsCache.forEach(m => { if (m.category && !cats.includes(m.category)) cats.push(m.category); });
+  if (cats.length <= 1) { row.innerHTML = ''; return; }
+  row.innerHTML = cats.map(c =>
+    `<button class="cat-chip ${c === homeSelectedCategory ? 'active' : ''}" onclick="selectHomeCategory('${c.replace(/'/g,"\\'")}')">${c}</button>`
+  ).join('');
+}
+
+function getFilteredMeals() {
+  return mealsCache.filter(m => {
+    const matchesCategory = homeSelectedCategory === 'الكل' || m.category === homeSelectedCategory;
+    const matchesSearch = !homeSearchQuery || (m.name_ar || '').includes(homeSearchQuery);
+    return matchesCategory && matchesSearch;
+  });
+}
 
 function renderMealsGrid() {
   const wrap = document.getElementById('mealsGrid');
+  const titleEl = document.getElementById('homeSectionTitle');
   if (!mealsCache.length) {
     wrap.innerHTML = `<div class="empty-state-c" style="grid-column:1/-1;"><div class="emoji">🍽️</div>ما في وجبات متوفرة حالياً</div>`;
     return;
   }
-  wrap.innerHTML = mealsCache.map(m => {
+  const filtered = getFilteredMeals();
+  if (titleEl) {
+    titleEl.textContent = (homeSearchQuery || homeSelectedCategory !== 'الكل')
+      ? `🔍 نتائج (${filtered.length})`
+      : '🍲 وجبات متوفرة';
+  }
+  if (!filtered.length) {
+    wrap.innerHTML = `<div class="empty-state-c" style="grid-column:1/-1;"><div class="emoji">🔍</div>ما لقينا وجبات مطابقة، جرب كلمة ثانية</div>`;
+    return;
+  }
+  wrap.innerHTML = filtered.map(m => {
     const thumb = m.image_url ? `<img class="meal-tile-img" src="${m.image_url}" />` : `<div class="meal-tile-img">🍽️</div>`;
     const selected = selectedMeals.find(s => s.mealId === m.id);
     const badge = selected ? `<div class="meal-tile-badge">✓ بالسلة</div>` : '';
+    const price = m.base_price ? `<div class="meal-tile-price">${m.base_price} <small>د.أ تقريباً</small></div>` : `<div class="meal-tile-price">&nbsp;</div>`;
     return `
       <div class="meal-tile" onclick="openMealSheet('${m.id}')">
         ${badge}
         ${thumb}
         <div class="meal-tile-body">
           <div class="meal-tile-name">${m.name_ar || ''}</div>
-          <div class="meal-tile-meta">${difficultyLabel[m.difficulty]||''} · ${m.prep_time_min||0} د</div>
+          <div class="meal-tile-tags">
+            <span>${difficultyLabel[m.difficulty]||''}</span>
+            <span>⏱️ ${m.prep_time_min||0} د</span>
+            <span>👥 ${m.servings_default||2}</span>
+          </div>
+          <div class="meal-tile-footer">
+            ${price}
+            <button class="meal-tile-add" onclick="event.stopPropagation();openMealSheet('${m.id}')">${selected ? '✓' : '+'}</button>
+          </div>
         </div>
       </div>`;
   }).join('');
+}
+
+function updateCartFab() {
+  const fab = document.getElementById('cartFab');
+  if (!fab) return;
+  const homeVisible = !document.getElementById('homeScreen').classList.contains('hidden');
+  if (selectedMeals.length && homeVisible) {
+    document.getElementById('cartFabCount').textContent = selectedMeals.length;
+    fab.classList.remove('hidden');
+  } else {
+    fab.classList.add('hidden');
+  }
 }
 
 function getMealIngredients(mealId) {
@@ -1406,12 +1540,14 @@ window.switchScreen = (name) => {
   document.getElementById('bottomNav').classList.remove('hidden');
   if (name === 'cart') renderCartScreen();
   if (name === 'account') renderOrdersHistory();
+  updateCartFab();
 };
 
 function updateCartBadge() {
   const badge = document.getElementById('cartBadge');
   if (selectedMeals.length) { badge.textContent = selectedMeals.length; badge.classList.remove('hidden'); }
   else { badge.classList.add('hidden'); }
+  updateCartFab();
 }
 
 /* ═══════════ شاشة السلة + الدمج الذكي ═══════════ */

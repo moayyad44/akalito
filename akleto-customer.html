@@ -346,6 +346,11 @@
     font-size: 11.5px; color: var(--secondary); background: rgba(245,166,91,.12);
     border-radius: 8px; padding: 6px 10px; margin: -4px 0 8px; line-height:1.5;
   }
+  .ing-thumb-sm {
+    width:38px; height:38px; border-radius:10px; object-fit:cover; background: var(--border);
+    display:flex; align-items:center; justify-content:center; font-size:16px; flex-shrink:0; cursor:pointer;
+  }
+  .ing-clickable { display:flex; align-items:center; gap:10px; cursor:pointer; min-width:0; }
 
   .cart-ing-row {
     display:flex; align-items:center; gap:8px;
@@ -990,6 +995,22 @@ if ("serviceWorker" in navigator) {
       <div id="sheetIngredientsList"></div>
 
       <button class="btn-main" style="margin-top:20px;" id="sheet-add-btn" onclick="confirmAddMealToCart()">أضف للسلة ➕</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ شيت: شاشة المنتج (تفاصيل مكوّن) ═══ -->
+<div class="sheet-overlay" id="productSheet">
+  <div class="sheet-card">
+    <div style="position:relative;">
+      <div class="sheet-hero" id="product-hero">📦</div>
+      <button class="sheet-close" onclick="closeProductSheet()">✕</button>
+    </div>
+    <div class="sheet-body">
+      <div class="sheet-title" id="product-title"></div>
+      <div class="sheet-desc" id="product-category"></div>
+      <div id="product-info-rows"></div>
+      <button class="btn-main" style="margin-top:20px;" id="product-add-btn">➕ ضيف للسلة</button>
     </div>
   </div>
 </div>
@@ -2020,6 +2041,11 @@ function updateCartFab() {
   }
 }
 
+function ingImageFor(ingredientId) {
+  const ing = ingredientsCache.find(i => i.id === ingredientId);
+  return ing ? (ing.image_url || '') : '';
+}
+
 function getMealIngredients(mealId) {
   return mealIngredientsCache.filter(l => l.meal_id === mealId).map(l => {
     const ing = ingredientsCache.find(i => i.id === l.ingredient_id) || {};
@@ -2029,6 +2055,7 @@ function getMealIngredients(mealId) {
     return {
       ingredientId: l.ingredient_id,
       name: ing.name_ar || '؟',
+      imageUrl: ing.image_url || '',
       measureType: ing.measure_type,
       recipeUnit, recipeQtyPerPerson, baseQtyPerPerson,
       packageLabel: ing.package_label || '', packageQty: ing.package_qty || 0,
@@ -2061,6 +2088,42 @@ window.closeMealSheet = () => {
   currentSheetMealId = null;
 };
 
+/* ═══════════ شاشة المنتج (تفاصيل مكوّن) ═══════════ */
+window.openProductSheet = (ingredientId) => {
+  const ing = ingredientsCache.find(i => i.id === ingredientId);
+  if (!ing) return;
+
+  const hero = document.getElementById('product-hero');
+  if (ing.image_url) { hero.innerHTML = `<img src="${ing.image_url}" style="width:100%;height:100%;object-fit:cover;" />`; }
+  else { hero.textContent = '📦'; }
+
+  document.getElementById('product-title').textContent = ing.name_ar || '';
+  document.getElementById('product-category').textContent = ing.category ? `🏷️ ${ing.category}` : '';
+
+  const mt = MEASURE_TYPES[ing.measure_type];
+  const baseLabel = mt ? mt.baseUnitLabel : '';
+  document.getElementById('product-info-rows').innerHTML = `
+    <div class="ing-preview-item">
+      <span>سعر العبوة</span>
+      <span class="amt" style="color:var(--primary);font-weight:800;font-size:14px;">${(ing.price_per_package || 0).toFixed(2)} د.أ</span>
+    </div>
+    <div class="ing-preview-item">
+      <span>حجم العبوة</span>
+      <span class="amt">${ing.package_label || '—'}${ing.package_qty ? ' = ' + formatQty(ing.package_qty) + ' ' + baseLabel : ''}</span>
+    </div>`;
+
+  document.getElementById('product-add-btn').onclick = () => {
+    addIngredientToCart(ing.id);
+    closeProductSheet();
+  };
+
+  document.getElementById('productSheet').classList.add('open');
+};
+
+window.closeProductSheet = () => {
+  document.getElementById('productSheet').classList.remove('open');
+};
+
 window.changeSheetServings = (delta) => {
   currentSheetServings = Math.max(1, Math.min(20, currentSheetServings + delta));
   renderSheetServings();
@@ -2082,11 +2145,17 @@ function renderSheetServings() {
       const purchaseQty = Math.max(1, Math.ceil(baseTotal / ing.packageQty));
       purchaseNote = `<div class="ing-preview-purchase">🛍️ رح تشتري: ${purchaseQty} ${ing.packageLabel}</div>`;
     }
+    const thumb = ing.imageUrl
+      ? `<img class="ing-thumb-sm" src="${ing.imageUrl}" onclick="openProductSheet('${ing.ingredientId}')" />`
+      : `<div class="ing-thumb-sm" onclick="openProductSheet('${ing.ingredientId}')">📦</div>`;
     return `
       <div class="ing-preview-item">
-        <div style="min-width:0;">
-          <div>${ing.name}</div>
-          ${purchaseNote}
+        <div class="ing-clickable" onclick="openProductSheet('${ing.ingredientId}')">
+          ${thumb}
+          <div style="min-width:0;">
+            <div>${ing.name}</div>
+            ${purchaseNote}
+          </div>
         </div>
         <span class="amt">يحتاج ${formatQty(total)} ${ing.recipeUnit}</span>
       </div>`;
@@ -2229,9 +2298,12 @@ function renderIngredientPickerList() {
   }
   list.innerHTML = filtered.map(i => `
     <div class="ingredient-picker-row">
-      <div>
-        <div class="ingredient-picker-name">${i.name_ar || ''}</div>
-        <div class="ingredient-picker-price">${(i.price_per_package || 0).toFixed(2)} د.أ / ${i.package_label || ''}</div>
+      <div class="ing-clickable" onclick="openProductSheet('${i.id}')">
+        ${i.image_url ? `<img class="ing-thumb-sm" src="${i.image_url}" />` : `<div class="ing-thumb-sm">📦</div>`}
+        <div>
+          <div class="ingredient-picker-name">${i.name_ar || ''}</div>
+          <div class="ingredient-picker-price">${(i.price_per_package || 0).toFixed(2)} د.أ / ${i.package_label || ''}</div>
+        </div>
       </div>
       <button class="btn-picker-add" onclick="addIngredientToCart('${i.id}')">أضف +</button>
     </div>`).join('');
@@ -2283,9 +2355,14 @@ function renderCartScreen() {
     const note = roundedUp
       ? `<div class="ing-preview-note">🧾 الوصفة تحتاج تقريبًا ${formatQty(e.baseQty)} ${baseLabel} — رح تشتري ${e.purchaseQty} ${e.packageLabel} (${formatQty(purchasedBase)} ${baseLabel}) وتقدر تستخدم الباقي بوجبات جاية</div>`
       : '';
+    const thumbImg = ingImageFor(id);
+    const thumb = thumbImg
+      ? `<img class="ing-thumb-sm" src="${thumbImg}" onclick="openProductSheet('${id}')" />`
+      : `<div class="ing-thumb-sm" onclick="openProductSheet('${id}')">📦</div>`;
     return `
       <div class="cart-ing-row">
-        <div class="cart-ing-info">
+        ${thumb}
+        <div class="cart-ing-info" style="cursor:pointer;" onclick="openProductSheet('${id}')">
           <div class="cart-ing-name">${e.name}</div>
           <div class="cart-ing-price">${(e.pricePerPackage || 0).toFixed(2)} د.أ / ${e.packageLabel}</div>
         </div>
@@ -2493,14 +2570,21 @@ window.toggleOcDetails = () => {
     return;
   }
   const entries = Object.entries(getFinalCartIngredients());
-  wrap.innerHTML = entries.map(([, e]) => `
+  wrap.innerHTML = entries.map(([id, e]) => {
+    const thumbImg = ingImageFor(id);
+    const thumb = thumbImg
+      ? `<img class="ing-thumb-sm" src="${thumbImg}" onclick="openProductSheet('${id}')" />`
+      : `<div class="ing-thumb-sm" onclick="openProductSheet('${id}')">📦</div>`;
+    return `
     <div class="cart-ing-row" style="cursor:default;">
-      <div class="cart-ing-info">
+      ${thumb}
+      <div class="cart-ing-info" style="cursor:pointer;" onclick="openProductSheet('${id}')">
         <div class="cart-ing-name">${e.name}</div>
         <div class="cart-ing-price">${(e.pricePerPackage || 0).toFixed(2)} د.أ / ${e.packageLabel}</div>
       </div>
       <div style="font-weight:800;">× ${e.purchaseQty}</div>
-    </div>`).join('') || '<div class="empty-state-c" style="padding:14px 0;">ما في مكونات</div>';
+    </div>`;
+  }).join('') || '<div class="empty-state-c" style="padding:14px 0;">ما في مكونات</div>';
   wrap.classList.remove('hidden');
   btn.textContent = 'إخفاء التفاصيل ˄';
 };

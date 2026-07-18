@@ -13,6 +13,8 @@
 <meta name="apple-mobile-web-app-title" content="أكليتو">
 <meta name="mobile-web-app-capable" content="yes">
 <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;900&family=Tajawal:wght@400;500;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <style>
   :root {
     --primary:  #A23E48;
@@ -172,6 +174,18 @@
     position:absolute; top:8px; left:8px; background: var(--olive); color:#fff;
     font-size: 11px; font-weight:700; padding: 3px 9px; border-radius: 20px; z-index:2;
   }
+
+  /* ═══ حاوية الموقع/عنوان التوصيل ═══ */
+  .location-widget {
+    display:flex; align-items:center; gap:10px; margin: 4px 18px 14px; padding: 12px 14px;
+    background: var(--surface); border:1px solid var(--border); border-radius:14px; cursor:pointer;
+  }
+  .location-widget:active { background: var(--border); }
+  .location-pin { font-size:18px; flex-shrink:0; }
+  .location-widget-text { flex:1; min-width:0; }
+  .location-widget-label { font-size:10.5px; color: var(--text30); font-weight:700; }
+  .location-widget-value { font-size:13.5px; font-weight:800; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .location-widget-chev { font-size:18px; color: var(--border); flex-shrink:0; }
 
   /* ═══ بحث + تصنيفات الشاشة الرئيسية ═══ */
   .home-hero {
@@ -452,6 +466,36 @@
   }
   .confirm-address-missing a { font-weight:800; text-decoration:underline; cursor:pointer; }
 
+  /* ═══ عناويني: قائمة العناوين المحفوظة ═══ */
+  .addr-card {
+    background: var(--surface); border:1.5px solid var(--border); border-radius:16px;
+    padding:14px; margin-bottom:12px; position:relative;
+  }
+  .addr-card.is-default { border-color: var(--primary); background: rgba(162,62,72,.04); }
+  .addr-card-head { display:flex; align-items:center; gap:10px; margin-bottom:8px; }
+  .addr-card-icon {
+    width:36px; height:36px; border-radius:10px; background: rgba(162,62,72,.08);
+    display:flex; align-items:center; justify-content:center; font-size:17px; flex-shrink:0;
+  }
+  .addr-card-label { font-weight:800; font-size:14.5px; flex:1; min-width:0; }
+  .addr-default-badge { font-size:10.5px; font-weight:800; color: var(--primary); background: rgba(162,62,72,.1); padding:3px 9px; border-radius:20px; flex-shrink:0; }
+  .addr-card-line { font-size:12.5px; color: var(--text30); line-height:1.6; margin-bottom:12px; }
+  .addr-card-actions { display:flex; gap:8px; }
+  .addr-card-actions button {
+    flex:1; padding:9px 0; border-radius:9px; border:1px solid var(--border); background:transparent;
+    font-size:12px; font-weight:700; color: var(--text); font-family:'Cairo',sans-serif;
+  }
+
+  /* ═══ خريطة إضافة/تعديل عنوان ═══ */
+  .addr-map-wrap { position:relative; border-radius:16px; overflow:hidden; border:1px solid var(--border); }
+  #addrMap { width:100%; height:230px; }
+  .addr-locate-btn {
+    position:absolute; bottom:10px; left:10px; background:#fff; border:none; border-radius:10px;
+    padding:8px 12px; font-size:12px; font-weight:800; color: var(--primary); box-shadow:0 4px 10px rgba(0,0,0,.15);
+    font-family:'Cairo',sans-serif; z-index:400;
+  }
+  .addr-map-hint { font-size:11.5px; color: var(--text30); margin-top:8px; line-height:1.5; }
+
   .toast {
     position:fixed; bottom:90px; right:50%; transform:translateX(50%) translateY(20px);
     background: var(--text); color:#fff; padding: 12px 22px; border-radius: 30px;
@@ -538,6 +582,15 @@ if ("serviceWorker" in navigator) {
         </div>
         <button class="icon-btn" onclick="toggleCustomerMenu()" title="القائمة">☰</button>
       </div>
+    </div>
+
+    <div class="location-widget" onclick="openAddressesScreen()">
+      <span class="location-pin">📍</span>
+      <div class="location-widget-text">
+        <div class="location-widget-label">التوصيل إلى</div>
+        <div class="location-widget-value" id="homeLocationLabel">حدد عنوان التوصيل</div>
+      </div>
+      <span class="location-widget-chev">›</span>
     </div>
 
     <div class="home-hero">
@@ -744,7 +797,7 @@ if ("serviceWorker" in navigator) {
     <div class="cs-nav-item" onclick="menuSwitch('cart')"><span class="ic-box">🛒</span><span>سلتي</span><span class="chev">‹</span></div>
     <div class="cs-nav-item" onclick="menuSwitch('account')"><span class="ic-box">📦</span><span>طلباتي وحسابي</span><span class="chev">‹</span></div>
     <div class="cs-nav-section-label">الحساب</div>
-    <div class="cs-nav-item" onclick="menuOpenAddress()"><span class="ic-box">📍</span><span>عنواني</span><span class="chev">‹</span></div>
+    <div class="cs-nav-item" onclick="menuOpenAddresses()"><span class="ic-box">📍</span><span>عنواني</span><span class="chev">‹</span></div>
     <div class="cs-nav-item" onclick="menuOpenComingSoon('payment')"><span class="ic-box">💳</span><span>معلومات الدفع</span><span class="chev">‹</span></div>
     <div class="cs-nav-item" onclick="menuOpenComingSoon('settings')"><span class="ic-box">⚙️</span><span>الإعدادات</span><span class="chev">‹</span></div>
     <div class="cs-nav-item danger" onclick="logoutCustomer()"><span class="ic-box">⏻</span><span>تسجيل الخروج</span></div>
@@ -753,26 +806,60 @@ if ("serviceWorker" in navigator) {
 </div>
 
   <!-- ═══ شاشة عنواني ═══ -->
-  <div id="addressScreen" class="hidden">
+  <div id="addressesScreen" class="hidden">
     <div class="store-sub-topbar">
-      <button class="store-back-btn" onclick="closeAddressScreen()">←</button>
-      <div class="section-title" style="padding:0;">📍 عنواني</div>
+      <button class="store-back-btn" onclick="closeAddressesScreen()">←</button>
+      <div class="section-title" style="padding:0;">📍 عناويني</div>
     </div>
     <div style="padding: 6px 18px 24px;">
+      <div id="addressesList"></div>
+      <button class="btn-main" style="margin-top:6px;" onclick="openAddressForm()">➕ إضافة عنوان جديد</button>
+    </div>
+  </div>
+
+  <!-- ═══ شاشة إضافة/تعديل عنوان (خريطة + تفاصيل) ═══ -->
+  <div id="addressFormScreen" class="hidden">
+    <div class="store-sub-topbar">
+      <button class="store-back-btn" onclick="closeAddressForm()">←</button>
+      <div class="section-title" style="padding:0;" id="af-title">📍 عنوان جديد</div>
+    </div>
+    <div style="padding: 6px 18px 24px;">
+      <div class="addr-map-wrap">
+        <div id="addrMap"></div>
+        <button type="button" class="addr-locate-btn" onclick="locateMeOnMap()">📍 موقعي الحالي</button>
+      </div>
+      <div class="addr-map-hint">حرّك الدبوس أو اضغط على الخريطة لتحديد موقع التوصيل بالضبط</div>
+
+      <div class="cat-chips-row" style="padding:14px 0 4px;" id="af-label-chips"></div>
       <div class="field-group">
-        <label>المنطقة / الحي</label>
-        <input type="text" id="addr-area" placeholder="مثال: أم أذينة، عمّان" />
+        <label>اسم العنوان</label>
+        <input type="text" id="af-label" placeholder="مثال: المنزل، العمل، بيت الأهل" />
       </div>
       <div class="field-group">
-        <label>تفاصيل العنوان</label>
-        <textarea id="addr-details" placeholder="اسم الشارع، رقم البناية، الطابق..."></textarea>
+        <label>اسم الشارع / المنطقة</label>
+        <input type="text" id="af-street" placeholder="مثال: شارع الجامعة، حي الرشيد" />
+      </div>
+      <div style="display:flex;gap:10px;">
+        <div class="field-group" style="flex:1;">
+          <label>رقم البناية</label>
+          <input type="text" id="af-building" placeholder="مثال: 12" />
+        </div>
+        <div class="field-group" style="flex:1;">
+          <label>الطابق</label>
+          <input type="text" id="af-floor" placeholder="مثال: 2" />
+        </div>
+        <div class="field-group" style="flex:1;">
+          <label>رقم الشقة</label>
+          <input type="text" id="af-apartment" placeholder="مثال: 4" />
+        </div>
       </div>
       <div class="field-group">
         <label>ملاحظات إضافية (اختياري)</label>
-        <textarea id="addr-notes" placeholder="مثال: قرب صيدلية كذا، البوابة الزرقاء..."></textarea>
+        <textarea id="af-notes" placeholder="مثال: بجانب صيدلية كذا، البوابة الزرقاء..."></textarea>
       </div>
-      <button class="btn-main" id="addr-save-btn" onclick="saveAddress()">حفظ العنوان ✅</button>
-      <div class="error-text" id="addr-error"></div>
+      <button class="btn-main" id="af-save-btn" onclick="saveAddressForm()">حفظ العنوان ✅</button>
+      <button class="btn-outline hidden" id="af-delete-btn" style="margin-top:10px;" onclick="deleteAddressForm()">🗑️ حذف هذا العنوان</button>
+      <div class="error-text" id="af-error"></div>
     </div>
   </div>
 
@@ -792,7 +879,7 @@ if ("serviceWorker" in navigator) {
       </div>
 
       <div class="confirm-card">
-        <div class="confirm-card-title-row"><span class="confirm-edit-link" onclick="menuOpenAddress()">تعديل</span><span>تفاصيل التوصيل</span></div>
+        <div class="confirm-card-title-row"><span class="confirm-edit-link" onclick="menuOpenAddresses()">تعديل</span><span>تفاصيل التوصيل</span></div>
         <div id="oc-delivery-details"></div>
         <div class="field-group" style="margin-top:12px;margin-bottom:0;">
           <label style="font-size:12px;">ملاحظات إضافية للتاجر أو السائق (اختياري)</label>
@@ -871,7 +958,7 @@ if ("serviceWorker" in navigator) {
 
 <script type="module">
 import {
-  db, collection, getDocs, getDoc, addDoc, doc, updateDoc, setDoc, query, where, serverTimestamp, withTimeout,
+  db, collection, getDocs, getDoc, addDoc, doc, updateDoc, setDoc, deleteDoc, query, where, serverTimestamp, withTimeout,
   onSnapshot, MEASURE_TYPES, convertToBase, loadMeasureTypes
 } from "./firebase-init.js";
 
@@ -1001,69 +1088,248 @@ window.menuSwitch = (name) => {
   switchScreen(name);
 };
 
-/* ═══════════ عنواني ═══════════ */
-window.menuOpenAddress = () => {
+/* ═══════════ عناويني (عناوين متعددة + خريطة) ═══════════ */
+let addressesCache = [];      // كل عناوين الزبون المحفوظة (subcollection)
+let defaultAddressId = null;  // customers/{id}.default_address_id
+let mapPickerInstance = null;
+let mapPickerMarker = null;
+let editingAddressId = null;  // null = إضافة عنوان جديد
+let pickedLat = null, pickedLng = null;
+
+const ADDRESS_LABEL_PRESETS = ['المنزل', 'العمل', 'بيت الأهل', 'عنوان آخر'];
+function addressIconFor(label) {
+  if (label === 'المنزل') return '🏠';
+  if (label === 'العمل') return '🏢';
+  if (label === 'بيت الأهل') return '👨‍👩‍👧';
+  return '📍';
+}
+function addressLineFor(a) {
+  return `${a.street || ''}${a.building_number ? '، بناية ' + a.building_number : ''}${a.floor ? '، طابق ' + a.floor : ''}${a.apartment_number ? '، شقة ' + a.apartment_number : ''}`;
+}
+
+async function loadAddressesData() {
+  try {
+    const [snap, custSnap] = await Promise.all([
+      getDocs(collection(db, 'customers', customerId, 'addresses')),
+      getDoc(doc(db, 'customers', customerId))
+    ]);
+    addressesCache = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    defaultAddressId = custSnap.exists() ? (custSnap.data().default_address_id || null) : null;
+  } catch(e) {
+    console.error('load addresses error', e);
+    addressesCache = [];
+    defaultAddressId = null;
+  }
+}
+
+function refreshHomeLocationWidget() {
+  const el = document.getElementById('homeLocationLabel');
+  if (!el) return;
+  const def = addressesCache.find(a => a.id === defaultAddressId);
+  el.textContent = def ? `${addressIconFor(def.label)} ${def.label}${def.street ? ' — ' + def.street : ''}` : 'حدد عنوان التوصيل';
+}
+
+window.menuOpenAddresses = () => {
   closeCustomerMenu();
-  openAddressScreen();
+  openAddressesScreen();
 };
 
-window.openAddressScreen = async () => {
+window.openAddressesScreen = async () => {
   document.getElementById('homeScreen').classList.add('hidden');
   document.getElementById('cartScreen').classList.add('hidden');
   document.getElementById('accountScreen').classList.add('hidden');
   document.getElementById('bottomNav').classList.add('hidden');
-  document.getElementById('addressScreen').classList.remove('hidden');
+  document.getElementById('addressesScreen').classList.remove('hidden');
   updateCartFab();
+  document.getElementById('addressesList').innerHTML = `<div class="empty-state-c" style="padding:30px 0;">جاري التحميل...</div>`;
+  await loadAddressesData();
+  renderAddressesList();
+};
 
-  const errBox = document.getElementById('addr-error');
-  errBox.style.display = 'none';
-  document.getElementById('addr-area').value = '';
-  document.getElementById('addr-details').value = '';
-  document.getElementById('addr-notes').value = '';
+window.closeAddressesScreen = () => {
+  document.getElementById('addressesScreen').classList.add('hidden');
+  switchScreen('home');
+  refreshHomeLocationWidget();
+};
+
+function renderAddressesList() {
+  const wrap = document.getElementById('addressesList');
+  if (!addressesCache.length) {
+    wrap.innerHTML = `<div class="empty-state-c"><div class="emoji">📍</div>ما ضفت أي عنوان بعد — ضيف أول عنوان توصيل إلك</div>`;
+    return;
+  }
+  wrap.innerHTML = addressesCache.map(a => {
+    const isDefault = a.id === defaultAddressId;
+    const line = addressLineFor(a);
+    return `
+      <div class="addr-card ${isDefault ? 'is-default' : ''}">
+        <div class="addr-card-head">
+          <div class="addr-card-icon">${addressIconFor(a.label)}</div>
+          <div class="addr-card-label">${a.label || 'عنوان'}</div>
+          ${isDefault ? '<span class="addr-default-badge">الافتراضي</span>' : ''}
+        </div>
+        <div class="addr-card-line">${line || 'ما في تفاصيل إضافية'}</div>
+        <div class="addr-card-actions">
+          <button onclick="openAddressForm('${a.id}')">✏️ تعديل</button>
+          ${!isDefault ? `<button onclick="setDefaultAddress('${a.id}')">⭐ اجعله افتراضي</button>` : ''}
+        </div>
+      </div>`;
+  }).join('');
+}
+
+window.setDefaultAddress = async (id) => {
   try {
-    const snap = await getDoc(doc(db, 'customers', customerId));
-    if (snap.exists()) {
-      const d = snap.data();
-      document.getElementById('addr-area').value = d.address_area || '';
-      document.getElementById('addr-details').value = d.address_details || '';
-      document.getElementById('addr-notes').value = d.address_notes || '';
-    }
+    await updateDoc(doc(db, 'customers', customerId), { default_address_id: id });
+    defaultAddressId = id;
+    renderAddressesList();
+    refreshHomeLocationWidget();
+    showToast('تم تعيين العنوان الافتراضي ✅');
   } catch(e) {
-    console.error('load address error', e);
+    console.error('set default address error', e);
+    showToast('صار خطأ ❌ جرب مرة ثانية');
   }
 };
 
-window.closeAddressScreen = () => {
-  document.getElementById('addressScreen').classList.add('hidden');
-  switchScreen('home');
+function renderAfLabelChips(selected) {
+  document.getElementById('af-label-chips').innerHTML = ADDRESS_LABEL_PRESETS.map(l =>
+    `<button type="button" class="cat-chip ${l === selected ? 'active' : ''}" onclick="pickAfLabel('${l}')">${addressIconFor(l)} ${l}</button>`
+  ).join('');
+}
+window.pickAfLabel = (l) => {
+  document.getElementById('af-label').value = (l === 'عنوان آخر') ? '' : l;
+  renderAfLabelChips(l);
+  document.getElementById('af-label').focus();
 };
 
-window.saveAddress = async () => {
-  const area = document.getElementById('addr-area').value.trim();
-  const details = document.getElementById('addr-details').value.trim();
-  const notes = document.getElementById('addr-notes').value.trim();
-  const errBox = document.getElementById('addr-error');
+function destroyAddrMap() {
+  if (mapPickerInstance) { mapPickerInstance.remove(); mapPickerInstance = null; mapPickerMarker = null; }
+}
+
+function initAddrMap(lat, lng) {
+  destroyAddrMap();
+  pickedLat = lat; pickedLng = lng;
+  const container = document.getElementById('addrMap');
+  mapPickerInstance = L.map(container, { attributionControl:false }).setView([lat, lng], 16);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(mapPickerInstance);
+  mapPickerMarker = L.marker([lat, lng], { draggable: true }).addTo(mapPickerInstance);
+  mapPickerMarker.on('dragend', () => {
+    const pos = mapPickerMarker.getLatLng();
+    pickedLat = pos.lat; pickedLng = pos.lng;
+  });
+  mapPickerInstance.on('click', (e) => {
+    mapPickerMarker.setLatLng(e.latlng);
+    pickedLat = e.latlng.lat; pickedLng = e.latlng.lng;
+  });
+  setTimeout(() => { if (mapPickerInstance) mapPickerInstance.invalidateSize(); }, 150);
+}
+
+window.locateMeOnMap = () => {
+  if (!navigator.geolocation) { showToast('المتصفح ما بيدعم تحديد الموقع'); return; }
+  navigator.geolocation.getCurrentPosition(
+    pos => {
+      const { latitude, longitude } = pos.coords;
+      if (mapPickerInstance && mapPickerMarker) {
+        mapPickerInstance.setView([latitude, longitude], 16);
+        mapPickerMarker.setLatLng([latitude, longitude]);
+        pickedLat = latitude; pickedLng = longitude;
+      }
+    },
+    () => showToast('ما قدرنا نحدد موقعك — تأكد من صلاحية الموقع بالمتصفح')
+  );
+};
+
+window.openAddressForm = async (addressId) => {
+  editingAddressId = addressId || null;
+  const existing = editingAddressId ? addressesCache.find(a => a.id === editingAddressId) : null;
+
+  document.getElementById('addressesScreen').classList.add('hidden');
+  document.getElementById('addressFormScreen').classList.remove('hidden');
+  document.getElementById('af-error').style.display = 'none';
+  document.getElementById('af-title').textContent = existing ? '✏️ تعديل العنوان' : '📍 عنوان جديد';
+  document.getElementById('af-delete-btn').classList.toggle('hidden', !existing);
+
+  document.getElementById('af-label').value = existing ? (existing.label || '') : '';
+  document.getElementById('af-street').value = existing ? (existing.street || '') : '';
+  document.getElementById('af-building').value = existing ? (existing.building_number || '') : '';
+  document.getElementById('af-floor').value = existing ? (existing.floor || '') : '';
+  document.getElementById('af-apartment').value = existing ? (existing.apartment_number || '') : '';
+  document.getElementById('af-notes').value = existing ? (existing.notes || '') : '';
+  renderAfLabelChips(existing ? existing.label : null);
+
+  const lat = (existing && existing.lat != null) ? existing.lat : 31.9539; // مركز عمّان كافتراضي
+  const lng = (existing && existing.lng != null) ? existing.lng : 35.9106;
+
+  setTimeout(() => {
+    initAddrMap(lat, lng);
+    if (!existing && navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        pos => {
+          if (!mapPickerInstance) return;
+          mapPickerInstance.setView([pos.coords.latitude, pos.coords.longitude], 16);
+          mapPickerMarker.setLatLng([pos.coords.latitude, pos.coords.longitude]);
+          pickedLat = pos.coords.latitude; pickedLng = pos.coords.longitude;
+        },
+        () => {} // فشل صامت — يضل عالمركز الافتراضي
+      );
+    }
+  }, 60);
+};
+
+window.closeAddressForm = () => {
+  document.getElementById('addressFormScreen').classList.add('hidden');
+  document.getElementById('addressesScreen').classList.remove('hidden');
+  destroyAddrMap();
+};
+
+window.saveAddressForm = async () => {
+  const label = document.getElementById('af-label').value.trim();
+  const street = document.getElementById('af-street').value.trim();
+  const building = document.getElementById('af-building').value.trim();
+  const floor = document.getElementById('af-floor').value.trim();
+  const apartment = document.getElementById('af-apartment').value.trim();
+  const notes = document.getElementById('af-notes').value.trim();
+  const errBox = document.getElementById('af-error');
   errBox.style.display = 'none';
 
-  if (!area) {
-    errBox.textContent = 'لازم تكتب اسم المنطقة أو الحي على الأقل';
+  if (!label) {
+    errBox.textContent = 'لازم تكتب اسم للعنوان (متل: المنزل)';
+    errBox.style.display = 'block';
+    return;
+  }
+  if (!street && !building) {
+    errBox.textContent = 'لازم تكتب اسم الشارع أو رقم البناية على الأقل';
+    errBox.style.display = 'block';
+    return;
+  }
+  if (pickedLat == null || pickedLng == null) {
+    errBox.textContent = 'حدد موقعك بالضبط على الخريطة فوق';
     errBox.style.display = 'block';
     return;
   }
 
-  const btn = document.getElementById('addr-save-btn');
+  const btn = document.getElementById('af-save-btn');
   btn.disabled = true;
   btn.textContent = 'جاري الحفظ...';
   try {
-    await withTimeout(
-      updateDoc(doc(db, 'customers', customerId), {
-        address_area: area, address_details: details, address_notes: notes,
-        address_updated_at: serverTimestamp()
-      }),
-      15000, 'انتهت مهلة الحفظ — تأكد من الإنترنت'
-    );
+    const data = {
+      label, street, building_number: building, floor, apartment_number: apartment, notes,
+      lat: pickedLat, lng: pickedLng, updated_at: serverTimestamp()
+    };
+    if (editingAddressId) {
+      await withTimeout(updateDoc(doc(db, 'customers', customerId, 'addresses', editingAddressId), data), 15000, 'انتهت مهلة الحفظ — تأكد من الإنترنت');
+    } else {
+      data.created_at = serverTimestamp();
+      const wasFirst = !addressesCache.length;
+      const newRef = await withTimeout(addDoc(collection(db, 'customers', customerId, 'addresses'), data), 15000, 'انتهت مهلة الحفظ — تأكد من الإنترنت');
+      if (wasFirst) {
+        await updateDoc(doc(db, 'customers', customerId), { default_address_id: newRef.id }).catch(() => {});
+      }
+    }
     showToast('تم حفظ العنوان ✅');
-    closeAddressScreen();
+    closeAddressForm();
+    await loadAddressesData();
+    renderAddressesList();
+    refreshHomeLocationWidget();
   } catch(e) {
     console.error('save address error', e);
     errBox.textContent = 'صار خطأ بالحفظ — جرب مرة ثانية';
@@ -1071,6 +1337,26 @@ window.saveAddress = async () => {
   } finally {
     btn.disabled = false;
     btn.textContent = 'حفظ العنوان ✅';
+  }
+};
+
+window.deleteAddressForm = async () => {
+  if (!editingAddressId) return;
+  if (!confirm('متأكد إنك بدك تحذف هاي العنوان؟')) return;
+  try {
+    await deleteDoc(doc(db, 'customers', customerId, 'addresses', editingAddressId));
+    if (defaultAddressId === editingAddressId) {
+      const remaining = addressesCache.filter(a => a.id !== editingAddressId);
+      await updateDoc(doc(db, 'customers', customerId), { default_address_id: remaining[0] ? remaining[0].id : null }).catch(() => {});
+    }
+    showToast('تم حذف العنوان');
+    closeAddressForm();
+    await loadAddressesData();
+    renderAddressesList();
+    refreshHomeLocationWidget();
+  } catch(e) {
+    console.error('delete address error', e);
+    showToast('صار خطأ بالحذف ❌');
   }
 };
 
@@ -1603,6 +1889,7 @@ async function loadInitialData() {
   renderCategoryChips();
   renderMealsGrid();
   updateCartFab();
+  loadAddressesData().then(refreshHomeLocationWidget).catch(e => console.error('initial addresses load error', e));
 }
 
 const difficultyLabel = { easy:'🟢 سهل', medium:'🟡 متوسط', hard:'🔴 صعب' };
@@ -2165,23 +2452,17 @@ async function renderOcDeliveryDetails() {
       <div><div class="confirm-detail-label">عنوان التوصيل</div><div class="confirm-detail-value">جاري التحميل...</div></div>
     </div>`;
 
-  try {
-    const snap = await getDoc(doc(db, 'customers', customerId));
-    ocResolvedAddress = snap.exists() ? snap.data() : null;
-  } catch(e) {
-    console.error('load address for confirm error', e);
-    ocResolvedAddress = null;
-  }
+  await loadAddressesData();
+  ocResolvedAddress = addressesCache.find(a => a.id === defaultAddressId) || addressesCache[0] || null;
 
-  const area = ocResolvedAddress && ocResolvedAddress.address_area;
   const addressValueEl = wrap.querySelector('.confirm-detail-row:last-child .confirm-detail-value');
-  if (area) {
-    const details = ocResolvedAddress.address_details;
-    const notes = ocResolvedAddress.address_notes;
-    addressValueEl.innerHTML = `${area}${details ? '، ' + details : ''}${notes ? `<div style="color:var(--text30);font-weight:500;margin-top:2px;">${notes}</div>` : ''}`;
+  if (ocResolvedAddress) {
+    const a = ocResolvedAddress;
+    const line = addressLineFor(a);
+    addressValueEl.innerHTML = `<b>${addressIconFor(a.label)} ${a.label}</b><div style="margin-top:2px;">${line}</div>${a.notes ? `<div style="color:var(--text30);font-weight:500;margin-top:2px;">${a.notes}</div>` : ''}`;
   } else {
     addressValueEl.parentElement.parentElement.innerHTML = `
-      <div class="confirm-address-missing">📍 ما ضفت عنوان توصيل بعد — <a onclick="menuOpenAddress()">أضف عنوانك الآن</a> قبل ما تأكّد الطلب</div>`;
+      <div class="confirm-address-missing">📍 ما ضفت عنوان توصيل بعد — <a onclick="menuOpenAddresses()">أضف عنوانك الآن</a> قبل ما تأكّد الطلب</div>`;
   }
 }
 
@@ -2201,7 +2482,7 @@ window.finalizeOrder = async () => {
   const errBox = document.getElementById('oc-error');
   errBox.style.display = 'none';
 
-  if (!ocResolvedAddress || !ocResolvedAddress.address_area) {
+  if (!ocResolvedAddress) {
     errBox.textContent = 'لازم تضيف عنوان توصيل قبل ما تأكّد الطلب';
     errBox.style.display = 'block';
     return;
@@ -2238,10 +2519,9 @@ window.finalizeOrder = async () => {
     const serviceFee = computeServiceFee(subtotal);
     const totalPrice = subtotal + DELIVERY_FEE + serviceFee;
 
-    const area = ocResolvedAddress.address_area || '';
-    const details = ocResolvedAddress.address_details || '';
-    const addrNotes = ocResolvedAddress.address_notes || '';
-    const deliveryAddress = `${area}${details ? '، ' + details : ''}${addrNotes ? ' (' + addrNotes + ')' : ''}`;
+    const a = ocResolvedAddress;
+    const line = addressLineFor(a);
+    const deliveryAddress = `${a.label ? a.label + ': ' : ''}${line}${a.notes ? ' (' + a.notes + ')' : ''}`;
     const customerNotes = (document.getElementById('oc-notes').value || '').trim();
 
     const newOrderRef = await withTimeout(
@@ -2250,6 +2530,8 @@ window.finalizeOrder = async () => {
         customer_name: customerName,
         customer_phone: customerPhone,
         delivery_address: deliveryAddress,
+        delivery_lat: a.lat != null ? a.lat : null,
+        delivery_lng: a.lng != null ? a.lng : null,
         customer_notes: customerNotes,
         items: selectedMeals.map(s => ({ meal_id: s.mealId, servings: s.servings })),
         merged_ingredients: mergedArray,

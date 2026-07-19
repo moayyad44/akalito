@@ -1895,6 +1895,21 @@ function getCustomerCoords() {
   });
 }
 
+/* إحداثيات العنوان الافتراضي المحفوظ للزبون (لو موجود وفيه lat/lng صالحة) */
+function getDefaultAddressCoords() {
+  const def = addressesCache.find(a => a.id === defaultAddressId) || addressesCache[0] || null;
+  if (def && def.lat != null && def.lng != null) return { lat: def.lat, lng: def.lng };
+  return null;
+}
+
+/* إحداثيات التوجيه المستخدمة بحساب «أقرب متجر»: نفضّل العنوان المحفوظ دايماً (ثابت وموثوق
+   ومحدَّد من الزبون نفسه بالخريطة)، ولو ما في عنوان محفوظ بإحداثيات نرجع للموقع الحي كبديل. */
+async function getRoutingCoords() {
+  const addrCoords = getDefaultAddressCoords();
+  if (addrCoords) return addrCoords;
+  return await getCustomerCoords();
+}
+
 /* يجيب كل المتاجر النشطة وكل سجلات توفر المكونات (is_available=true) — نحمّلها من جديد كل مرة عشان البيانات تبقى حديثة */
 async function loadStoresAndAvailability() {
   const [storesSnap, siSnap] = await Promise.all([
@@ -1925,7 +1940,7 @@ async function findBestStoreForIngredients(ingredientIds) {
 
   if (!candidates.length) return { store: null, priceMap: null, noneAvailable: true };
 
-  const coords = await getCustomerCoords();
+  const coords = await getRoutingCoords();
   let chosen = candidates[0];
   if (coords) {
     const withDist = candidates.map(s => ({
@@ -2133,7 +2148,7 @@ async function computeEstimatedDelivery() {
 
     let travelMin = 15; // افتراضي لو ما قدرنا نحسب مسافة فعلية
     if (routing.store && routing.store.lat != null && routing.store.lng != null) {
-      const coords = await getCustomerCoords();
+      const coords = await getRoutingCoords();
       if (coords) {
         const distKm = haversineKm(coords.lat, coords.lng, routing.store.lat, routing.store.lng);
         travelMin = Math.max(5, Math.round((distKm / AVG_DELIVERY_SPEED_KMH) * 60));

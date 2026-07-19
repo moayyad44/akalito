@@ -2438,6 +2438,10 @@ async function executeOrderSubmit() {
     document.getElementById('successScreen').classList.remove('hidden');
   } catch(e) {
     console.error('place order error', e);
+    const errBox = document.getElementById('oc-error');
+    const detail = (e && (e.code || e.message)) ? ` (${e.code || ''} ${e.message || ''})`.trim() : '';
+    errBox.textContent = 'صار خطأ بإرسال الطلب ❌ جرب مرة ثانية' + detail;
+    errBox.style.display = 'block';
     showToast('صار خطأ بإرسال الطلب ❌ جرب مرة ثانية');
   } finally {
     isPlacingOrder = false;

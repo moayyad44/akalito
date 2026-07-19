@@ -554,36 +554,13 @@ if ("serviceWorker" in navigator) {
 
   <button class="btn-main" id="w-start-btn" onclick="startCustomerSession()">ابدأ 🚀</button>
   <div class="error-text" id="w-error"></div>
-  <button class="btn-outline" style="margin-top:14px;" onclick="showStoreLogin()">🏪 الدخول كتاجر</button>
 </div>
 
-<!-- ══════ شاشة دخول المتجر ══════ -->
-<div id="storeLoginScreen" class="hidden" style="display:flex;flex-direction:column;justify-content:center;min-height:100vh;padding:28px;text-align:center;">
-  <div class="logo-emoji">🏪</div>
-  <h1 style="font-size:24px;color:var(--primary);margin-bottom:6px;font-family:'Tajawal',sans-serif;">الدخول كتاجر</h1>
-  <p style="color:var(--text30);font-size:14px;margin-bottom:24px;">لموظفي المتاجر الشريكة فقط — رمز PIN بيعطيكم إياه الأدمن</p>
-
-  <div class="field-group">
-    <label>الاسم</label>
-    <input type="text" id="sl-name" placeholder="اسمك" />
-  </div>
-  <div class="field-group">
-    <label>رقم الهاتف</label>
-    <input type="tel" id="sl-phone" placeholder="07XXXXXXXX" />
-  </div>
-  <div class="field-group">
-    <label>رمز PIN الخاص بالمتجر</label>
-    <input type="text" id="sl-pin" inputmode="numeric" maxlength="4" placeholder="••••" style="text-align:center;letter-spacing:8px;font-size:20px;" />
-  </div>
-
-  <button class="btn-main" id="sl-login-btn" onclick="loginAsStore()">دخول 🏪</button>
-  <button class="btn-outline" style="margin-top:10px;" onclick="hideStoreLogin()">رجوع</button>
-  <div class="error-text" id="sl-error"></div>
-</div>
 
 <!-- ══════ التطبيق الرئيسي ══════ -->
 <div id="appShell" class="hidden">
 
+  <!-- ═══ شاشة الرئيسية ═══ -->
   <!-- ═══ شاشة الرئيسية ═══ -->
   <div id="homeScreen">
     <div class="topbar">
@@ -625,11 +602,13 @@ if ("serviceWorker" in navigator) {
   </div>
 
   <!-- ═══ الشريط العائم للسلة ═══ -->
+  <!-- ═══ الشريط العائم للسلة ═══ -->
   <div class="cart-fab hidden" id="cartFab" onclick="switchScreen('cart')">
     <div class="cart-fab-info"><b id="cartFabCount">0</b> وجبة بسلتك</div>
     <div class="cart-fab-cta">أكمل الطلب ←</div>
   </div>
 
+  <!-- ═══ شاشة السلة ═══ -->
   <!-- ═══ شاشة السلة ═══ -->
   <div id="cartScreen" class="hidden">
     <div class="topbar">
@@ -641,6 +620,19 @@ if ("serviceWorker" in navigator) {
     <div class="sticky-cta hidden" id="cartCta">
       <button class="btn-main" onclick="openOrderConfirm()" id="place-order-btn">تأكيد الطلب ✅</button>
     </div>
+  </div>
+
+  <!-- ═══ شاشة المنتجات (تسوّق حر بالمكونات، بدون الحاجة لوجبة) ═══ -->
+  <!-- ═══ شاشة المنتجات (تسوّق حر بالمكونات، بدون الحاجة لوجبة) ═══ -->
+  <div id="productsScreen" class="hidden">
+    <div class="topbar">
+      <div class="section-title" style="padding:0;">🧺 المنتجات</div>
+    </div>
+    <div class="home-search-box" style="margin:0 18px 16px;box-shadow:0 2px 10px rgba(0,0,0,.06);">
+      <span class="ic">🔍</span>
+      <input type="text" id="productsSearchInput" placeholder="دور على منتج... طحين، جبنة، لحمة" oninput="onProductsSearchInput(this.value)" />
+    </div>
+    <div id="productsCategoriesWrap"></div>
   </div>
 
   <!-- ═══ شيت: ضيف مكوّن للشراء ═══ -->
@@ -659,6 +651,7 @@ if ("serviceWorker" in navigator) {
   </div>
 
   <!-- ═══ شاشة حسابي ═══ -->
+  <!-- ═══ شاشة حسابي ═══ -->
   <div id="accountScreen" class="hidden">
     <div class="topbar">
       <div class="section-title" style="padding:0;">👤 حسابي</div>
@@ -674,98 +667,6 @@ if ("serviceWorker" in navigator) {
     </div>
   </div>
 
-  <!-- ═══ شاشة المتجر ═══ -->
-  <div id="storeScreen" class="hidden">
-    <div class="topbar">
-      <div>
-        <div class="greeting">🏪 <b id="store-greeting-name"></b></div>
-        <div style="color:var(--text30);font-size:12px;" id="store-employee-name"></div>
-      </div>
-      <div class="bell-wrap">
-        <button class="icon-btn" onclick="openNotifSheet()" title="الإشعارات">🔔</button>
-        <span class="bell-dot hidden" id="bellDotStore"></span>
-      </div>
-    </div>
-    <div style="padding: 0 18px;">
-      <div style="background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:18px;margin-bottom:14px;cursor:pointer;position:relative;" onclick="openStoreOrders()">
-        <div style="font-weight:700;margin-bottom:6px;">📦 طلبات المتجر</div>
-        <div style="color:var(--text30);font-size:13px;">شوف الطلبات الجديدة وأشّر إنك جهّزت المكونات عشان السائق ياخذها ›</div>
-        <div class="store-orders-badge hidden" id="storeOrdersBadge">0</div>
-      </div>
-      <div style="background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:18px;margin-bottom:14px;cursor:pointer;" onclick="openStoreProducts()">
-        <div style="font-weight:700;margin-bottom:6px;">🧺 منتجاتي</div>
-        <div style="color:var(--text30);font-size:13px;">حدد شو المكونات المتوفرة عندك بالمحل، وعدّل أسعارها ›</div>
-      </div>
-      <div style="background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:18px;margin-bottom:14px;">
-        <div style="font-weight:700;margin-bottom:6px;">📊 بوابة المتجر</div>
-        <div style="color:var(--text30);font-size:13px;">قريباً — تقارير المبيعات والأرباح</div>
-      </div>
-      <button class="btn-outline" onclick="logoutStore()">خروج من حساب المتجر</button>
-    </div>
-  </div>
-
-  <!-- ═══ شاشة منتجاتي (المتجر) ═══ -->
-  <div id="storeProductsScreen" class="hidden">
-    <div class="store-sub-topbar">
-      <button class="store-back-btn" onclick="closeStoreProducts()">←</button>
-      <div class="section-title" style="padding:0;">🧺 منتجاتي</div>
-    </div>
-    <div class="store-tabs" id="storeProductsTabs"></div>
-    <div id="storeProductsGrid" class="product-grid"></div>
-  </div>
-
-  <!-- ═══ شيت: تعديل حالة/سعر منتج (المتجر) ═══ -->
-  <div class="sheet-overlay" id="storeProductSheet">
-    <div class="sheet-card">
-      <div style="position:relative;">
-        <div class="sheet-hero" id="sp-hero">🧺</div>
-        <button class="sheet-close" onclick="closeStoreProductSheet()">✕</button>
-      </div>
-      <div class="sheet-body">
-        <div class="sheet-title" id="sp-name"></div>
-        <div class="field-group" style="margin-top:14px;">
-          <label style="font-size:12.5px;color:var(--text30);font-weight:700;">سعر العبوة (د.أ) <span id="sp-package-label"></span></label>
-          <input type="number" step="0.01" min="0" id="sp-price-input" placeholder="0.00" />
-        </div>
-        <div class="error-text" id="sp-error"></div>
-        <button class="btn-main" style="margin-top:16px;" id="sp-available-btn" onclick="saveStoreProductAvailable()"></button>
-        <button class="btn-outline" style="margin-top:10px;" id="sp-unavailable-btn" onclick="saveStoreProductUnavailable()"></button>
-      </div>
-    </div>
-  </div>
-
-  <!-- ═══ شاشة طلبات المتجر ═══ -->
-  <div id="storeOrdersScreen" class="hidden">
-    <div class="store-sub-topbar">
-      <button class="store-back-btn" onclick="closeStoreOrders()">←</button>
-      <div class="section-title" style="padding:0;">📦 طلبات المتجر</div>
-    </div>
-    <div class="store-tabs" id="storeOrdersTabs"></div>
-    <div id="storeOrdersList" style="padding:0 18px 24px;"></div>
-  </div>
-
-  <!-- ═══ شيت: تفاصيل طلب المتجر ═══ -->
-  <div class="sheet-overlay" id="storeOrderSheet">
-    <div class="sheet-card">
-      <div style="position:relative;padding-top:10px;">
-        <button class="sheet-close" onclick="closeStoreOrderSheet()">✕</button>
-      </div>
-      <div class="sheet-body" style="padding-top:0;">
-        <div class="sheet-title" id="so-code"></div>
-        <div style="font-size:12.5px;color:var(--text30);margin-bottom:14px;" id="so-time"></div>
-
-        <div id="so-notes-wrap" class="hidden"></div>
-
-        <div class="merged-header">🧾 المكونات المطلوبة</div>
-        <div id="so-ingredients"></div>
-
-        <div class="store-order-total" id="so-total"></div>
-
-        <button class="btn-main" style="margin-top:16px;" id="so-action-btn" onclick="markStoreOrderReady()">✅ جهّزنا المكونات — جاهز للسائق</button>
-      </div>
-    </div>
-  </div>
-
   <!-- ═══ شيت: الإشعارات ═══ -->
   <div class="sheet-overlay" id="notifSheet" onclick="if(event.target===this) closeNotifSheet()">
     <div class="sheet-card" style="max-height:80vh;">
@@ -778,6 +679,7 @@ if ("serviceWorker" in navigator) {
   </div>
 
   <!-- ═══ شاشة نجاح الطلب ═══ -->
+  <!-- ═══ شاشة نجاح الطلب ═══ -->
   <div id="successScreen" class="hidden success-screen">
     <div class="emoji">✅</div>
     <h2>تم استلام طلبك!</h2>
@@ -785,10 +687,14 @@ if ("serviceWorker" in navigator) {
     <button class="btn-main" onclick="backToHomeFromSuccess()" style="max-width:260px;">رجوع للرئيسية</button>
   </div>
 
+  <!-- ═══ شريط التنقل السفلي ═══ -->
   <!-- ═══ Bottom Nav ═══ -->
   <div class="bottom-nav" id="bottomNav">
     <button class="nav-btn active" id="nav-home" onclick="switchScreen('home')">
       <span class="icon">🏠</span><span>الرئيسية</span>
+    </button>
+    <button class="nav-btn" id="nav-products" onclick="switchScreen('products')">
+      <span class="icon">🧺</span><span>المنتجات</span>
     </button>
     <button class="nav-btn" id="nav-cart" onclick="switchScreen('cart')">
       <span class="icon">🛒</span><span>سلتي</span>
@@ -799,6 +705,7 @@ if ("serviceWorker" in navigator) {
     </button>
   </div>
 
+  <!-- ═══ القائمة الجانبية ═══ -->
   <!-- ═══ القائمة الجانبية ═══ -->
   <div class="cs-overlay" id="csOverlay" onclick="closeCustomerMenu()"></div>
   <div class="cs-drawer" id="csDrawer">
@@ -819,8 +726,10 @@ if ("serviceWorker" in navigator) {
     <div class="cs-nav-item danger" onclick="logoutCustomer()"><span class="ic-box">⏻</span><span>تسجيل الخروج</span></div>
     <div class="cs-drawer-footer">أكليتو 🍽️</div>
   </div>
+
 </div>
 
+  <!-- ═══ شاشة عناويني ═══ -->
   <!-- ═══ شاشة عنواني ═══ -->
   <div id="addressesScreen" class="hidden">
     <div class="store-sub-topbar">
@@ -1019,7 +928,7 @@ if ("serviceWorker" in navigator) {
 
 <script type="module">
 import {
-  db, collection, getDocs, getDoc, addDoc, doc, updateDoc, setDoc, deleteDoc, query, where, serverTimestamp, withTimeout,
+  db, collection, getDocs, getDoc, addDoc, doc, updateDoc, deleteDoc, query, where, serverTimestamp, withTimeout,
   onSnapshot, MEASURE_TYPES, convertToBase, loadMeasureTypes, runTransaction
 } from "./firebase-init.js";
 
@@ -1039,21 +948,6 @@ let customerName = '';
 let customerPhone = '';
 let isPlacingOrder = false;
 
-let storeId = null;
-let storeName = '';
-let storeEmpName = '';
-let storeEmpPhone = '';
-
-let storeIngredientsCache = []; // كل سجلات store_ingredients الخاصة بالمتجر الحالي فقط
-let storeProductsLoaded = false;
-let storeProductsTab = 'new'; // new | available | unavailable
-let currentEditingProductId = null;
-
-let storeOrdersCache = [];
-let storeOrdersTab = 'incoming'; // incoming (pending/preparing) | history (ready/delivering/done/cancelled)
-let storeOrdersUnsub = null;
-let currentStoreOrderId = null;
-
 let customerCoords = null; // {lat, lng} — تُحفظ بعد أول نجاح بتحديد الموقع لتفادي تكرار الطلب
 let storesCacheCustomer = null; // كل المتاجر النشطة (تُحمّل عند الحاجة فقط)
 let availStoreIngredientsCache = null; // كل سجلات store_ingredients المتوفرة (is_available=true) بكل المتاجر
@@ -1061,11 +955,6 @@ let availStoreIngredientsCache = null; // كل سجلات store_ingredients ال
 const CUSTOMER_STORAGE_KEY = 'akleto_customer_id';
 const CUSTOMER_NAME_KEY = 'akleto_customer_name';
 const CUSTOMER_PHONE_KEY = 'akleto_customer_phone';
-
-const STORE_ID_KEY = 'akleto_store_id';
-const STORE_NAME_KEY = 'akleto_store_name';
-const STORE_EMP_NAME_KEY = 'akleto_store_emp_name';
-const STORE_EMP_PHONE_KEY = 'akleto_store_emp_phone';
 
 function showToast(msg) {
   const t = document.getElementById('toast');
@@ -1076,6 +965,7 @@ function showToast(msg) {
 }
 
 /* ═══════════ بدء الجلسة / تسجيل الزبون ═══════════ */
+
 window.startCustomerSession = async () => {
   const name = document.getElementById('w-name').value.trim();
   const phone = document.getElementById('w-phone').value.trim();
@@ -1197,6 +1087,7 @@ window.menuOpenAddresses = () => {
 
 window.openAddressesScreen = async () => {
   document.getElementById('homeScreen').classList.add('hidden');
+  document.getElementById('productsScreen').classList.add('hidden');
   document.getElementById('cartScreen').classList.add('hidden');
   document.getElementById('accountScreen').classList.add('hidden');
   document.getElementById('bottomNav').classList.add('hidden');
@@ -1450,486 +1341,12 @@ window.logoutCustomer = () => {
   customerName = '';
   customerPhone = '';
   selectedMeals = [];
-  if (storeId) {
-    switchScreen('store');
-  } else {
-    document.getElementById('appShell').classList.add('hidden');
-    document.getElementById('welcomeScreen').classList.remove('hidden');
-    document.getElementById('w-name').value = '';
-    document.getElementById('w-phone').value = '';
-  }
-};
-
-/* ═══════════ دخول/خروج المتجر (لموظفي المتاجر الشريكة) ═══════════ */
-window.showStoreLogin = () => {
-  document.getElementById('welcomeScreen').classList.add('hidden');
-  document.getElementById('storeLoginScreen').classList.remove('hidden');
-};
-
-window.hideStoreLogin = () => {
-  document.getElementById('storeLoginScreen').classList.add('hidden');
+  document.getElementById('appShell').classList.add('hidden');
   document.getElementById('welcomeScreen').classList.remove('hidden');
+  document.getElementById('w-name').value = '';
+  document.getElementById('w-phone').value = '';
 };
 
-window.loginAsStore = async () => {
-  const name = document.getElementById('sl-name').value.trim();
-  const phone = document.getElementById('sl-phone').value.trim();
-  const pin = document.getElementById('sl-pin').value.trim();
-  const errBox = document.getElementById('sl-error');
-  errBox.style.display = 'none';
-
-  if (!name || !phone || !pin) {
-    errBox.textContent = 'لازم تعبي الاسم ورقم الهاتف ورمز PIN';
-    errBox.style.display = 'block';
-    return;
-  }
-  if (!/^\d{4}$/.test(pin)) {
-    errBox.textContent = 'رمز PIN لازم يكون 4 أرقام بالظبط';
-    errBox.style.display = 'block';
-    return;
-  }
-
-  const btn = document.getElementById('sl-login-btn');
-  btn.disabled = true;
-  btn.textContent = 'جاري التحقق...';
-
-  try {
-    const storesSnap = await withTimeout(
-      getDocs(query(collection(db, 'stores'), where('pin', '==', pin))),
-      15000, 'انتهت مهلة الاتصال — تأكد من الإنترنت'
-    );
-    if (storesSnap.empty) {
-      errBox.textContent = 'رمز PIN غير صحيح — تأكد منه مع صاحب المتجر';
-      errBox.style.display = 'block';
-      return;
-    }
-    const storeDoc = storesSnap.docs[0];
-    const storeData = storeDoc.data();
-    if (storeData.is_active === false) {
-      errBox.textContent = 'هذا المتجر معطّل حالياً — تواصل مع الأدمن';
-      errBox.style.display = 'block';
-      return;
-    }
-
-    // ابحث عن سجل موظف موجود بنفس الرقم بهذا المتجر، وإلا أنشئ سجل جديد
-    const empSnap = await withTimeout(
-      getDocs(query(collection(db, 'store_employees'),
-        where('store_id', '==', storeDoc.id), where('phone', '==', phone))),
-      15000, 'انتهت مهلة الاتصال — تأكد من الإنترنت'
-    );
-    if (empSnap.empty) {
-      await withTimeout(
-        addDoc(collection(db, 'store_employees'), {
-          store_id: storeDoc.id, name, phone, created_at: serverTimestamp()
-        }),
-        15000, 'انتهت مهلة الاتصال — تأكد من الإنترنت'
-      );
-    }
-
-    storeId = storeDoc.id;
-    storeName = storeData.name || 'متجر';
-    storeEmpName = name;
-    storeEmpPhone = phone;
-    localStorage.setItem(STORE_ID_KEY, storeId);
-    localStorage.setItem(STORE_NAME_KEY, storeName);
-    localStorage.setItem(STORE_EMP_NAME_KEY, storeEmpName);
-    localStorage.setItem(STORE_EMP_PHONE_KEY, storeEmpPhone);
-
-    document.getElementById('storeLoginScreen').classList.add('hidden');
-    document.getElementById('appShell').classList.remove('hidden');
-    enterStoreMode();
-  } catch(e) {
-    console.error('store login error', e);
-    errBox.textContent = 'صار خطأ — جرب مرة ثانية';
-    errBox.style.display = 'block';
-  } finally {
-    btn.disabled = false;
-    btn.textContent = 'دخول 🏪';
-  }
-};
-
-function enterStoreMode() {
-  document.getElementById('store-greeting-name').textContent = storeName;
-  document.getElementById('store-employee-name').textContent = 'مسجل دخول: ' + storeEmpName;
-  switchScreen('store');
-  startStoreOrdersListener();
-  startNotifListeners();
-}
-
-window.logoutStore = () => {
-  if (!confirm('تأكيد الخروج من حساب المتجر؟')) return;
-  if (storeOrdersUnsub) { storeOrdersUnsub(); storeOrdersUnsub = null; }
-  localStorage.removeItem(STORE_ID_KEY);
-  localStorage.removeItem(STORE_NAME_KEY);
-  localStorage.removeItem(STORE_EMP_NAME_KEY);
-  localStorage.removeItem(STORE_EMP_PHONE_KEY);
-  storeId = null; storeName = ''; storeEmpName = ''; storeEmpPhone = '';
-  if (customerId) {
-    switchScreen('home');
-  } else {
-    document.getElementById('appShell').classList.add('hidden');
-    document.getElementById('welcomeScreen').classList.remove('hidden');
-  }
-};
-
-/* ═══════════ منتجاتي (المتجر) — إدارة توفر المكونات وأسعارها ═══════════ */
-window.openStoreProducts = async () => {
-  document.getElementById('storeScreen').classList.add('hidden');
-  document.getElementById('storeProductsScreen').classList.remove('hidden');
-  await loadStoreProductsData();
-  renderStoreProductsTabs();
-  renderStoreProductsGrid();
-};
-
-window.closeStoreProducts = () => {
-  document.getElementById('storeProductsScreen').classList.add('hidden');
-  document.getElementById('storeScreen').classList.remove('hidden');
-};
-
-async function loadStoreProductsData() {
-  try {
-    if (!ingredientsCache.length) {
-      const ingSnap = await withTimeout(getDocs(collection(db, 'ingredients')), 15000, 'انتهت مهلة تحميل المكونات');
-      ingredientsCache = ingSnap.docs.map(d => ({ id: d.id, ...d.data() }));
-    }
-    const siSnap = await withTimeout(
-      getDocs(query(collection(db, 'store_ingredients'), where('store_id', '==', storeId))),
-      15000, 'انتهت مهلة تحميل منتجاتك'
-    );
-    storeIngredientsCache = siSnap.docs.map(d => ({ id: d.id, ...d.data() }));
-    storeProductsLoaded = true;
-  } catch(e) {
-    console.error('load store products error', e);
-    showToast('صار خطأ بتحميل منتجاتك ❌');
-  }
-}
-
-function getStoreIngredientEntry(ingredientId) {
-  return storeIngredientsCache.find(si => si.ingredient_id === ingredientId);
-}
-
-function bucketStoreProducts() {
-  const buckets = { new: [], available: [], unavailable: [] };
-  ingredientsCache.filter(i => i.is_active !== false).forEach(ing => {
-    const entry = getStoreIngredientEntry(ing.id);
-    if (!entry) buckets.new.push(ing);
-    else if (entry.is_available) buckets.available.push(ing);
-    else buckets.unavailable.push(ing);
-  });
-  return buckets;
-}
-
-const storeTabLabels = { new: '🆕 جديدة', available: '✅ متوفرة', unavailable: '🚫 غير متوفرة' };
-
-function renderStoreProductsTabs() {
-  const buckets = bucketStoreProducts();
-  const wrap = document.getElementById('storeProductsTabs');
-  wrap.innerHTML = ['new','available','unavailable'].map(t => `
-    <button class="store-tab ${t === storeProductsTab ? 'active' : ''}" onclick="switchStoreProductsTab('${t}')">
-      ${storeTabLabels[t]} (${buckets[t].length})
-    </button>`).join('');
-}
-
-window.switchStoreProductsTab = (tab) => {
-  storeProductsTab = tab;
-  renderStoreProductsTabs();
-  renderStoreProductsGrid();
-};
-
-function renderStoreProductsGrid() {
-  const buckets = bucketStoreProducts();
-  const list = buckets[storeProductsTab];
-  const grid = document.getElementById('storeProductsGrid');
-  if (!list.length) {
-    grid.innerHTML = `<div class="empty-state-c" style="grid-column:1/-1;padding:30px 0;">ما في منتجات هون حالياً</div>`;
-    return;
-  }
-  grid.innerHTML = list.map(ing => {
-    const thumb = ing.image_url ? `<img class="product-tile-img" src="${ing.image_url}" />` : `<div class="product-tile-img">🧺</div>`;
-    const entry = getStoreIngredientEntry(ing.id);
-    const priceToShow = entry ? entry.price_per_package : ing.price_per_package;
-    const badge = storeProductsTab === 'new' ? `<div class="product-tile-badge-new">جديد</div>`
-      : storeProductsTab === 'unavailable' ? `<div class="product-tile-badge-unavail">غير متوفر</div>` : '';
-    return `
-      <div class="product-tile" onclick="openStoreProductSheet('${ing.id}')">
-        ${badge}
-        ${thumb}
-        <div class="product-tile-body">
-          <div class="product-tile-name">${ing.name_ar || ''}</div>
-          <div class="product-tile-price">${(priceToShow || 0).toFixed(2)} د.أ / ${ing.package_label || ''}</div>
-        </div>
-      </div>`;
-  }).join('');
-}
-
-window.openStoreProductSheet = (ingredientId) => {
-  const ing = ingredientsCache.find(i => i.id === ingredientId);
-  if (!ing) return;
-  currentEditingProductId = ingredientId;
-  const entry = getStoreIngredientEntry(ingredientId);
-
-  document.getElementById('sp-name').textContent = ing.name_ar || '';
-  document.getElementById('sp-package-label').textContent = ing.package_label ? `/ ${ing.package_label}` : '';
-  const hero = document.getElementById('sp-hero');
-  hero.innerHTML = ing.image_url ? `<img src="${ing.image_url}" style="width:100%;height:100%;object-fit:cover;" />` : '🧺';
-  document.getElementById('sp-error').style.display = 'none';
-
-  const defaultPrice = entry ? entry.price_per_package : ing.price_per_package;
-  document.getElementById('sp-price-input').value = defaultPrice != null ? defaultPrice : '';
-
-  const availBtn = document.getElementById('sp-available-btn');
-  const unavailBtn = document.getElementById('sp-unavailable-btn');
-  if (entry && entry.is_available) {
-    availBtn.textContent = '💾 حفظ السعر';
-    unavailBtn.textContent = '🚫 وضعه غير متوفر';
-  } else if (entry && !entry.is_available) {
-    availBtn.textContent = '✅ متوفر الآن بهاي السعر';
-    unavailBtn.textContent = '🚫 يبقى غير متوفر';
-  } else {
-    availBtn.textContent = '✅ متوفر عندي بهاي السعر';
-    unavailBtn.textContent = '🚫 غير متوفر عندي';
-  }
-
-  document.getElementById('storeProductSheet').classList.add('open');
-};
-
-window.closeStoreProductSheet = () => {
-  document.getElementById('storeProductSheet').classList.remove('open');
-  currentEditingProductId = null;
-};
-
-async function upsertStoreIngredient(isAvailable, price) {
-  const docId = `${storeId}_${currentEditingProductId}`;
-  await withTimeout(
-    setDoc(doc(db, 'store_ingredients', docId), {
-      store_id: storeId, ingredient_id: currentEditingProductId,
-      is_available: isAvailable, price_per_package: price, updated_at: serverTimestamp()
-    }, { merge: true }),
-    15000, 'انتهت مهلة الحفظ — تأكد من الإنترنت'
-  );
-  const idx = storeIngredientsCache.findIndex(si => si.ingredient_id === currentEditingProductId);
-  const updated = { id: docId, store_id: storeId, ingredient_id: currentEditingProductId, is_available: isAvailable, price_per_package: price };
-  if (idx > -1) storeIngredientsCache[idx] = updated; else storeIngredientsCache.push(updated);
-}
-
-window.saveStoreProductAvailable = async () => {
-  const errBox = document.getElementById('sp-error');
-  const priceVal = parseFloat(document.getElementById('sp-price-input').value);
-  if (isNaN(priceVal) || priceVal < 0) {
-    errBox.textContent = 'لازم تكتب سعر صحيح للعبوة';
-    errBox.style.display = 'block';
-    return;
-  }
-  const btn = document.getElementById('sp-available-btn');
-  btn.disabled = true;
-  try {
-    await upsertStoreIngredient(true, priceVal);
-    closeStoreProductSheet();
-    renderStoreProductsTabs();
-    renderStoreProductsGrid();
-    showToast('تم تحديث المنتج ✅');
-  } catch(e) {
-    console.error('save store product error', e);
-    errBox.textContent = 'صار خطأ بالحفظ — جرب مرة ثانية';
-    errBox.style.display = 'block';
-  } finally {
-    btn.disabled = false;
-  }
-};
-
-window.saveStoreProductUnavailable = async () => {
-  const priceVal = parseFloat(document.getElementById('sp-price-input').value);
-  const btn = document.getElementById('sp-unavailable-btn');
-  btn.disabled = true;
-  try {
-    await upsertStoreIngredient(false, isNaN(priceVal) ? null : priceVal);
-    closeStoreProductSheet();
-    renderStoreProductsTabs();
-    renderStoreProductsGrid();
-    showToast('تم تحديث المنتج ✅');
-  } catch(e) {
-    console.error('save store product error', e);
-    showToast('صار خطأ بالحفظ ❌');
-  } finally {
-    btn.disabled = false;
-  }
-};
-
-/* ═══════════ طلبات المتجر — استقبال الطلبات وتجهيزها للسائق ═══════════ */
-function ticketCode(id) { return '#' + (id || '----').slice(-4).toUpperCase(); }
-
-function timeAgo(ts) {
-  if (!ts || !ts.toDate) return '—';
-  const diffMs = Date.now() - ts.toDate().getTime();
-  const mins = Math.floor(diffMs / 60000);
-  if (mins < 1) return 'الآن';
-  if (mins < 60) return `قبل ${mins} د`;
-  const hrs = Math.floor(mins / 60);
-  if (hrs < 24) return `قبل ${hrs} س`;
-  return `قبل ${Math.floor(hrs / 24)} يوم`;
-}
-
-const STORE_INCOMING_STATUSES = ['pending', 'preparing'];
-const storeOrderStatusLabel = {
-  pending: '🟡 جديد', preparing: '🔵 جاري التجهيز', ready: '📦 جاهز للسائق',
-  delivering: '🛵 بالطريق', done: '✅ تم التوصيل', cancelled: '❌ ملغي'
-};
-
-function startStoreOrdersListener() {
-  if (storeOrdersUnsub) storeOrdersUnsub();
-  storeOrdersUnsub = onSnapshot(
-    query(collection(db, 'orders'), where('store_id', '==', storeId)),
-    (snap) => {
-      storeOrdersCache = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-      updateStoreOrdersBadge();
-      if (!document.getElementById('storeOrdersScreen').classList.contains('hidden')) {
-        renderStoreOrdersTabs();
-        renderStoreOrdersList();
-      }
-    },
-    (err) => console.error('store orders listener error', err)
-  );
-}
-
-function updateStoreOrdersBadge() {
-  const badge = document.getElementById('storeOrdersBadge');
-  if (!badge) return;
-  const count = storeOrdersCache.filter(o => STORE_INCOMING_STATUSES.includes(o.status)).length;
-  if (count > 0) { badge.textContent = count; badge.classList.remove('hidden'); }
-  else { badge.classList.add('hidden'); }
-}
-
-window.openStoreOrders = () => {
-  document.getElementById('storeScreen').classList.add('hidden');
-  document.getElementById('storeOrdersScreen').classList.remove('hidden');
-  renderStoreOrdersTabs();
-  renderStoreOrdersList();
-};
-
-window.closeStoreOrders = () => {
-  document.getElementById('storeOrdersScreen').classList.add('hidden');
-  document.getElementById('storeScreen').classList.remove('hidden');
-};
-
-function bucketStoreOrders() {
-  const incoming = storeOrdersCache.filter(o => STORE_INCOMING_STATUSES.includes(o.status))
-    .sort((a, b) => (a.created_at?.toDate?.() || 0) - (b.created_at?.toDate?.() || 0));
-  const history = storeOrdersCache.filter(o => !STORE_INCOMING_STATUSES.includes(o.status))
-    .sort((a, b) => (b.created_at?.toDate?.() || 0) - (a.created_at?.toDate?.() || 0));
-  return { incoming, history };
-}
-
-function renderStoreOrdersTabs() {
-  const buckets = bucketStoreOrders();
-  const wrap = document.getElementById('storeOrdersTabs');
-  wrap.innerHTML = `
-    <button class="store-tab ${storeOrdersTab === 'incoming' ? 'active' : ''}" onclick="switchStoreOrdersTab('incoming')">📥 واردة (${buckets.incoming.length})</button>
-    <button class="store-tab ${storeOrdersTab === 'history' ? 'active' : ''}" onclick="switchStoreOrdersTab('history')">🗂️ سجل الطلبات (${buckets.history.length})</button>
-  `;
-}
-
-window.switchStoreOrdersTab = (tab) => {
-  storeOrdersTab = tab;
-  renderStoreOrdersTabs();
-  renderStoreOrdersList();
-};
-
-function renderStoreOrdersList() {
-  const buckets = bucketStoreOrders();
-  const list = buckets[storeOrdersTab];
-  const wrap = document.getElementById('storeOrdersList');
-  if (!list.length) {
-    wrap.innerHTML = `<div class="empty-state-c" style="padding:40px 0;">${storeOrdersTab === 'incoming' ? 'ما في طلبات واردة حالياً' : 'ما في طلبات بالسجل بعد'}</div>`;
-    return;
-  }
-  wrap.innerHTML = list.map(o => {
-    const mealsCount = (o.items || []).length;
-    const pillColor = o.status === 'pending' ? '#F5A65B' : o.status === 'preparing' ? '#5B9BD5' : o.status === 'ready' ? '#8E6BAF' : o.status === 'delivering' ? '#5B9BD5' : o.status === 'done' ? '#4CAF50' : '#D9534F';
-    return `
-      <div class="store-order-card" onclick="openStoreOrderSheet('${o.id}')">
-        <div class="store-order-card-head">
-          <span class="store-order-code">${ticketCode(o.id)}</span>
-          <span class="store-order-time">${timeAgo(o.created_at)}</span>
-        </div>
-        <div class="store-order-meals">🍽️ ${mealsCount} وجبة · ${(o.merged_ingredients || []).length} مكوّن</div>
-        <span class="store-order-status-pill" style="background:${pillColor}22;color:${pillColor};">${storeOrderStatusLabel[o.status] || o.status}</span>
-      </div>`;
-  }).join('');
-}
-
-window.openStoreOrderSheet = (orderId) => {
-  const o = storeOrdersCache.find(x => x.id === orderId);
-  if (!o) return;
-  currentStoreOrderId = orderId;
-
-  document.getElementById('so-code').textContent = `طلب ${ticketCode(o.id)}`;
-  document.getElementById('so-time').textContent = `${storeOrderStatusLabel[o.status] || o.status} · ${timeAgo(o.created_at)}`;
-
-  const notesWrap = document.getElementById('so-notes-wrap');
-  if (o.customer_notes) {
-    notesWrap.innerHTML = `<div class="ing-preview-note" style="margin-top:0;">📝 ملاحظة الزبون: ${o.customer_notes}</div>`;
-    notesWrap.classList.remove('hidden');
-  } else {
-    notesWrap.classList.add('hidden');
-    notesWrap.innerHTML = '';
-  }
-
-  const ings = o.merged_ingredients || [];
-  document.getElementById('so-ingredients').innerHTML = ings.map(ing => `
-    <div class="store-ing-row">
-      <span>${ing.name || ''}</span>
-      <span><b>${ing.purchase_quantity}</b> × ${ing.package_label || ''}</span>
-    </div>`).join('') || '<div class="empty-state-c" style="padding:14px 0;">ما في مكونات</div>';
-
-  document.getElementById('so-total').innerHTML = `<span>الإجمالي التقديري</span><span>${(o.total_estimated_price || 0).toFixed(2)} د.أ</span>`;
-
-  const actionBtn = document.getElementById('so-action-btn');
-  if (STORE_INCOMING_STATUSES.includes(o.status)) {
-    actionBtn.classList.remove('hidden');
-    actionBtn.disabled = false;
-    actionBtn.textContent = '✅ جهّزنا المكونات — جاهز للسائق';
-  } else {
-    actionBtn.classList.add('hidden');
-  }
-
-  document.getElementById('storeOrderSheet').classList.add('open');
-};
-
-window.closeStoreOrderSheet = () => {
-  document.getElementById('storeOrderSheet').classList.remove('open');
-  currentStoreOrderId = null;
-};
-
-window.markStoreOrderReady = async () => {
-  if (!currentStoreOrderId) return;
-  const btn = document.getElementById('so-action-btn');
-  btn.disabled = true;
-  btn.textContent = 'جاري التحديث...';
-  try {
-    const o = storeOrdersCache.find(x => x.id === currentStoreOrderId);
-    await withTimeout(
-      updateDoc(doc(db, 'orders', currentStoreOrderId), { status: 'ready' }),
-      15000, 'انتهت مهلة التحديث — تأكد من الإنترنت'
-    );
-    addDoc(collection(db, 'admin_notifications'), {
-      type: 'order_ready',
-      title: `طلب جاهز ${ticketCode(currentStoreOrderId)}`,
-      message: `متجر "${storeName}" جهّز طلب ${o ? (o.customer_name || 'زبون') : ''} — بانتظار سائق`,
-      related_id: currentStoreOrderId,
-      created_at: serverTimestamp(),
-      read: false
-    }).catch(e => console.error('admin_notifications write error', e));
-    closeStoreOrderSheet();
-    showToast('تم! الطلب صار جاهز للسائق ✅');
-  } catch(e) {
-    console.error('mark order ready error', e);
-    showToast('صار خطأ — جرب مرة ثانية ❌');
-    btn.disabled = false;
-    btn.textContent = '✅ جهّزنا المكونات — جاهز للسائق';
-  }
-};
-
-/* ═══════════ تحميل البيانات ═══════════ */
 async function loadInitialData() {
   document.getElementById('mealsGrid').innerHTML = `<div class="empty-state-c" style="grid-column:1/-1;padding:30px 0;">جاري التحميل...</div>`;
   try {
@@ -2033,12 +1450,66 @@ function updateCartFab() {
   const fab = document.getElementById('cartFab');
   if (!fab) return;
   const homeVisible = !document.getElementById('homeScreen').classList.contains('hidden');
-  if (selectedMeals.length && homeVisible) {
-    document.getElementById('cartFabCount').textContent = selectedMeals.length;
+  const productsVisible = !document.getElementById('productsScreen').classList.contains('hidden');
+  const count = selectedMeals.length || Object.keys(getFinalCartIngredients()).length;
+  if (count && (homeVisible || productsVisible)) {
+    document.getElementById('cartFabCount').textContent = count;
     fab.classList.remove('hidden');
   } else {
     fab.classList.add('hidden');
   }
+}
+
+/* ═══════════ شاشة المنتجات: تسوّق حر بالمكونات مجمّعة حسب الصنف ═══════════ */
+let productsSearchQuery = '';
+
+window.onProductsSearchInput = (val) => {
+  productsSearchQuery = (val || '').trim();
+  renderProductsScreen();
+};
+
+function productTileHtml(i) {
+  const thumb = i.image_url ? `<img class="meal-tile-img" src="${i.image_url}" />` : `<div class="meal-tile-img">📦</div>`;
+  const inCart = !!cartOverrides[i.id] || Object.keys(getFinalCartIngredients()).includes(i.id);
+  return `
+    <div class="meal-tile" onclick="openProductSheet('${i.id}')">
+      ${inCart ? '<div class="meal-tile-badge">✓ بالسلة</div>' : ''}
+      ${thumb}
+      <div class="meal-tile-body">
+        <div class="meal-tile-name">${i.name_ar || ''}</div>
+        <div class="meal-tile-footer">
+          <div class="meal-tile-price">${(i.price_per_package || 0).toFixed(2)} <small>د.أ / ${i.package_label || ''}</small></div>
+          <button class="meal-tile-add" onclick="event.stopPropagation();addIngredientToCart('${i.id}')">${inCart ? '✓' : '+'}</button>
+        </div>
+      </div>
+    </div>`;
+}
+
+function renderProductsScreen() {
+  const wrap = document.getElementById('productsCategoriesWrap');
+  if (!ingredientsCache.length) {
+    wrap.innerHTML = `<div class="empty-state-c"><div class="emoji">🧺</div>ما في منتجات متوفرة حالياً</div>`;
+    return;
+  }
+  const q = productsSearchQuery;
+  const filtered = ingredientsCache.filter(i => (i.is_active !== false) && (!q || (i.name_ar || '').includes(q)));
+  if (!filtered.length) {
+    wrap.innerHTML = `<div class="empty-state-c"><div class="emoji">🔍</div>ما لقينا منتجات مطابقة، جرب كلمة ثانية</div>`;
+    return;
+  }
+  const groups = {};
+  filtered.forEach(i => {
+    const cat = i.category || 'أخرى';
+    if (!groups[cat]) groups[cat] = [];
+    groups[cat].push(i);
+  });
+  const catNames = Object.keys(groups).sort((a, b) => a.localeCompare('ar'));
+  wrap.innerHTML = catNames.map(cat => `
+    <div class="section-title" style="padding:6px 18px 10px;">🏷️ ${cat}</div>
+    <div class="meals-scroll-grid">
+      ${groups[cat].map(i => productTileHtml(i)).join('')}
+    </div>
+  `).join('');
 }
 
 function ingImageFor(ingredientId) {
@@ -2179,32 +1650,22 @@ window.confirmAddMealToCart = () => {
 
 /* ═══════════ التنقّل بين الشاشات ═══════════ */
 window.switchScreen = (name) => {
-  // وضع المتجر حصري: ما نسمح بالرجوع لشاشات التسوق أثناء تسجيل الدخول كمتجر
-  if (storeId && name !== 'store') return;
-
-  if (name === 'store') {
-    ['home','cart','account'].forEach(s => document.getElementById(s + 'Screen').classList.add('hidden'));
-    document.getElementById('storeScreen').classList.remove('hidden');
-    document.getElementById('successScreen').classList.add('hidden');
-    document.getElementById('bottomNav').classList.add('hidden');
-    return;
-  }
-
-  ['home','cart','account'].forEach(s => {
+  ['home','products','cart','account'].forEach(s => {
     document.getElementById(s + 'Screen').classList.toggle('hidden', s !== name);
     document.getElementById('nav-' + s).classList.toggle('active', s === name);
   });
-  document.getElementById('storeScreen').classList.add('hidden');
   document.getElementById('successScreen').classList.add('hidden');
   document.getElementById('bottomNav').classList.remove('hidden');
   if (name === 'cart') renderCartScreen();
   if (name === 'account') renderOrdersHistory();
+  if (name === 'products') renderProductsScreen();
   updateCartFab();
 };
 
 function updateCartBadge() {
   const badge = document.getElementById('cartBadge');
-  if (selectedMeals.length) { badge.textContent = selectedMeals.length; badge.classList.remove('hidden'); }
+  const count = selectedMeals.length || Object.keys(getFinalCartIngredients()).length;
+  if (count) { badge.textContent = count; badge.classList.remove('hidden'); }
   else { badge.classList.add('hidden'); }
   updateCartFab();
 }
@@ -2271,11 +1732,13 @@ window.adjustCartIngredient = (id, delta) => {
   const currentQty = current ? current.purchaseQty : 0;
   cartOverrides[id] = Math.max(0, currentQty + delta);
   renderCartScreen();
+  updateCartBadge();
 };
 
 window.removeCartIngredient = (id) => {
   cartOverrides[id] = 0;
   renderCartScreen();
+  updateCartBadge();
 };
 
 window.openIngredientPicker = () => {
@@ -2314,6 +1777,8 @@ window.addIngredientToCart = (id) => {
   cartOverrides[id] = (current ? current.purchaseQty : 0) + 1;
   closeIngredientPicker();
   renderCartScreen();
+  updateCartBadge();
+  if (!document.getElementById('productsScreen').classList.contains('hidden')) renderProductsScreen();
   showToast('تمت الإضافة للسلة ✅');
 };
 
@@ -2322,28 +1787,36 @@ function renderCartScreen() {
   const mergedWrap = document.getElementById('mergedSection');
   const cta = document.getElementById('cartCta');
 
-  if (!selectedMeals.length) {
-    content.innerHTML = `<div class="empty-state-c"><div class="emoji">🛒</div>سلتك فاضية — روح ضيف وجبات من الرئيسية</div>`;
+  const entries = Object.entries(getFinalCartIngredients());
+  const hasMeals = selectedMeals.length > 0;
+  const hasIngredients = entries.length > 0;
+
+  if (!hasMeals && !hasIngredients) {
+    content.innerHTML = `<div class="empty-state-c"><div class="emoji">🛒</div>سلتك فاضية — ضيف وجبات من "الرئيسية" أو منتجات من تبويب "المنتجات" 🧺</div>`;
     mergedWrap.innerHTML = '';
     cta.classList.add('hidden');
     return;
   }
 
-  content.innerHTML = selectedMeals.map(sel => {
-    const meal = mealsCache.find(m => m.id === sel.mealId) || {};
-    const thumb = meal.image_url ? `<img class="cart-meal-thumb" src="${meal.image_url}" />` : `<div class="cart-meal-thumb">🍽️</div>`;
-    return `
-      <div class="cart-meal-item">
-        ${thumb}
-        <div class="cart-meal-info">
-          <div class="cart-meal-name">${meal.name_ar || ''}</div>
-          <div class="cart-meal-servings">👥 ${sel.servings} أشخاص</div>
-        </div>
-        <button class="cart-remove-btn" onclick="removeMealFromCart('${sel.mealId}')">✕</button>
-      </div>`;
-  }).join('');
+  if (hasMeals) {
+    const mealsRows = selectedMeals.map(sel => {
+      const meal = mealsCache.find(m => m.id === sel.mealId) || {};
+      const thumb = meal.image_url ? `<img class="cart-meal-thumb" src="${meal.image_url}" />` : `<div class="cart-meal-thumb">🍽️</div>`;
+      return `
+        <div class="cart-meal-item">
+          ${thumb}
+          <div class="cart-meal-info">
+            <div class="cart-meal-name">${meal.name_ar || ''}</div>
+            <div class="cart-meal-servings">👥 ${sel.servings} أشخاص</div>
+          </div>
+          <button class="cart-remove-btn" onclick="removeMealFromCart('${sel.mealId}')">✕</button>
+        </div>`;
+    }).join('');
+    content.innerHTML = `<div class="section-title" style="padding:4px 0 8px;font-size:14px;">🍽️ الوجبات المختارة (${selectedMeals.length})</div>${mealsRows}`;
+  } else {
+    content.innerHTML = '';
+  }
 
-  const entries = Object.entries(getFinalCartIngredients());
   let totalPrice = 0;
   const rows = entries.map(([id, e]) => {
     const lineTotal = e.purchaseQty * (e.pricePerPackage || 0);
@@ -2378,8 +1851,8 @@ function renderCartScreen() {
 
   mergedWrap.innerHTML = `
     <div class="merged-card">
-      <div class="merged-header">🧠 قائمة المكونات المدمجة (الدمج الذكي)</div>
-      ${rows || '<div class="empty-state-c" style="padding:14px 0;">ما في مكونات — ضيف وحدة يدوياً</div>'}
+      <div class="merged-header">🧠 قائمة المكونات${hasMeals ? ' (الدمج الذكي)' : ''}</div>
+      ${rows || '<div class="empty-state-c" style="padding:14px 0;">ما في مكونات بعد — ضيف وحدة يدوياً أو من تبويب المنتجات</div>'}
       <button type="button" class="btn-add-ingredient" onclick="openIngredientPicker()">➕ ضيف مكوّن للشراء</button>
       ${totalPrice > 0 ? `<div class="ing-preview-item" style="border-top:2px solid var(--border);margin-top:6px;padding-top:12px;font-weight:800;">
         <span>السعر التقديري</span><span class="amt" style="color:var(--primary);font-weight:800;">${totalPrice.toFixed(2)} د.أ</span>
@@ -2509,8 +1982,10 @@ function getOcSubtotal() {
 }
 
 window.openOrderConfirm = async () => {
-  if (!selectedMeals.length) return;
+  const hasIngredients = Object.keys(getFinalCartIngredients()).length > 0;
+  if (!selectedMeals.length && !hasIngredients) return;
   document.getElementById('homeScreen').classList.add('hidden');
+  document.getElementById('productsScreen').classList.add('hidden');
   document.getElementById('cartScreen').classList.add('hidden');
   document.getElementById('accountScreen').classList.add('hidden');
   document.getElementById('bottomNav').classList.add('hidden');
@@ -2546,16 +2021,34 @@ window.closeOrderConfirm = () => {
 };
 
 function renderOcItems() {
-  document.getElementById('oc-items-count').textContent = selectedMeals.length + ' عناصر';
-  document.getElementById('oc-items-list').innerHTML = selectedMeals.map(sel => {
-    const meal = mealsCache.find(m => m.id === sel.mealId) || {};
-    const thumb = meal.image_url ? `<img class="confirm-item-icon" src="${meal.image_url}" />` : `<div class="confirm-item-icon">🍽️</div>`;
+  const hasMeals = selectedMeals.length > 0;
+  if (hasMeals) {
+    document.getElementById('oc-items-count').textContent = selectedMeals.length + ' عناصر';
+    document.getElementById('oc-items-list').innerHTML = selectedMeals.map(sel => {
+      const meal = mealsCache.find(m => m.id === sel.mealId) || {};
+      const thumb = meal.image_url ? `<img class="confirm-item-icon" src="${meal.image_url}" />` : `<div class="confirm-item-icon">🍽️</div>`;
+      return `
+        <div class="confirm-item-row">
+          ${thumb}
+          <div>
+            <div class="confirm-item-name">${meal.name_ar || ''}</div>
+            <div class="confirm-item-servings">👥 ${sel.servings} أشخاص</div>
+          </div>
+        </div>`;
+    }).join('');
+    return;
+  }
+  const entries = Object.entries(getFinalCartIngredients());
+  document.getElementById('oc-items-count').textContent = entries.length + ' منتجات';
+  document.getElementById('oc-items-list').innerHTML = entries.map(([id, e]) => {
+    const thumbImg = ingImageFor(id);
+    const thumb = thumbImg ? `<img class="confirm-item-icon" src="${thumbImg}" />` : `<div class="confirm-item-icon">📦</div>`;
     return `
       <div class="confirm-item-row">
         ${thumb}
         <div>
-          <div class="confirm-item-name">${meal.name_ar || ''}</div>
-          <div class="confirm-item-servings">👥 ${sel.servings} أشخاص</div>
+          <div class="confirm-item-name">${e.name}</div>
+          <div class="confirm-item-servings">× ${e.purchaseQty} ${e.packageLabel}</div>
         </div>
       </div>`;
   }).join('');
@@ -2799,7 +2292,8 @@ window.cancelOrderCountdown = () => {
 };
 
 window.startOrderCountdown = () => {
-  if (isPlacingOrder || !selectedMeals.length) return;
+  const hasIngredients = Object.keys(getFinalCartIngredients()).length > 0;
+  if (isPlacingOrder || (!selectedMeals.length && !hasIngredients)) return;
   const errBox = document.getElementById('oc-error');
   errBox.style.display = 'none';
 
@@ -2932,6 +2426,7 @@ async function executeOrderSubmit() {
     document.getElementById('oc-notes').value = '';
     document.getElementById('orderConfirmScreen').classList.add('hidden');
     document.getElementById('homeScreen').classList.add('hidden');
+    document.getElementById('productsScreen').classList.add('hidden');
     document.getElementById('cartScreen').classList.add('hidden');
     document.getElementById('accountScreen').classList.add('hidden');
     document.getElementById('bottomNav').classList.add('hidden');
@@ -2990,7 +2485,7 @@ async function renderOrdersHistory() {
 
 /* ═══════════ الإشعارات (زبون/متجر) ═══════════ */
 function notifSeenKey() {
-  return storeId ? 'akleto_store_notif_seen' : 'akleto_customer_notif_seen';
+  return 'akleto_customer_notif_seen';
 }
 
 function startNotifListeners() {
@@ -2999,17 +2494,11 @@ function startNotifListeners() {
   notifBuckets = { all: [], mine: [] };
   notifItems = [];
 
-  if (storeId) {
-    const qAll = query(collection(db, 'user_notifications'), where('audience', '==', 'all_stores'));
-    const qMine = query(collection(db, 'user_notifications'), where('audience', '==', 'store'), where('target_id', '==', storeId));
-    notifUnsubs.push(onSnapshot(qAll, snap => mergeNotifSnap('all', snap), e => console.error('notif all_stores error', e)));
-    notifUnsubs.push(onSnapshot(qMine, snap => mergeNotifSnap('mine', snap), e => console.error('notif store error', e)));
-  } else if (customerId) {
-    const qAll = query(collection(db, 'user_notifications'), where('audience', '==', 'all_customers'));
-    const qMine = query(collection(db, 'user_notifications'), where('audience', '==', 'customer'), where('target_id', '==', customerId));
-    notifUnsubs.push(onSnapshot(qAll, snap => mergeNotifSnap('all', snap), e => console.error('notif all_customers error', e)));
-    notifUnsubs.push(onSnapshot(qMine, snap => mergeNotifSnap('mine', snap), e => console.error('notif customer error', e)));
-  }
+  if (!customerId) return;
+  const qAll = query(collection(db, 'user_notifications'), where('audience', '==', 'all_customers'));
+  const qMine = query(collection(db, 'user_notifications'), where('audience', '==', 'customer'), where('target_id', '==', customerId));
+  notifUnsubs.push(onSnapshot(qAll, snap => mergeNotifSnap('all', snap), e => console.error('notif all_customers error', e)));
+  notifUnsubs.push(onSnapshot(qMine, snap => mergeNotifSnap('mine', snap), e => console.error('notif customer error', e)));
 }
 
 function mergeNotifSnap(bucket, snap) {
@@ -3061,23 +2550,9 @@ window.openNotifSheet = () => {
 };
 window.closeNotifSheet = () => document.getElementById('notifSheet').classList.remove('open');
 
-/* ═══════════ نقطة البداية ═══════════ */
+
 window.addEventListener('DOMContentLoaded', () => {
   const savedId = localStorage.getItem(CUSTOMER_STORAGE_KEY);
-  const savedStoreId = localStorage.getItem(STORE_ID_KEY);
-
-  // وضع المتجر حصري: لو مسجّل دخول كمتجر، ما منعرض شاشات التسوق العادية إطلاقاً
-  if (savedStoreId) {
-    storeId = savedStoreId;
-    storeName = localStorage.getItem(STORE_NAME_KEY) || '';
-    storeEmpName = localStorage.getItem(STORE_EMP_NAME_KEY) || '';
-    storeEmpPhone = localStorage.getItem(STORE_EMP_PHONE_KEY) || '';
-    document.getElementById('welcomeScreen').classList.add('hidden');
-    document.getElementById('appShell').classList.remove('hidden');
-    enterStoreMode();
-    return;
-  }
-
   if (savedId) {
     customerId = savedId;
     customerName = localStorage.getItem(CUSTOMER_NAME_KEY) || '';

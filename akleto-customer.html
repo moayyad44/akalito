@@ -818,9 +818,9 @@ if ("serviceWorker" in navigator) {
 
       <div class="section-title" style="padding:22px 0 8px;font-size:15px;">منطقة الخطر</div>
       <div style="background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:16px;">
-        <div style="font-size:13px;color:var(--text30);margin-bottom:10px;">لحذف حسابك نهائياً، تواصل معنا مباشرة وبنساعدك:</div>
-        <a href="tel:0797584124" style="display:block;text-decoration:none;color:var(--primary);font-weight:700;font-size:14px;margin-bottom:6px;">📞 0797584124</a>
-        <a href="mailto:moaiad.app92@gmail.com" style="display:block;text-decoration:none;color:var(--primary);font-weight:700;font-size:14px;">✉️ moaiad.app92@gmail.com</a>
+        <div style="font-size:13px;color:var(--text30);margin-bottom:12px;">حذف حسابك نهائي — رح يتم حذف اسمك وعناوينك المحفوظة، وما رح تقدر تسترجعهم.</div>
+        <button class="btn-outline" style="border-color:#D9534F;color:#D9534F;" onclick="deleteMyAccount()">🗑️ حذف حسابي نهائياً</button>
+        <div class="error-text" id="set-delete-error"></div>
       </div>
 
       <div style="text-align:center;color:var(--text30);font-size:12px;margin-top:22px;">أكليتو — الإصدار 1.0</div>
@@ -1078,6 +1078,27 @@ window.closeCustomerMenu = () => {
 window.menuSwitch = (name) => {
   closeCustomerMenu();
   switchScreen(name);
+};
+
+window.deleteMyAccount = async () => {
+  const errBox = document.getElementById('set-delete-error');
+  errBox.textContent = '';
+  if (!confirm('تأكيد نهائي: رح يتم حذف حسابك وكل بياناتك (الاسم، العناوين المحفوظة...) بشكل نهائي ولا يمكن التراجع عنه. متأكد إنك بدك تكمل؟')) return;
+  try {
+    showToast('جاري حذف الحساب...');
+    try {
+      const addrSnap = await getDocs(collection(db, 'customers', customerId, 'addresses'));
+      await Promise.all(addrSnap.docs.map(d => deleteDoc(d.ref).catch(() => {})));
+    } catch(e) { /* best effort */ }
+    await withTimeout(deleteDoc(doc(db, 'customers', customerId)), 15000, 'انتهت مهلة الحذف — تأكد من الإنترنت');
+    localStorage.removeItem(CUSTOMER_STORAGE_KEY);
+    localStorage.removeItem(CUSTOMER_NAME_KEY);
+    localStorage.removeItem(CUSTOMER_PHONE_KEY);
+    window.location.reload();
+  } catch(e) {
+    console.error('delete account error', e);
+    errBox.textContent = e.message || 'صار خطأ بالحذف — جرب مرة ثانية';
+  }
 };
 
 /* ═══════════ عناويني (عناوين متعددة + خريطة) ═══════════ */

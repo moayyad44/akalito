@@ -566,9 +566,12 @@ if ("serviceWorker" in navigator) {
   <!-- ═══ شاشة المتجر ═══ -->
   <div id="storeScreen" class="hidden">
     <div class="topbar">
-      <div>
-        <div class="greeting">🏪 <b id="store-greeting-name"></b></div>
-        <div style="color:var(--text30);font-size:12px;" id="store-employee-name"></div>
+      <div style="display:flex;align-items:center;gap:10px;">
+        <button class="icon-btn" onclick="toggleStoreMenu()" title="القائمة">☰</button>
+        <div>
+          <div class="greeting">🏪 <b id="store-greeting-name"></b></div>
+          <div style="color:var(--text30);font-size:12px;" id="store-employee-name"></div>
+        </div>
       </div>
       <div class="bell-wrap">
         <button class="icon-btn" onclick="openNotifSheet()" title="الإشعارات">🔔</button>
@@ -664,6 +667,26 @@ if ("serviceWorker" in navigator) {
         <div id="notifList"></div>
       </div>
     </div>
+  </div>
+
+  <!-- ═══ القائمة الجانبية (المتجر) ═══ -->
+  <div class="cs-overlay" id="csOverlayStore" onclick="closeStoreMenu()"></div>
+  <div class="cs-drawer" id="csDrawerStore">
+    <div class="cs-drawer-header">
+      <button class="cs-drawer-close" onclick="closeStoreMenu()">✕</button>
+      <div class="cs-drawer-avatar" id="csd-store-avatar">🏪</div>
+      <div class="cs-drawer-name" id="csd-store-name"></div>
+      <div class="cs-drawer-phone" id="csd-store-phone"></div>
+    </div>
+    <div class="cs-nav-section-label">التنقّل</div>
+    <div class="cs-nav-item" onclick="menuStoreGoHome()"><span class="ic-box">🏪</span><span>الرئيسية</span><span class="chev">‹</span></div>
+    <div class="cs-nav-item" onclick="menuStoreGoOrders()"><span class="ic-box">📦</span><span>طلبات المتجر</span><span class="chev">‹</span></div>
+    <div class="cs-nav-item" onclick="menuStoreGoProducts()"><span class="ic-box">🧺</span><span>منتجاتي</span><span class="chev">‹</span></div>
+    <div class="cs-nav-section-label">الحساب</div>
+    <div class="cs-nav-item" onclick="closeStoreMenu(); openNotifSheet();"><span class="ic-box">🔔</span><span>الإشعارات</span><span class="chev">‹</span></div>
+    <div class="cs-nav-item" onclick="closeStoreMenu(); showToast('قريباً — تقارير المبيعات والأرباح 📊');"><span class="ic-box">📊</span><span>بوابة المتجر</span><span class="chev">‹</span></div>
+    <div class="cs-nav-item danger" onclick="logoutStore()"><span class="ic-box">⏻</span><span>خروج من حساب المتجر</span></div>
+    <div class="cs-drawer-footer">أكليتو 🍽️ — المتجر</div>
   </div>
 
 </div>
@@ -786,6 +809,29 @@ window.loginAsStore = async () => {
     btn.textContent = 'دخول 🏪';
   }
 };
+
+window.toggleStoreMenu = () => {
+  document.getElementById('csd-store-avatar').textContent = '🏪';
+  document.getElementById('csd-store-name').textContent = storeName || 'متجر';
+  document.getElementById('csd-store-phone').textContent = storeEmpName || '';
+  document.getElementById('csOverlayStore').classList.add('open');
+  document.getElementById('csDrawerStore').classList.add('open');
+};
+
+window.closeStoreMenu = () => {
+  document.getElementById('csOverlayStore').classList.remove('open');
+  document.getElementById('csDrawerStore').classList.remove('open');
+};
+
+window.goStoreHome = () => {
+  document.getElementById('storeProductsScreen').classList.add('hidden');
+  document.getElementById('storeOrdersScreen').classList.add('hidden');
+  document.getElementById('storeScreen').classList.remove('hidden');
+};
+
+window.menuStoreGoHome = () => { closeStoreMenu(); goStoreHome(); };
+window.menuStoreGoOrders = () => { closeStoreMenu(); goStoreHome(); openStoreOrders(); };
+window.menuStoreGoProducts = () => { closeStoreMenu(); goStoreHome(); openStoreProducts(); };
 
 function enterStoreMode() {
   document.getElementById('store-greeting-name').textContent = storeName;

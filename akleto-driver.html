@@ -323,6 +323,8 @@ if ("serviceWorker" in navigator) {
     </div>
     <div style="padding: 0 18px;">
       <button class="btn-outline" onclick="logoutDriver()">تسجيل خروج 🚪</button>
+      <button class="btn-outline" style="border-color:#D9534F;color:#D9534F;margin-top:10px;" onclick="deleteDriverAccount()">🗑️ حذف حسابي نهائياً</button>
+      <div class="error-text" id="acc-delete-error"></div>
     </div>
   </div>
 
@@ -402,7 +404,7 @@ if ("serviceWorker" in navigator) {
 <script type="module">
 import {
   db, collection, getDocs, addDoc, doc, query, where, onSnapshot, serverTimestamp,
-  updateDoc, runTransaction, withTimeout
+  updateDoc, deleteDoc, runTransaction, withTimeout
 } from "./firebase-init.js";
 
 let notifItems = [];
@@ -494,6 +496,25 @@ window.logoutDriver = () => {
   localStorage.removeItem(DRIVER_NAME_KEY);
   localStorage.removeItem(DRIVER_PHONE_KEY);
   window.location.reload();
+};
+
+window.deleteDriverAccount = async () => {
+  const errBox = document.getElementById('acc-delete-error');
+  if (errBox) errBox.textContent = '';
+  if (!confirm('تأكيد نهائي: رح يتم حذف حسابك كسائق بشكل نهائي ولا يمكن التراجع عنه. متأكد إنك بدك تكمل؟')) return;
+  try {
+    showToast('جاري حذف الحساب...');
+    await withTimeout(deleteDoc(doc(db, 'drivers', driverId)), 15000, 'انتهت مهلة الحذف — تأكد من الإنترنت');
+    if (unsubAvailable) unsubAvailable();
+    if (unsubMine) unsubMine();
+    localStorage.removeItem(DRIVER_STORAGE_KEY);
+    localStorage.removeItem(DRIVER_NAME_KEY);
+    localStorage.removeItem(DRIVER_PHONE_KEY);
+    window.location.reload();
+  } catch(e) {
+    console.error('delete driver account error', e);
+    if (errBox) errBox.textContent = e.message || 'صار خطأ بالحذف — جرب مرة ثانية';
+  }
 };
 
 function enterApp() {

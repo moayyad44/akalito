@@ -722,7 +722,7 @@ if ("serviceWorker" in navigator) {
     <div class="cs-nav-section-label">الحساب</div>
     <div class="cs-nav-item" onclick="menuOpenAddresses()"><span class="ic-box">📍</span><span>عنواني</span><span class="chev">‹</span></div>
     <div class="cs-nav-item" onclick="menuOpenComingSoon('payment')"><span class="ic-box">💳</span><span>معلومات الدفع</span><span class="chev">‹</span></div>
-    <div class="cs-nav-item" onclick="menuOpenComingSoon('settings')"><span class="ic-box">⚙️</span><span>الإعدادات</span><span class="chev">‹</span></div>
+    <div class="cs-nav-item" onclick="menuOpenSettings()"><span class="ic-box">⚙️</span><span>الإعدادات</span><span class="chev">‹</span></div>
     <div class="cs-nav-item danger" onclick="logoutCustomer()"><span class="ic-box">⏻</span><span>تسجيل الخروج</span></div>
     <div class="cs-drawer-footer">
       أكليتو 🍽️<br>
@@ -790,6 +790,40 @@ if ("serviceWorker" in navigator) {
       <button class="btn-main" id="af-save-btn" onclick="saveAddressForm()">حفظ العنوان ✅</button>
       <button class="btn-outline hidden" id="af-delete-btn" style="margin-top:10px;" onclick="deleteAddressForm()">🗑️ حذف هذا العنوان</button>
       <div class="error-text" id="af-error"></div>
+    </div>
+  </div>
+
+  <!-- ═══ شاشة الإعدادات ═══ -->
+  <div id="settingsScreen" class="hidden">
+    <div class="store-sub-topbar">
+      <button class="store-back-btn" onclick="closeSettingsScreen()">←</button>
+      <div class="section-title" style="padding:0;">⚙️ الإعدادات</div>
+    </div>
+    <div style="padding: 6px 18px 24px;">
+      <div class="field-group">
+        <label>الاسم الظاهر</label>
+        <input type="text" id="set-name" placeholder="اسمك" />
+      </div>
+      <button class="btn-main" id="set-save-name-btn" onclick="saveSettingsName()">حفظ الاسم ✅</button>
+      <div class="error-text" id="set-name-error"></div>
+
+      <div class="section-title" style="padding:22px 0 8px;font-size:15px;">الحساب</div>
+      <div class="cs-nav-item" style="border-radius:14px;border:1px solid var(--border);" onclick="closeSettingsScreen(); openNotifSheet();"><span class="ic-box">🔔</span><span>الإشعارات</span><span class="chev">‹</span></div>
+      <a href="akleto-terms.html" target="_blank" style="text-decoration:none;color:inherit;">
+        <div class="cs-nav-item" style="border-radius:14px;border:1px solid var(--border);margin-top:10px;"><span class="ic-box">📄</span><span>الشروط والأحكام</span><span class="chev">‹</span></div>
+      </a>
+      <a href="akleto-privacy.html" target="_blank" style="text-decoration:none;color:inherit;">
+        <div class="cs-nav-item" style="border-radius:14px;border:1px solid var(--border);margin-top:10px;"><span class="ic-box">🔒</span><span>سياسة الخصوصية</span><span class="chev">‹</span></div>
+      </a>
+
+      <div class="section-title" style="padding:22px 0 8px;font-size:15px;">منطقة الخطر</div>
+      <div style="background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:16px;">
+        <div style="font-size:13px;color:var(--text30);margin-bottom:10px;">لحذف حسابك نهائياً، تواصل معنا مباشرة وبنساعدك:</div>
+        <a href="tel:0797584124" style="display:block;text-decoration:none;color:var(--primary);font-weight:700;font-size:14px;margin-bottom:6px;">📞 0797584124</a>
+        <a href="mailto:moaiad.app92@gmail.com" style="display:block;text-decoration:none;color:var(--primary);font-weight:700;font-size:14px;">✉️ moaiad.app92@gmail.com</a>
+      </div>
+
+      <div style="text-align:center;color:var(--text30);font-size:12px;margin-top:22px;">أكليتو — الإصدار 1.0</div>
     </div>
   </div>
 
@@ -1109,6 +1143,56 @@ window.closeAddressesScreen = () => {
   document.getElementById('addressesScreen').classList.add('hidden');
   switchScreen('home');
   refreshHomeLocationWidget();
+};
+
+/* ═══════════ الإعدادات ═══════════ */
+window.menuOpenSettings = () => {
+  closeCustomerMenu();
+  openSettingsScreen();
+};
+
+window.openSettingsScreen = () => {
+  document.getElementById('homeScreen').classList.add('hidden');
+  document.getElementById('productsScreen').classList.add('hidden');
+  document.getElementById('cartScreen').classList.add('hidden');
+  document.getElementById('accountScreen').classList.add('hidden');
+  document.getElementById('bottomNav').classList.add('hidden');
+  document.getElementById('settingsScreen').classList.remove('hidden');
+  document.getElementById('set-name').value = customerName || '';
+  document.getElementById('set-name-error').textContent = '';
+  updateCartFab();
+};
+
+window.closeSettingsScreen = () => {
+  document.getElementById('settingsScreen').classList.add('hidden');
+  switchScreen('home');
+};
+
+window.saveSettingsName = async () => {
+  const errBox = document.getElementById('set-name-error');
+  errBox.textContent = '';
+  const newName = document.getElementById('set-name').value.trim();
+  if (!newName) { errBox.textContent = 'اكتب اسمك'; return; }
+  const btn = document.getElementById('set-save-name-btn');
+  btn.disabled = true;
+  const oldText = btn.textContent;
+  btn.textContent = 'جاري الحفظ...';
+  try {
+    await withTimeout(updateDoc(doc(db, 'customers', customerId), { name: newName }), 15000, 'انتهت مهلة الحفظ — تأكد من الإنترنت');
+    customerName = newName;
+    localStorage.setItem(CUSTOMER_NAME_KEY, newName);
+    document.getElementById('home-greeting-name').textContent = customerName;
+    document.getElementById('acc-name').textContent = customerName;
+    document.getElementById('cs-avatar').textContent = (customerName || '؟').trim().charAt(0);
+    document.getElementById('cs-name').textContent = customerName || 'زائر';
+    showToast('تم حفظ الاسم ✅');
+  } catch(e) {
+    console.error('save name error', e);
+    errBox.textContent = e.message || 'صار خطأ — جرب مرة ثانية';
+  } finally {
+    btn.disabled = false;
+    btn.textContent = oldText;
+  }
 };
 
 function renderAddressesList() {

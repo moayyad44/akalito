@@ -512,6 +512,32 @@
   }
   .addr-map-hint { font-size:11.5px; color: var(--text30); margin-top:8px; line-height:1.5; }
 
+  /* ═══ شاشة المنتجات: اختيار متجر قبل التصفح ═══ */
+  .store-pick-card {
+    background: var(--surface); border:1.5px solid var(--border); border-radius:16px;
+    padding:14px 16px; margin: 0 18px 12px; display:flex; align-items:center; gap:12px; cursor:pointer;
+  }
+  .store-pick-card:active { transform: scale(.98); }
+  .store-pick-icon {
+    width:44px; height:44px; border-radius:12px; background: rgba(162,62,72,.08);
+    display:flex; align-items:center; justify-content:center; font-size:20px; flex-shrink:0;
+  }
+  .store-pick-info { flex:1; min-width:0; }
+  .store-pick-name { font-weight:800; font-size:14.5px; margin-bottom:3px; }
+  .store-pick-meta { font-size:12px; color: var(--text30); }
+  .store-pick-chev { font-size:18px; color: var(--text30); flex-shrink:0; }
+  .products-store-bar {
+    display:flex; align-items:center; justify-content:space-between; gap:10px;
+    margin: 0 18px 14px; padding: 12px 14px; border-radius:14px;
+    background: rgba(162,62,72,.08); border:1px solid rgba(162,62,72,.2);
+  }
+  .products-store-bar-name { font-size:13.5px; font-weight:800; color: var(--primary); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .products-store-change-btn {
+    font-size:12px; font-weight:800; color: var(--primary); background:#fff;
+    border:1px solid rgba(162,62,72,.3); border-radius:20px; padding:6px 12px; flex-shrink:0;
+    font-family:'Cairo',sans-serif;
+  }
+
   .toast {
     position:fixed; bottom:90px; right:50%; transform:translateX(50%) translateY(20px);
     background: var(--text); color:#fff; padding: 12px 22px; border-radius: 30px;
@@ -628,11 +654,19 @@ if ("serviceWorker" in navigator) {
     <div class="topbar">
       <div class="section-title" style="padding:0;">🧺 المنتجات</div>
     </div>
-    <div class="home-search-box" style="margin:0 18px 16px;box-shadow:0 2px 10px rgba(0,0,0,.06);">
-      <span class="ic">🔍</span>
-      <input type="text" id="productsSearchInput" placeholder="دور على منتج... طحين، جبنة، لحمة" oninput="onProductsSearchInput(this.value)" />
+
+    <!-- وضع اختيار المتجر أولاً -->
+    <div id="productsStorePicker"></div>
+
+    <!-- وضع تصفح منتجات المتجر المختار -->
+    <div id="productsBrowseWrap" class="hidden">
+      <div class="products-store-bar" id="productsStoreBar"></div>
+      <div class="home-search-box" style="margin:0 18px 16px;box-shadow:0 2px 10px rgba(0,0,0,.06);">
+        <span class="ic">🔍</span>
+        <input type="text" id="productsSearchInput" placeholder="دور على منتج... طحين، جبنة، لحمة" oninput="onProductsSearchInput(this.value)" />
+      </div>
+      <div id="productsCategoriesWrap"></div>
     </div>
-    <div id="productsCategoriesWrap"></div>
   </div>
 
   <!-- ═══ شيت: ضيف مكوّن للشراء ═══ -->
@@ -992,6 +1026,10 @@ let isPlacingOrder = false;
 let customerCoords = null; // {lat, lng} — تُحفظ بعد أول نجاح بتحديد الموقع لتفادي تكرار الطلب
 let storesCacheCustomer = null; // كل المتاجر النشطة (تُحمّل عند الحاجة فقط)
 let availStoreIngredientsCache = null; // كل سجلات store_ingredients المتوفرة (is_available=true) بكل المتاجر
+
+let productsSelectedStore = null;   // {id, name} — المتجر المختار حالياً لتصفح شاشة المنتجات، null = لسا ما اختار
+let productsStorePriceMap = null;   // Map: ingredientId -> price_per_package الخاص بالمتجر المختار
+let productsStoresListCache = [];   // آخر قائمة متاجر عُرضت بشاشة اختيار المتجر (لربط الضغط بالـ index)
 
 const CUSTOMER_STORAGE_KEY = 'akleto_customer_id';
 const CUSTOMER_NAME_KEY = 'akleto_customer_name';
@@ -1572,39 +1610,137 @@ function updateCartFab() {
   }
 }
 
-/* ═══════════ شاشة المنتجات: تسوّق حر بالمكونات مجمّعة حسب الصنف ═══════════ */
+/* ═══════════ شاشة المنتجات: أول شي يختار الزبون متجر، بعدين يتصفح منتجات هداك المتجر بالذات ═══════════ */
 let productsSearchQuery = '';
 
 window.onProductsSearchInput = (val) => {
   productsSearchQuery = (val || '').trim();
-  renderProductsScreen();
+  renderProductsGrid();
 };
 
-function productTileHtml(i) {
+function productTileHtml(i, storePrice) {
+  const price = storePrice != null ? storePrice : (i.price_per_package || 0);
   const thumb = i.image_url ? `<img class="meal-tile-img" src="${i.image_url}" />` : `<div class="meal-tile-img">📦</div>`;
   const inCart = !!cartOverrides[i.id] || Object.keys(getFinalCartIngredients()).includes(i.id);
   return `
-    <div class="meal-tile" onclick="openProductSheet('${i.id}')">
+    <div class="meal-tile" onclick="openProductSheet('${i.id}', ${storePrice != null ? storePrice : 'null'})">
       ${inCart ? '<div class="meal-tile-badge">✓ بالسلة</div>' : ''}
       ${thumb}
       <div class="meal-tile-body">
         <div class="meal-tile-name">${i.name_ar || ''}</div>
         <div class="meal-tile-footer">
-          <div class="meal-tile-price">${(i.price_per_package || 0).toFixed(2)} <small>د.أ / ${i.package_label || ''}</small></div>
+          <div class="meal-tile-price">${price.toFixed(2)} <small>د.أ / ${i.package_label || ''}</small></div>
           <button class="meal-tile-add" onclick="event.stopPropagation();addIngredientToCart('${i.id}')">${inCart ? '✓' : '+'}</button>
         </div>
       </div>
     </div>`;
 }
 
+/* يحسب مسافة كل متجر نشط من الزبون (لو في إحداثيات متوفرة) ويرتبهم الأقرب أولاً */
+async function loadActiveStoresForPicker() {
+  const snap = await getDocs(collection(db, 'stores'));
+  const stores = snap.docs.map(d => ({ id: d.id, ...d.data() })).filter(s => s.is_active !== false);
+  const coords = await getRoutingCoords();
+  stores.forEach(s => {
+    s._dist = (coords && s.lat != null && s.lng != null) ? haversineKm(coords.lat, coords.lng, s.lat, s.lng) : Infinity;
+  });
+  stores.sort((a, b) => (a._dist - b._dist) || (a.name || '').localeCompare(b.name || '', 'ar'));
+  return stores;
+}
+
+/* يجيب كل المكونات المتوفرة فعلياً بمتجر معيّن + سعر كل وحدة عندهم تحديداً */
+async function loadStoreProductsMap(storeId) {
+  const snap = await getDocs(query(
+    collection(db, 'store_ingredients'),
+    where('store_id', '==', storeId),
+    where('is_available', '==', true)
+  ));
+  const map = new Map();
+  snap.docs.forEach(d => {
+    const data = d.data();
+    map.set(data.ingredient_id, data.price_per_package);
+  });
+  return map;
+}
+
+function storePickMeta(s) {
+  const parts = [];
+  if (s.address) parts.push(s.address);
+  if (s._dist != null && s._dist !== Infinity) parts.push(s._dist.toFixed(1) + ' كم');
+  return parts.join(' · ') || 'متجر شريك';
+}
+
+async function renderProductsStorePicker() {
+  const box = document.getElementById('productsStorePicker');
+  box.innerHTML = `<div class="empty-state-c"><div class="emoji">⏳</div>جاري تحميل المتاجر...</div>`;
+  productsStoresListCache = await loadActiveStoresForPicker();
+  if (!productsStoresListCache.length) {
+    box.innerHTML = `<div class="empty-state-c"><div class="emoji">🏪</div>ما في متاجر شريكة متوفرة حالياً</div>`;
+    return;
+  }
+  box.innerHTML = `
+    <div class="section-title" style="padding:6px 18px 14px;">🏪 اختر متجر تتسوّق منه</div>
+    ${productsStoresListCache.map((s, idx) => `
+      <div class="store-pick-card" onclick="selectProductsStoreByIndex(${idx})">
+        <div class="store-pick-icon">🏪</div>
+        <div class="store-pick-info">
+          <div class="store-pick-name">${s.name || 'متجر'}</div>
+          <div class="store-pick-meta">${storePickMeta(s)}</div>
+        </div>
+        <div class="store-pick-chev">‹</div>
+      </div>
+    `).join('')}
+  `;
+}
+
+window.selectProductsStoreByIndex = async (idx) => {
+  const s = productsStoresListCache[idx];
+  if (!s) return;
+  productsSelectedStore = { id: s.id, name: s.name || 'متجر' };
+  productsSearchQuery = '';
+  document.getElementById('productsStorePicker').innerHTML = `<div class="empty-state-c"><div class="emoji">⏳</div>جاري تحميل منتجات ${productsSelectedStore.name}...</div>`;
+  try {
+    productsStorePriceMap = await loadStoreProductsMap(s.id);
+  } catch (e) {
+    console.error('loadStoreProductsMap error', e);
+    productsStorePriceMap = new Map();
+  }
+  renderProductsScreen();
+};
+
+window.changeProductsStore = () => {
+  productsSelectedStore = null;
+  productsStorePriceMap = null;
+  renderProductsScreen();
+};
+
 function renderProductsScreen() {
+  const picker = document.getElementById('productsStorePicker');
+  const browse = document.getElementById('productsBrowseWrap');
+  if (!productsSelectedStore) {
+    browse.classList.add('hidden');
+    picker.classList.remove('hidden');
+    renderProductsStorePicker();
+    return;
+  }
+  picker.classList.add('hidden');
+  browse.classList.remove('hidden');
+  document.getElementById('productsStoreBar').innerHTML = `
+    <div class="products-store-bar-name">🏪 ${productsSelectedStore.name}</div>
+    <button class="products-store-change-btn" onclick="changeProductsStore()">🔄 تغيير المتجر</button>
+  `;
+  renderProductsGrid();
+}
+
+function renderProductsGrid() {
   const wrap = document.getElementById('productsCategoriesWrap');
-  if (!ingredientsCache.length) {
-    wrap.innerHTML = `<div class="empty-state-c"><div class="emoji">🧺</div>ما في منتجات متوفرة حالياً</div>`;
+  const map = productsStorePriceMap || new Map();
+  if (!map.size) {
+    wrap.innerHTML = `<div class="empty-state-c"><div class="emoji">🧺</div>ما في منتجات متوفرة بهاد المتجر حالياً</div>`;
     return;
   }
   const q = productsSearchQuery;
-  const filtered = ingredientsCache.filter(i => (i.is_active !== false) && (!q || (i.name_ar || '').includes(q)));
+  const filtered = ingredientsCache.filter(i => map.has(i.id) && (i.is_active !== false) && (!q || (i.name_ar || '').includes(q)));
   if (!filtered.length) {
     wrap.innerHTML = `<div class="empty-state-c"><div class="emoji">🔍</div>ما لقينا منتجات مطابقة، جرب كلمة ثانية</div>`;
     return;
@@ -1619,7 +1755,7 @@ function renderProductsScreen() {
   wrap.innerHTML = catNames.map(cat => `
     <div class="section-title" style="padding:6px 18px 10px;">🏷️ ${cat}</div>
     <div class="meals-scroll-grid">
-      ${groups[cat].map(i => productTileHtml(i)).join('')}
+      ${groups[cat].map(i => productTileHtml(i, map.get(i.id))).join('')}
     </div>
   `).join('');
 }
@@ -1672,7 +1808,7 @@ window.closeMealSheet = () => {
 };
 
 /* ═══════════ شاشة المنتج (تفاصيل مكوّن) ═══════════ */
-window.openProductSheet = (ingredientId) => {
+window.openProductSheet = (ingredientId, storePrice) => {
   const ing = ingredientsCache.find(i => i.id === ingredientId);
   if (!ing) return;
 
@@ -1683,12 +1819,13 @@ window.openProductSheet = (ingredientId) => {
   document.getElementById('product-title').textContent = ing.name_ar || '';
   document.getElementById('product-category').textContent = ing.category ? `🏷️ ${ing.category}` : '';
 
+  const priceToShow = (storePrice != null) ? storePrice : (ing.price_per_package || 0);
   const mt = MEASURE_TYPES[ing.measure_type];
   const baseLabel = mt ? mt.baseUnitLabel : '';
   document.getElementById('product-info-rows').innerHTML = `
     <div class="ing-preview-item">
-      <span>سعر العبوة</span>
-      <span class="amt" style="color:var(--primary);font-weight:800;font-size:14px;">${(ing.price_per_package || 0).toFixed(2)} د.أ</span>
+      <span>سعر العبوة${productsSelectedStore ? ' — ' + productsSelectedStore.name : ''}</span>
+      <span class="amt" style="color:var(--primary);font-weight:800;font-size:14px;">${priceToShow.toFixed(2)} د.أ</span>
     </div>
     <div class="ing-preview-item">
       <span>حجم العبوة</span>

@@ -1711,7 +1711,12 @@ window.selectProductsStoreByIndex = async (idx) => {
   renderProductsScreen();
 };
 
-/* ما في زر تغيير متجر يدوي — المتجر بيتصفّر تلقائياً بس لما السلة تصير فاضية بالكامل (شوف updateCartBadge) */
+/* تصفّح متجر ثاني بس — ما بيأثر على السلة الحالية أبداً؛ التحقق والتعارض بيصير فقط لما يحاول يضيف منتج فعلياً */
+window.changeProductsStore = () => {
+  productsSelectedStore = null;
+  productsStorePriceMap = null;
+  renderProductsScreen();
+};
 
 function renderProductsScreen() {
   const picker = document.getElementById('productsStorePicker');
@@ -1725,7 +1730,8 @@ function renderProductsScreen() {
   picker.classList.add('hidden');
   browse.classList.remove('hidden');
   document.getElementById('productsStoreBar').innerHTML = `
-    <div class="products-store-bar-name">🏪 بتشتري من: ${productsSelectedStore.name}</div>
+    <div class="products-store-bar-name">🏪 ${productsSelectedStore.name}</div>
+    <button class="products-store-change-btn" onclick="changeProductsStore()">🔄 تصفّح متجر ثاني</button>
   `;
   renderProductsGrid();
 }
@@ -1899,8 +1905,17 @@ window.confirmAddMealToCart = async () => {
         const map = await loadStoreProductsMap(cartLockedStore.id);
         const missing = neededIds.filter(id => !map.has(id));
         if (missing.length) {
-          showToast(`هاي الوجبة مو متوفرة كاملة عند متجر "${cartLockedStore.name}" — سلتك مرتبطة فيه حالياً، فضّيها لو بدك تجرب متجر ثاني`);
-          return;
+          const routing = await findBestStoreForIngredients(neededIds);
+          if (!routing.store) {
+            showToast('⚠️ ولا متجر عنده كل مكونات هاي الوجبة متوفرة حالياً');
+            return;
+          }
+          const ok = confirm(`سلتك الحالية فيها منتجات من متجر "${cartLockedStore.name}"، وهاي الوجبة متوفرة عند متجر "${routing.store.name}". بدك تفضّي السلة الحالية وتضيف الوجبة من هناك؟`);
+          if (!ok) return;
+          selectedMeals = [];
+          cartOverrides = {};
+          cartLockedStore = { id: routing.store.id, name: routing.store.name, lat: routing.store.lat, lng: routing.store.lng };
+          lockedStorePriceMap = new Map(Object.entries(routing.priceMap || {}));
         }
       } else {
         const routing = await findBestStoreForIngredients(neededIds);
@@ -1948,11 +1963,6 @@ function updateCartBadge() {
   if (!selectedMeals.length && !Object.keys(getFinalCartIngredients()).length) {
     cartLockedStore = null;
     lockedStorePriceMap = null;
-    if (productsSelectedStore) {
-      productsSelectedStore = null;
-      productsStorePriceMap = null;
-      if (!document.getElementById('productsScreen').classList.contains('hidden')) renderProductsScreen();
-    }
   }
   const badge = document.getElementById('cartBadge');
   const count = selectedMeals.length || Object.keys(getFinalCartIngredients()).length;
@@ -2096,7 +2106,18 @@ window.addIngredientToCart = (id) => {
     return;
   }
   if (cartLockedStore && cartLockedStore.id !== productsSelectedStore.id) {
-    showToast(`سلتك الحالية مرتبطة بمتجر "${cartLockedStore.name}" — فضّي السلة الأول لو بدك تشتري من متجر مختلف`);
+    const ok = confirm(`سلتك الحالية فيها منتجات من متجر "${cartLockedStore.name}". لازم نفضّي السلة عشان تضيف من متجر "${productsSelectedStore.name}". بدك تفضّي السلة وتضيف هاد المنتج؟`);
+    if (!ok) return;
+    selectedMeals = [];
+    cartOverrides = {};
+    cartLockedStore = { id: productsSelectedStore.id, name: productsSelectedStore.name, lat: productsSelectedStore.lat, lng: productsSelectedStore.lng };
+    lockedStorePriceMap = productsStorePriceMap || new Map();
+    cartOverrides[id] = 1;
+    closeIngredientPicker();
+    renderCartScreen();
+    updateCartBadge();
+    if (!document.getElementById('productsScreen').classList.contains('hidden')) renderProductsScreen();
+    showToast('تم تفريغ السلة وإضافة المنتج الجديد ✅');
     return;
   }
   if (!cartLockedStore) {

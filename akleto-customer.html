@@ -526,17 +526,7 @@
   .store-pick-name { font-weight:800; font-size:14.5px; margin-bottom:3px; }
   .store-pick-meta { font-size:12px; color: var(--text30); }
   .store-pick-chev { font-size:18px; color: var(--text30); flex-shrink:0; }
-  .products-store-bar {
-    display:flex; align-items:center; justify-content:space-between; gap:10px;
-    margin: 0 18px 14px; padding: 12px 14px; border-radius:14px;
-    background: rgba(162,62,72,.08); border:1px solid rgba(162,62,72,.2);
-  }
-  .products-store-bar-name { font-size:13.5px; font-weight:800; color: var(--primary); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-  .products-store-change-btn {
-    font-size:12px; font-weight:800; color: var(--primary); background:#fff;
-    border:1px solid rgba(162,62,72,.3); border-radius:20px; padding:6px 12px; flex-shrink:0;
-    font-family:'Cairo',sans-serif;
-  }
+  .products-store-bar-name { font-size:15px; font-weight:800; color: var(--text); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 
   .toast {
     position:fixed; bottom: calc(76px + env(safe-area-inset-bottom) + 70px); right:50%; transform:translateX(50%) translateY(20px);
@@ -1730,8 +1720,10 @@ function renderProductsScreen() {
   picker.classList.add('hidden');
   browse.classList.remove('hidden');
   document.getElementById('productsStoreBar').innerHTML = `
-    <div class="products-store-bar-name">🏪 ${productsSelectedStore.name}</div>
-    <button class="products-store-change-btn" onclick="changeProductsStore()">🔄 تصفّح متجر ثاني</button>
+    <div class="store-sub-topbar" style="padding-top:0;">
+      <button class="store-back-btn" onclick="changeProductsStore()" aria-label="رجوع لاختيار متجر">←</button>
+      <div class="products-store-bar-name">🏪 ${productsSelectedStore.name}</div>
+    </div>
   `;
   renderProductsGrid();
 }

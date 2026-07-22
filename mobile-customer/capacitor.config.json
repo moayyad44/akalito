@@ -1,0 +1,13 @@
+{
+  "appId": "com.akalito.customer",
+  "appName": "أكليتو",
+  "webDir": "www",
+  "server": {
+    "url": "https://moayyad44.github.io/akalito/akleto-customer.html",
+    "androidScheme": "https",
+    "cleartext": false
+  },
+  "android": {
+    "allowMixedContent": false
+  }
+}

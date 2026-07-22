@@ -1,0 +1,18 @@
+{
+  "name": "akalito-customer-app",
+  "version": "1.0.0",
+  "private": true,
+  "description": "غلاف Android لتطبيق زبائن أكليتو عبر Capacitor",
+  "scripts": {
+    "sync": "npx cap sync android",
+    "open": "npx cap open android"
+  },
+  "dependencies": {
+    "@capacitor/android": "^8.4.2",
+    "@capacitor/core": "^8.4.2"
+  },
+  "devDependencies": {
+    "@capacitor/assets": "^3.0.5",
+    "@capacitor/cli": "^8.4.2"
+  }
+}

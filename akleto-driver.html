@@ -779,7 +779,7 @@ window.openOrderSheet = (orderId, mode) => {
   const mapLinkWrap = document.getElementById('sheet-map-link-wrap');
   if (mapLinkWrap) {
     if (o.delivery_lat != null && o.delivery_lng != null) {
-      mapLinkWrap.innerHTML = `<a href="https://www.openstreetmap.org/?mlat=${o.delivery_lat}&mlon=${o.delivery_lng}#map=17/${o.delivery_lat}/${o.delivery_lng}" target="_blank" class="map-link-btn">🗺️ فتح الموقع على الخريطة</a>`;
+      mapLinkWrap.innerHTML = `<a href="https://www.google.com/maps/search/?api=1&query=${o.delivery_lat},${o.delivery_lng}" target="_blank" class="map-link-btn">🗺️ فتح الموقع بخرائط جوجل</a>`;
     } else {
       mapLinkWrap.innerHTML = '';
     }

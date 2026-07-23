@@ -567,3 +567,28 @@
    - **⚠️ ناقص من هالميزة (خطوة تالية محددة، لسا ما اتعملت):** حفظ التوكن بـ Firestore هو نص واحد بس من "استقبال الإشعار" — **الإرسال الفعلي** (مثلاً إشعار تلقائي لما تتغيّر حالة الطلب لـ"جاهز" أو "بالطريق") بده يحتاج **Cloud Function** خلفية تراقب تغييرات مستند الطلب وترسل عبر Firebase Cloud Messaging للتوكن المحفوظ. هذا يتطلب تفعيل خطة Firebase "Blaze" (استخدام مجاني كافي لحجم المشروع الحالي عادة). لم يتم البدء بهذا الجزء بعد — مقرر لجلسة قادمة.
    - **⚠️ متطلب يدوي من مؤيد قبل أول بناء ناجح لإشعارات فعّالة:** لازم يروح لـ Firebase Console → مشروع `akleto-prod` → Project settings → يضيف تطبيق أندرويد باسم الحزمة **`com.akalito.customer`** بالضبط → يحمّل `google-services.json` → يحطه بمسار `mobile-customer/android/app/google-services.json` (هذا الملف حساس/سري نسبياً فما تم توليده أو رفعه من هون — لازم يوصل من جهاز مؤيد مباشرة). بدونه التطبيق لسا بيبنى ويشتغل عادي، بس بدون إشعارات.
    - **ملفات متأثرة:** `akleto-customer.html` (إضافة فقط، ما تم لمس أي منطق موجود)، `mobile-customer/android/app/src/main/AndroidManifest.xml`، `mobile-customer/android/build.gradle`، `mobile-customer/android/app/build.gradle`، `mobile-customer/android/app/capacitor.build.gradle`، `mobile-customer/android/capacitor.settings.gradle`، `mobile-customer/package.json` + `package-lock.json`، و`mobile-customer/README.md` (توثيق الخطوات اليدوية لمؤيد).
+
+40. 🆕🔴 **تحويل نظام الخرائط بالكامل من Leaflet/OpenStreetMap إلى Google Maps Platform:**
+
+   **السبب:** مؤيد قرر إنه الخرائط المستخدمة بالمشروع تكون Google Maps (مش OpenStreetMap المجاني) — قرار مرتبط كمان بخطة تحويل التطبيق لـ APK/AAB ورفعه على Google Play (تأكيد: التطبيق رح يبقى "الطريقة 1" — الـ APK يحمّل الصفحات لايف من GitHub Pages، مش نسخة offline مبنية داخل التطبيق؛ هذا متوافق تماماً مع مشروع Capacitor الموجود أصلاً بـ `mobile-customer/capacitor.config.json` اللي فيه `server.url` يشاور مباشرة على `https://moayyad44.github.io/akalito/akleto-customer.html`).
+
+   **مفتاح Google Maps API:** مؤيد جهّز مفتاح من Google Cloud Console (Maps JavaScript API + Places API + Geocoding API مفعّلين، Billing مفعّل). **⚠️ لازم يتأكد مؤيد إنه قيّده فعلياً بـ HTTP referrer على `moayyad44.github.io/*` من Google Cloud Console (Credentials → تعديل المفتاح → Application restrictions → Websites)** — المفتاح ظاهر الآن بكود المصدر بكل الملفات الثلاثة تحت (عادي لمفاتيح خرائط الويب، بس التقييد ضروري لمنع سرقة الاستخدام).
+
+   **`akleto-customer.html` — شاشة إضافة/تعديل العنوان (`addressFormScreen`):**
+   - أُزيلت مكتبة Leaflet بالكامل (`<link>`/`<script>` بالـ `<head>`).
+   - أُضيف `loadGoogleMapsApi()` — دالة تحميل كسول (lazy load) تحقن `<script src="https://maps.googleapis.com/maps/api/js?key=...&libraries=places">` بأول مرة تحتاج الخريطة بس (مو من أول ما تفتح الصفحة) وتخزن الـ Promise (`googleMapsLoadPromise`) لتفادي تكرار التحميل.
+   - `initAddrMap()` صارت `async` وتستخدم `google.maps.Map` + `google.maps.Marker` (draggable) بدل `L.map`/`L.marker`/`L.tileLayer` — نفس السلوك تماماً (دبوس قابل للسحب، ضغطة على الخريطة تنقل الدبوس، `pickedLat`/`pickedLng` تتحدث بنفس الطريقة).
+   - `locateMeOnMap()` و`destroyAddrMap()` وهاندلر الموقع التلقائي عند فتح "عنوان جديد" اتحدّثوا لتستخدم Google Maps API (`setCenter`/`setZoom`/`setPosition` بدل `setView`/`setLatLng`).
+   - **لا تغيير على بنية البيانات** (`lat`/`lng` بنفس الشكل بـ `customers/{id}/addresses/{addressId}`) ولا على أي منطق حساب مسافة/أقرب متجر — التغيير محصور بالعرض المرئي للخريطة نفسها فقط.
+
+   **`akleto-driver.html`:** رابط "🗺️ فتح الموقع على الخريطة" بشيت تفاصيل الطلب صار يفتح `https://www.google.com/maps/search/?api=1&query={lat},{lng}` بدل رابط OpenStreetMap (بدون حاجة لمفتاح API — رابط خرائط جوجل العادي يشتغل بدون مفتاح لفتح موقع بس).
+
+   **`akleto-admin-stores.html` — إضافة ميزة جديدة لم تكن موجودة سابقاً:** نموذج إضافة/تعديل متجر ما كان فيه أي خريطة أصلاً (بس حقلي رقم lat/lng + زر "استخدم موقعي الحالي"). أُضيفت خريطة Google Maps تفاعلية (`#sfMap`، 200px ارتفاع) تحت حقلي الإحداثيات:
+   - دبوس قابل للسحب + ضغط على الخريطة ينقل الدبوس ويحدّث حقلي `sf-lat`/`sf-lng` تلقائياً.
+   - الكتابة اليدوية بحقلي lat/lng (`oninput="syncStoreMapFromInputs()"`) تحرّك الدبوس بالخريطة كمان (اتجاه عكسي).
+   - "استخدم موقعي الحالي" صار يحرّك الدبوس بالخريطة بالإضافة لتعبئة الحقول.
+   - تُهيَّأ الخريطة على مركز عمّان (31.9539, 35.9106) بمتجر جديد، أو على إحداثيات المتجر الحالية بوضع التعديل، وتُدمَّر (`destroyStoreMap()`) عند إغلاق المودال.
+
+   **⚠️ نطاق لم يُلمس بهاي الجلسة:** شاشة "عناويني" (قائمة العناوين) نفسها ما فيها خريطة إطلاقاً أصلاً (بس بطاقات نصية) — الخريطة فقط بشاشة إضافة/تعديل عنوان واحد. ما تم أيضاً إضافة Places Autocomplete (بحث عن عنوان بالاسم) رغم تفعيل Places API — المفتاح جاهز لهاي الميزة لو طُلبت مستقبلاً.
+
+   **ملفات متأثرة:** `akleto-customer.html`، `akleto-driver.html`، `akleto-admin-stores.html`.

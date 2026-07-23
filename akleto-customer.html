@@ -13,8 +13,6 @@
 <meta name="apple-mobile-web-app-title" content="أكليتو">
 <meta name="mobile-web-app-capable" content="yes">
 <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;900&family=Tajawal:wght@400;500;700;800&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <style>
   :root {
     --primary:  #A23E48;
@@ -1184,6 +1182,22 @@ let mapPickerMarker = null;
 let editingAddressId = null;  // null = إضافة عنوان جديد
 let pickedLat = null, pickedLng = null;
 
+const GOOGLE_MAPS_API_KEY = 'AIzaSyD9MvJvwKWxnYtiNhFBPO9Z_4tv9qoSEMY';
+let googleMapsLoadPromise = null;
+function loadGoogleMapsApi() {
+  if (window.google && window.google.maps) return Promise.resolve();
+  if (googleMapsLoadPromise) return googleMapsLoadPromise;
+  googleMapsLoadPromise = new Promise((resolve, reject) => {
+    const script = document.createElement('script');
+    script.src = `https://maps.googleapis.com/maps/api/js?key=${GOOGLE_MAPS_API_KEY}&libraries=places`;
+    script.async = true;
+    script.onload = () => resolve();
+    script.onerror = () => { googleMapsLoadPromise = null; reject(new Error('فشل تحميل خرائط جوجل')); };
+    document.head.appendChild(script);
+  });
+  return googleMapsLoadPromise;
+}
+
 const ADDRESS_LABEL_PRESETS = ['المنزل', 'العمل', 'بيت الأهل', 'عنوان آخر'];
 function addressIconFor(label) {
   if (label === 'المنزل') return '🏠';
@@ -1341,25 +1355,34 @@ window.pickAfLabel = (l) => {
 };
 
 function destroyAddrMap() {
-  if (mapPickerInstance) { mapPickerInstance.remove(); mapPickerInstance = null; mapPickerMarker = null; }
+  if (mapPickerMarker) { mapPickerMarker.setMap(null); mapPickerMarker = null; }
+  mapPickerInstance = null;
 }
 
-function initAddrMap(lat, lng) {
+async function initAddrMap(lat, lng) {
   destroyAddrMap();
   pickedLat = lat; pickedLng = lng;
   const container = document.getElementById('addrMap');
-  mapPickerInstance = L.map(container, { attributionControl:false }).setView([lat, lng], 16);
-  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(mapPickerInstance);
-  mapPickerMarker = L.marker([lat, lng], { draggable: true }).addTo(mapPickerInstance);
-  mapPickerMarker.on('dragend', () => {
-    const pos = mapPickerMarker.getLatLng();
-    pickedLat = pos.lat; pickedLng = pos.lng;
+  try {
+    await loadGoogleMapsApi();
+  } catch (e) {
+    container.innerHTML = '<div style="padding:16px;text-align:center;color:var(--muted);font-size:13px;">ما قدرنا نحمّل الخريطة — تأكد من الإنترنت</div>';
+    return;
+  }
+  if (document.getElementById('addressFormScreen').classList.contains('hidden')) return; // الشاشة اتسكرت قبل ما يخلص التحميل
+  mapPickerInstance = new google.maps.Map(container, {
+    center: { lat, lng }, zoom: 16, disableDefaultUI: true, zoomControl: true, gestureHandling: 'greedy', clickableIcons: false
   });
-  mapPickerInstance.on('click', (e) => {
-    mapPickerMarker.setLatLng(e.latlng);
-    pickedLat = e.latlng.lat; pickedLng = e.latlng.lng;
+  mapPickerMarker = new google.maps.Marker({ position: { lat, lng }, map: mapPickerInstance, draggable: true });
+  mapPickerMarker.addListener('dragend', () => {
+    const pos = mapPickerMarker.getPosition();
+    pickedLat = pos.lat(); pickedLng = pos.lng();
   });
-  setTimeout(() => { if (mapPickerInstance) mapPickerInstance.invalidateSize(); }, 150);
+  mapPickerInstance.addListener('click', (e) => {
+    mapPickerMarker.setPosition(e.latLng);
+    pickedLat = e.latLng.lat(); pickedLng = e.latLng.lng();
+  });
+  setTimeout(() => { if (mapPickerInstance) google.maps.event.trigger(mapPickerInstance, 'resize'); }, 150);
 }
 
 window.locateMeOnMap = () => {
@@ -1368,8 +1391,10 @@ window.locateMeOnMap = () => {
     pos => {
       const { latitude, longitude } = pos.coords;
       if (mapPickerInstance && mapPickerMarker) {
-        mapPickerInstance.setView([latitude, longitude], 16);
-        mapPickerMarker.setLatLng([latitude, longitude]);
+        const latlng = { lat: latitude, lng: longitude };
+        mapPickerInstance.setCenter(latlng);
+        mapPickerInstance.setZoom(16);
+        mapPickerMarker.setPosition(latlng);
         pickedLat = latitude; pickedLng = longitude;
       }
     },
@@ -1403,9 +1428,11 @@ window.openAddressForm = async (addressId) => {
     if (!existing && navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
         pos => {
-          if (!mapPickerInstance) return;
-          mapPickerInstance.setView([pos.coords.latitude, pos.coords.longitude], 16);
-          mapPickerMarker.setLatLng([pos.coords.latitude, pos.coords.longitude]);
+          if (!mapPickerInstance || !mapPickerMarker) return;
+          const latlng = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+          mapPickerInstance.setCenter(latlng);
+          mapPickerInstance.setZoom(16);
+          mapPickerMarker.setPosition(latlng);
           pickedLat = pos.coords.latitude; pickedLng = pos.coords.longitude;
         },
         () => {} // فشل صامت — يضل عالمركز الافتراضي

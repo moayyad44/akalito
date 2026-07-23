@@ -28,6 +28,66 @@ let employeesCache = [];
 let isSavingStore = false;
 let currentEditingStoreId = null;
 
+const GOOGLE_MAPS_API_KEY = 'AIzaSyD9MvJvwKWxnYtiNhFBPO9Z_4tv9qoSEMY';
+let googleMapsLoadPromise = null;
+function loadGoogleMapsApi() {
+  if (window.google && window.google.maps) return Promise.resolve();
+  if (googleMapsLoadPromise) return googleMapsLoadPromise;
+  googleMapsLoadPromise = new Promise((resolve, reject) => {
+    const script = document.createElement('script');
+    script.src = `https://maps.googleapis.com/maps/api/js?key=${GOOGLE_MAPS_API_KEY}&libraries=places`;
+    script.async = true;
+    script.onload = () => resolve();
+    script.onerror = () => { googleMapsLoadPromise = null; reject(new Error('فشل تحميل خرائط جوجل')); };
+    document.head.appendChild(script);
+  });
+  return googleMapsLoadPromise;
+}
+
+let storeMapInstance = null;
+let storeMapMarker = null;
+
+function destroyStoreMap() {
+  if (storeMapMarker) { storeMapMarker.setMap(null); storeMapMarker = null; }
+  storeMapInstance = null;
+}
+
+async function initStoreMap(lat, lng) {
+  destroyStoreMap();
+  const container = document.getElementById('sfMap');
+  try {
+    await loadGoogleMapsApi();
+  } catch (e) {
+    container.innerHTML = '<div style="padding:16px;text-align:center;color:var(--cream30);font-size:13px;">ما قدرنا نحمّل الخريطة</div>';
+    return;
+  }
+  if (!document.getElementById('addStoreOverlay').classList.contains('open')) return; // المودال اتسكر قبل ما يخلص التحميل
+  storeMapInstance = new google.maps.Map(container, {
+    center: { lat, lng }, zoom: 14, disableDefaultUI: true, zoomControl: true, gestureHandling: 'greedy', clickableIcons: false
+  });
+  storeMapMarker = new google.maps.Marker({ position: { lat, lng }, map: storeMapInstance, draggable: true });
+  storeMapMarker.addListener('dragend', () => {
+    const pos = storeMapMarker.getPosition();
+    document.getElementById('sf-lat').value = pos.lat().toFixed(6);
+    document.getElementById('sf-lng').value = pos.lng().toFixed(6);
+  });
+  storeMapInstance.addListener('click', (e) => {
+    storeMapMarker.setPosition(e.latLng);
+    document.getElementById('sf-lat').value = e.latLng.lat().toFixed(6);
+    document.getElementById('sf-lng').value = e.latLng.lng().toFixed(6);
+  });
+  setTimeout(() => { if (storeMapInstance) google.maps.event.trigger(storeMapInstance, 'resize'); }, 150);
+}
+
+window.syncStoreMapFromInputs = () => {
+  const lat = parseFloat(document.getElementById('sf-lat').value);
+  const lng = parseFloat(document.getElementById('sf-lng').value);
+  if (isNaN(lat) || isNaN(lng) || !storeMapInstance || !storeMapMarker) return;
+  const latlng = { lat, lng };
+  storeMapInstance.setCenter(latlng);
+  storeMapMarker.setPosition(latlng);
+};
+
 function showToast(message, isError) {
   let toast = document.getElementById('akleto-toast');
   if (!toast) {
@@ -183,6 +243,7 @@ window.addEventListener('DOMContentLoaded', () => {
     saveBtn.textContent = 'حفظ المتجر ✓';
     document.getElementById('addStoreOverlay').classList.add('open');
     lockBodyScroll();
+    setTimeout(() => initStoreMap(31.9539, 35.9106), 60); // مركز عمّان كافتراضي
   };
 
   window.openEditStoreModal = (id) => {
@@ -205,11 +266,15 @@ window.addEventListener('DOMContentLoaded', () => {
     saveBtn.textContent = 'حفظ التعديلات ✓';
     document.getElementById('addStoreOverlay').classList.add('open');
     lockBodyScroll();
+    const lat = s.lat != null ? s.lat : 31.9539;
+    const lng = s.lng != null ? s.lng : 35.9106;
+    setTimeout(() => initStoreMap(lat, lng), 60);
   };
 
   window.closeAddStoreModal = () => {
     document.getElementById('addStoreOverlay').classList.remove('open');
     unlockBodyScroll();
+    destroyStoreMap();
   };
 
   window.useCurrentLocationForStore = () => {
@@ -225,6 +290,12 @@ window.addEventListener('DOMContentLoaded', () => {
       (pos) => {
         document.getElementById('sf-lat').value = pos.coords.latitude.toFixed(6);
         document.getElementById('sf-lng').value = pos.coords.longitude.toFixed(6);
+        if (storeMapInstance && storeMapMarker) {
+          const latlng = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+          storeMapInstance.setCenter(latlng);
+          storeMapInstance.setZoom(16);
+          storeMapMarker.setPosition(latlng);
+        }
         statusEl.textContent = '✅ تم تحديد الموقع';
         btn.disabled = false;
       },
@@ -434,11 +505,13 @@ if ("serviceWorker" in navigator) {
         <div class="form-group">
           <label>الإحداثيات (لحساب أقرب متجر للزبون)</label>
           <div style="display:flex;gap:8px;">
-            <input type="number" step="any" id="sf-lat" placeholder="خط العرض (lat)" style="flex:1;" />
-            <input type="number" step="any" id="sf-lng" placeholder="خط الطول (lng)" style="flex:1;" />
+            <input type="number" step="any" id="sf-lat" placeholder="خط العرض (lat)" style="flex:1;" oninput="syncStoreMapFromInputs()" />
+            <input type="number" step="any" id="sf-lng" placeholder="خط الطول (lng)" style="flex:1;" oninput="syncStoreMapFromInputs()" />
           </div>
           <button type="button" class="btn-secondary" style="margin-top:8px;width:100%;" onclick="useCurrentLocationForStore()" id="sf-locate-btn">📍 استخدم موقعي الحالي (وأنا واقف بالمتجر)</button>
           <div id="sf-locate-status" style="font-size:11.5px;color:var(--cream30);margin-top:4px;"></div>
+          <div id="sfMap" style="width:100%;height:200px;border-radius:8px;overflow:hidden;margin-top:8px;background:#1a1a1a;"></div>
+          <div class="field-hint" style="margin-top:4px;">تقدر كمان تضغط بالخريطة أو تسحب الدبوس لتحديد الموقع بدقة.</div>
         </div>
 
         <div class="field-hint" id="sf-pin-hint">🔑 رمز PIN من 4 أرقام رح يتولّد تلقائياً بعد الحفظ — هاد الرمز يستخدمه موظفي المتجر للدخول من تطبيق الزبون (زر "الدخول كتاجر"). ⚠️ الإحداثيات مهمة — بدونها ما رح يقدر النظام يحسب هل هذا أقرب متجر للزبون عند توزيع الطلبات.</div>

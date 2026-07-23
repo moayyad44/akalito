@@ -1183,6 +1183,11 @@ let editingAddressId = null;  // null = إضافة عنوان جديد
 let pickedLat = null, pickedLng = null;
 
 const GOOGLE_MAPS_API_KEY = 'AIzaSyD9MvJvwKWxnYtiNhFBPO9Z_4tv9qoSEMY';
+// تشخيص مؤقت: جوجل بتنادي هاي الدالة تلقائياً لو صار خطأ متعلق بالمفتاح/التقييد/الفوترة،
+// وبتعطينا سبب دقيق نعرضه مباشرة على الشاشة بدل ما نحتاج نفتح Console بالموبايل.
+window.gm_authFailure = function() {
+  alert('خطأ بمفتاح خرائط جوجل: تأكد من إعدادات التقييد (Referrer) أو تفعيل الفوترة أو الـ APIs بحساب Google Cloud. راجع مؤيد.');
+};
 let googleMapsLoadPromise = null;
 function loadGoogleMapsApi() {
   if (window.google && window.google.maps) return Promise.resolve();

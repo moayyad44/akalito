@@ -1091,6 +1091,50 @@ function enterApp() {
   document.getElementById('acc-phone').textContent = customerPhone;
   loadInitialData();
   startNotifListeners();
+  initPushNotifications();
+}
+
+/* ══════════════════════════════════════════════════════════
+   إشعارات الدفع (Push Notifications) — تعمل فقط داخل تطبيق
+   أندرويد (APK عبر Capacitor)، ولا تعمل ولا تُستدعى أبداً عند
+   فتح الموقع من متصفح عادي (PWA)، لأن window.Capacitor غير
+   موجود بهذه الحالة.
+   ══════════════════════════════════════════════════════════ */
+let pushInitDone = false;
+async function initPushNotifications() {
+  if (pushInitDone) return;
+  if (!customerId) return;
+  const Capacitor = window.Capacitor;
+  if (!Capacitor || !Capacitor.isNativePlatform || !Capacitor.isNativePlatform()) return; // مش جوا التطبيق، اطلع بهدوء
+  const Push = Capacitor.Plugins && Capacitor.Plugins.PushNotifications;
+  if (!Push) return;
+  pushInitDone = true;
+  try {
+    const perm = await Push.requestPermissions();
+    if (perm.receive !== 'granted') return;
+    await Push.register();
+
+    Push.addListener('registration', async (tokenResult) => {
+      try {
+        await updateDoc(doc(db, 'customers', customerId), {
+          fcm_token: tokenResult.value,
+          fcm_platform: 'android',
+          fcm_updated_at: serverTimestamp()
+        });
+      } catch (e) { console.error('تعذر حفظ توكن الإشعارات', e); }
+    });
+
+    Push.addListener('registrationError', (err) => {
+      console.error('فشل تسجيل إشعارات الدفع', err);
+    });
+
+    // لما يضغط الزبون على إشعار وصل، افتح تبويب الطلبات مباشرة
+    Push.addListener('pushNotificationActionPerformed', () => {
+      try { window.showOrdersTab ? window.showOrdersTab() : null; } catch (e) {}
+    });
+  } catch (e) {
+    console.error('خطأ بتهيئة إشعارات الدفع', e);
+  }
 }
 
 window.toggleCustomerMenu = () => {

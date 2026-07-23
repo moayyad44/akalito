@@ -9,7 +9,8 @@
   },
   "dependencies": {
     "@capacitor/android": "^8.4.2",
-    "@capacitor/core": "^8.4.2"
+    "@capacitor/core": "^8.4.2",
+    "@capacitor/push-notifications": "^8.1.2"
   },
   "devDependencies": {
     "@capacitor/assets": "^3.0.5",

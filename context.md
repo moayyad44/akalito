@@ -595,3 +595,21 @@
 
 41. 🆕 **تصحيح: خطأ حرف واحد بمفتاح Google Maps API كان يسبب `InvalidKeyMapError`:**
    المفتاح المكتوب أول مرة بالكود انتهى بـ `...qoSEMY` (E كبيرة)، بينما المفتاح الفعلي بـ Google Cloud Console ينتهي بـ `...qoSeMY` (e صغيرة) — API keys حساسة لحالة الأحرف (case-sensitive). تم تصحيحه بالملفين `akleto-customer.html` و`akleto-admin-stores.html`. **الدرس المستفاد:** عند نسخ/لصق مفتاح API من مصدر خارجي (خصوصاً عبر الموبايل)، قارنه حرف بحرف مع المصدر الأصلي قبل استخدامه بالكود — التشابه البصري بين بعض الأحرف (زي E/e) سهل يفوت.
+
+42. 🆕 **ملخص شامل لإعدادات Google Maps الحالية وحمايتها (للرجوع له عند أي مشكلة مستقبلية):**
+
+   **الإعدادات النهائية المستقرة:**
+   - المفتاح الصحيح ينتهي بـ `...qoSeMY` (e صغيرة بآخر حرف قبل MY — **ليس** E كبيرة، هاي الغلطة اللي صارت سابقاً).
+   - **Application restrictions:** Websites، مقيّد على `moayyad44.github.io/*` بس.
+   - **API restrictions:** Restrict key → Maps JavaScript API + Places API + Geocoding API فقط.
+   - **Billing:** مربوط بـ "My Billing Account"، حالته Active.
+   - **حماية إضافية:** Quota محدّد بـ **500 طلب/يوم** (Maps JavaScript API) من صفحة Quotas بمشروع akalito، لمنع أي استخدام غير طبيعي بدون ما يوقف الاستخدام الطبيعي.
+   - **Budget Alert:** ميزانية تنبيه بقيمة **$2/شهر** بحساب الفوترة — بترسل إيميل تنبيه فقط (ما توقف الخدمة تلقائياً؛ الحماية الفعلية للتوقف هي الـ Quota أعلاه).
+
+   **🔧 دليل تشخيص سريع لو رجعت مشكلة "الخريطة ما تظهر" مستقبلاً:**
+   1. افتح Developer Console بالمتصفح (F12 → Console) وشوف السطر الأحمر يلي ينتهي بـ `...MapError` — هذا بيحدد السبب مباشرة (أو لو عالموبايل، الكود مبرمج يعرض alert تلقائي بنفس الرسالة بفضل `window.gm_authFailure`).
+   2. `InvalidKeyMapError` → قارن المفتاح بالكود مع المفتاح الفعلي بـ Google Cloud Console حرف بحرف (احتمال تغيّر المفتاح أو انعمل Regenerate بالغلط).
+   3. `RefererNotAllowedMapError` → تأكد الصيغة المكتوبة بـ Website restrictions هي بالضبط `moayyad44.github.io/*` (بدون https://، بدون www، بدون مسافات).
+   4. `ApiNotActivatedMapError` → تأكد الثلاث APIs (Maps JavaScript, Places, Geocoding) مفعّلة من APIs & Services → Library.
+   5. `BillingNotEnabledMapError` أو رفض عام رغم الإعدادات صحيحة → تأكد حساب الفوترة "Active" وليس بوضع "Free Trial" غير مفعّل بالكامل (زر "Activate full account").
+   6. لو تجاوزت الـ 500 طلب/يوم بالخطأ (مثلاً اختبار مكثف)، الخريطة بتتوقف مؤقتاً لحد اليوم التالي — ارفع الـ Quota مؤقتاً من نفس صفحة Quotas لو محتاج.

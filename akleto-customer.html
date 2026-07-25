@@ -1392,6 +1392,7 @@ async function initAddrMap(lat, lng) {
 
 window.locateMeOnMap = () => {
   if (!navigator.geolocation) { showToast('المتصفح ما بيدعم تحديد الموقع'); return; }
+  showToast('⏳ عم نحدد موقعك بدقة، ثانية...');
   navigator.geolocation.getCurrentPosition(
     pos => {
       const { latitude, longitude } = pos.coords;
@@ -1403,7 +1404,8 @@ window.locateMeOnMap = () => {
         pickedLat = latitude; pickedLng = longitude;
       }
     },
-    () => showToast('ما قدرنا نحدد موقعك — تأكد من صلاحية الموقع بالمتصفح')
+    () => showToast('ما قدرنا نحدد موقعك — تأكد من صلاحية الموقع بالمتصفح'),
+    { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
   );
 };
 
@@ -1440,7 +1442,8 @@ window.openAddressForm = async (addressId) => {
           mapPickerMarker.setPosition(latlng);
           pickedLat = pos.coords.latitude; pickedLng = pos.coords.longitude;
         },
-        () => {} // فشل صامت — يضل عالمركز الافتراضي
+        () => {}, // فشل صامت — يضل عالمركز الافتراضي
+        { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
       );
     }
   }, 60);

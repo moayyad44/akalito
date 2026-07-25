@@ -1073,7 +1073,7 @@ window.startCustomerSession = async () => {
     enterApp();
   } catch(e) {
     console.error('signup error', e);
-    errBox.textContent = 'صار خطأ — جرب مرة ثانية';
+    errBox.textContent = 'صار خطأ (تشخيص مؤقت): ' + (e.code || '') + ' — ' + (e.message || e);
     errBox.style.display = 'block';
   } finally {
     btn.disabled = false;

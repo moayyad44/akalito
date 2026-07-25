@@ -67,6 +67,16 @@
     background: transparent; color: var(--primary); font-weight: 700; font-size: 14px;
   }
   .error-text { color: var(--primary); font-size: 12.5px; margin-top: 10px; display:none; }
+  .auth-tabs {
+    display: flex; background: var(--surface); border: 1.5px solid var(--border);
+    border-radius: 12px; padding: 4px; margin-bottom: 20px; gap: 4px;
+  }
+  .auth-tab {
+    flex: 1; padding: 10px 8px; border: none; background: transparent; border-radius: 9px;
+    font-family: inherit; font-size: 14px; font-weight: 700; color: var(--text30);
+    transition: all .15s;
+  }
+  .auth-tab.active { background: var(--primary); color: #fff; }
 
   /* ═══ الهيدر العلوي ═══ */
   .topbar {
@@ -557,7 +567,12 @@ if ("serviceWorker" in navigator) {
   <h1>أكليتو</h1>
   <p>اختار وجباتك، ونجهزلك مكوناتها بالكمية الصح</p>
 
-  <div class="field-group">
+  <div class="auth-tabs">
+    <button class="auth-tab active" id="tab-signup" onclick="switchAuthMode('signup')">حساب جديد</button>
+    <button class="auth-tab" id="tab-signin" onclick="switchAuthMode('signin')">تسجيل الدخول</button>
+  </div>
+
+  <div class="field-group" id="w-name-group">
     <label>الاسم</label>
     <input type="text" id="w-name" placeholder="مثال: سارة أحمد" />
   </div>
@@ -566,7 +581,7 @@ if ("serviceWorker" in navigator) {
     <input type="tel" id="w-phone" placeholder="07XXXXXXXX" />
   </div>
 
-  <button class="btn-main" id="w-start-btn" onclick="startCustomerSession()">ابدأ 🚀</button>
+  <button class="btn-main" id="w-start-btn" onclick="handleAuthSubmit()">ابدأ 🚀</button>
   <div class="error-text" id="w-error"></div>
 </div>
 
@@ -1034,7 +1049,25 @@ function showToast(msg) {
   window._toastT = setTimeout(() => t.classList.remove('show'), 2200);
 }
 
-/* ═══════════ بدء الجلسة / تسجيل الزبون ═══════════ */
+/* ═══════════ بدء الجلسة / تسجيل الزبون / تسجيل الدخول ═══════════ */
+
+let authMode = 'signup'; // 'signup' | 'signin'
+
+window.switchAuthMode = (mode) => {
+  authMode = mode;
+  document.getElementById('tab-signup').classList.toggle('active', mode === 'signup');
+  document.getElementById('tab-signin').classList.toggle('active', mode === 'signin');
+  document.getElementById('w-name-group').style.display = mode === 'signup' ? '' : 'none';
+  document.getElementById('w-start-btn').textContent = mode === 'signup' ? 'ابدأ 🚀' : 'دخول 🚀';
+  const errBox = document.getElementById('w-error');
+  errBox.style.display = 'none';
+  errBox.textContent = '';
+};
+
+window.handleAuthSubmit = () => {
+  if (authMode === 'signin') return signInCustomer();
+  return startCustomerSession();
+};
 
 window.startCustomerSession = async () => {
   const name = document.getElementById('w-name').value.trim();
@@ -1058,6 +1091,16 @@ window.startCustomerSession = async () => {
   btn.textContent = 'جاري التحضير...';
 
   try {
+    const existingSnap = await withTimeout(
+      getDocs(query(collection(db, 'customers'), where('phone', '==', phone))),
+      15000, 'انتهت مهلة الاتصال — تأكد من الإنترنت'
+    );
+    if (!existingSnap.empty) {
+      errBox.textContent = 'في حساب مسجّل بهذا الرقم مسبقاً — اضغط "تسجيل الدخول" وسجّل برقم هاتفك فقط';
+      errBox.style.display = 'block';
+      return;
+    }
+
     const newRef = await withTimeout(
       addDoc(collection(db, 'customers'), {
         name, phone, order_count: 0, is_blocked: false, created_at: serverTimestamp()
@@ -1078,6 +1121,64 @@ window.startCustomerSession = async () => {
   } finally {
     btn.disabled = false;
     btn.textContent = 'ابدأ 🚀';
+  }
+};
+
+window.signInCustomer = async () => {
+  const phone = document.getElementById('w-phone').value.trim();
+  const errBox = document.getElementById('w-error');
+  errBox.style.display = 'none';
+
+  if (!phone) {
+    errBox.textContent = 'لازم تكتب رقم الهاتف';
+    errBox.style.display = 'block';
+    return;
+  }
+  if (!/^0\d{8,9}$/.test(phone)) {
+    errBox.textContent = 'رقم الهاتف غير صحيح (مثال: 0791234567)';
+    errBox.style.display = 'block';
+    return;
+  }
+
+  const btn = document.getElementById('w-start-btn');
+  btn.disabled = true;
+  btn.textContent = 'جاري التحقق...';
+
+  try {
+    const snap = await withTimeout(
+      getDocs(query(collection(db, 'customers'), where('phone', '==', phone))),
+      15000, 'انتهت مهلة الاتصال — تأكد من الإنترنت'
+    );
+
+    if (snap.empty) {
+      errBox.textContent = 'ما في حساب مسجّل بهذا الرقم — اضغط "حساب جديد" وسجّل أول مرة';
+      errBox.style.display = 'block';
+      return;
+    }
+
+    const docSnap = snap.docs[0];
+    const data = docSnap.data() || {};
+
+    if (data.is_blocked) {
+      errBox.textContent = 'هذا الحساب محظور حالياً — تواصل معنا للاستفسار';
+      errBox.style.display = 'block';
+      return;
+    }
+
+    customerId = docSnap.id;
+    customerName = data.name || '';
+    customerPhone = phone;
+    localStorage.setItem(CUSTOMER_STORAGE_KEY, customerId);
+    localStorage.setItem(CUSTOMER_NAME_KEY, customerName);
+    localStorage.setItem(CUSTOMER_PHONE_KEY, phone);
+    enterApp();
+  } catch(e) {
+    console.error('signin error', e);
+    errBox.textContent = 'صار خطأ — جرب مرة ثانية';
+    errBox.style.display = 'block';
+  } finally {
+    btn.disabled = false;
+    btn.textContent = authMode === 'signin' ? 'دخول 🚀' : 'ابدأ 🚀';
   }
 };
 
@@ -1567,6 +1668,7 @@ window.logoutCustomer = () => {
   document.getElementById('welcomeScreen').classList.remove('hidden');
   document.getElementById('w-name').value = '';
   document.getElementById('w-phone').value = '';
+  switchAuthMode('signup');
 };
 
 async function loadInitialData() {

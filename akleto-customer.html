@@ -520,9 +520,6 @@
     font-family:'Cairo',sans-serif; z-index:400;
   }
   .addr-map-hint { font-size:11.5px; color: var(--text30); margin-top:8px; line-height:1.5; }
-  .addr-overview-map-wrap { position:relative; border-radius:16px; overflow:hidden; border:1px solid var(--border); margin-bottom:16px; }
-  #addrOverviewMap { width:100%; height:180px; background: var(--surface); }
-  .addr-overview-empty { padding:14px 16px; text-align:center; color:var(--text30); font-size:12.5px; }
 
   /* ═══ شاشة المنتجات: اختيار متجر قبل التصفح ═══ */
   .store-pick-card {
@@ -784,7 +781,6 @@ if ("serviceWorker" in navigator) {
       <div class="section-title" style="padding:0;">📍 عناويني</div>
     </div>
     <div style="padding: 6px 18px 24px;">
-      <div class="addr-overview-map-wrap"><div id="addrOverviewMap"></div></div>
       <div id="addressesList"></div>
       <button class="btn-main" style="margin-top:6px;" onclick="openAddressForm()">➕ إضافة عنوان جديد</button>
     </div>
@@ -1286,8 +1282,6 @@ let addressesCache = [];      // كل عناوين الزبون المحفوظة
 let defaultAddressId = null;  // customers/{id}.default_address_id
 let mapPickerInstance = null;
 let mapPickerMarker = null;
-let addrOverviewMapInstance = null;
-let addrOverviewMarkers = [];
 let editingAddressId = null;  // null = إضافة عنوان جديد
 let pickedLat = null, pickedLng = null;
 
@@ -1351,60 +1345,6 @@ window.menuOpenAddresses = () => {
 };
 
 /* خريطة نظرة عامة بشاشة "عناويني" — تعرض كل العناوين المحفوظة كنقاط، والضغط على أي نقطة يفتحها للتعديل */
-function destroyAddrOverviewMap() {
-  addrOverviewMarkers.forEach(m => m.setMap(null));
-  addrOverviewMarkers = [];
-  addrOverviewMapInstance = null;
-}
-
-async function renderAddressesOverviewMap() {
-  const wrapEl = document.querySelector('.addr-overview-map-wrap');
-  const container = document.getElementById('addrOverviewMap');
-  destroyAddrOverviewMap();
-
-  const withCoords = addressesCache.filter(a => a.lat != null && a.lng != null);
-  if (!withCoords.length) {
-    wrapEl.style.display = 'none';
-    return;
-  }
-  wrapEl.style.display = '';
-  container.innerHTML = '';
-
-  try {
-    await loadGoogleMapsApi();
-  } catch (e) {
-    container.innerHTML = '<div class="addr-overview-empty">ما قدرنا نحمّل الخريطة — تأكد من الإنترنت</div>';
-    return;
-  }
-  if (document.getElementById('addressesScreen').classList.contains('hidden')) return; // الشاشة اتسكرت قبل ما يخلص التحميل
-
-  const center = withCoords.find(a => a.id === defaultAddressId) || withCoords[0];
-  addrOverviewMapInstance = new google.maps.Map(container, {
-    center: { lat: center.lat, lng: center.lng }, zoom: 13,
-    disableDefaultUI: true, zoomControl: true, gestureHandling: 'greedy', clickableIcons: false
-  });
-
-  const bounds = new google.maps.LatLngBounds();
-  withCoords.forEach(a => {
-    const isDefault = a.id === defaultAddressId;
-    const marker = new google.maps.Marker({
-      position: { lat: a.lat, lng: a.lng },
-      map: addrOverviewMapInstance,
-      label: { text: addressIconFor(a.label), fontSize: '16px' },
-      title: a.label || 'عنوان',
-      zIndex: isDefault ? 999 : 1
-    });
-    marker.addListener('click', () => openAddressForm(a.id));
-    addrOverviewMarkers.push(marker);
-    bounds.extend(marker.getPosition());
-  });
-
-  if (withCoords.length > 1) {
-    addrOverviewMapInstance.fitBounds(bounds, 40);
-  }
-  setTimeout(() => { if (addrOverviewMapInstance) google.maps.event.trigger(addrOverviewMapInstance, 'resize'); }, 150);
-}
-
 window.openAddressesScreen = async () => {
   document.getElementById('homeScreen').classList.add('hidden');
   document.getElementById('productsScreen').classList.add('hidden');
@@ -1416,12 +1356,10 @@ window.openAddressesScreen = async () => {
   document.getElementById('addressesList').innerHTML = `<div class="empty-state-c" style="padding:30px 0;">جاري التحميل...</div>`;
   await loadAddressesData();
   renderAddressesList();
-  renderAddressesOverviewMap();
 };
 
 window.closeAddressesScreen = () => {
   document.getElementById('addressesScreen').classList.add('hidden');
-  destroyAddrOverviewMap();
   switchScreen('home');
   refreshHomeLocationWidget();
 };
@@ -1506,7 +1444,6 @@ window.setDefaultAddress = async (id) => {
     await updateDoc(doc(db, 'customers', customerId), { default_address_id: id });
     defaultAddressId = id;
     renderAddressesList();
-    renderAddressesOverviewMap();
     refreshHomeLocationWidget();
     showToast('تم تعيين العنوان الافتراضي ✅');
   } catch(e) {
@@ -1670,7 +1607,6 @@ window.saveAddressForm = async () => {
     closeAddressForm();
     await loadAddressesData();
     renderAddressesList();
-    renderAddressesOverviewMap();
     refreshHomeLocationWidget();
   } catch(e) {
     console.error('save address error', e);
@@ -1695,7 +1631,6 @@ window.deleteAddressForm = async () => {
     closeAddressForm();
     await loadAddressesData();
     renderAddressesList();
-    renderAddressesOverviewMap();
     refreshHomeLocationWidget();
   } catch(e) {
     console.error('delete address error', e);

@@ -147,6 +147,7 @@
     display:flex; align-items:center; justify-content:center; font-size:16px; flex-shrink:0;
     transition: background .12s ease;
   }
+  .cs-nav-item .ic-box svg { width:18px; height:18px; }
   .cs-nav-item .chev { margin-right:auto; color: var(--border); font-size:13px; }
   .cs-nav-item.danger { color:#D9534F; margin-top:auto; padding-top:16px; border-top:1px solid var(--border); }
   .cs-nav-item.danger .ic-box { background: rgba(217,83,79,.09); color:#D9534F; }
@@ -613,7 +614,7 @@ if ("serviceWorker" in navigator) {
         <div class="greeting">أهلاً <b id="home-greeting-name"></b> 👋</div>
       </div>
       <div style="display:flex;align-items:center;gap:10px;">
-        <div class="topbar-logo">أكليتو 🍽️</div>
+        <div class="topbar-logo">أكليتو</div>
         <div class="bell-wrap">
           <button class="icon-btn" onclick="openNotifSheet()" title="الإشعارات">🔔</button>
           <span class="bell-dot hidden" id="bellDotHome"></span>
@@ -769,16 +770,16 @@ if ("serviceWorker" in navigator) {
       <div class="cs-drawer-phone" id="cs-phone"></div>
     </div>
     <div class="cs-nav-section-label">التنقّل</div>
-    <div class="cs-nav-item" onclick="menuSwitch('home')"><span class="ic-box">🏠</span><span>الرئيسية</span><span class="chev">‹</span></div>
-    <div class="cs-nav-item" onclick="menuSwitch('cart')"><span class="ic-box">🛒</span><span>سلتي</span><span class="chev">‹</span></div>
-    <div class="cs-nav-item" onclick="menuSwitch('account')"><span class="ic-box">📦</span><span>طلباتي وحسابي</span><span class="chev">‹</span></div>
+    <div class="cs-nav-item" onclick="menuSwitch('home')"><span class="ic-box"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11.5 12 4l9 7.5"/><path d="M5.5 10v9a1 1 0 0 0 1 1H9a1 1 0 0 0 1-1v-4a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v4a1 1 0 0 0 1 1h2.5a1 1 0 0 0 1-1v-9"/></svg></span><span>الرئيسية</span><span class="chev">‹</span></div>
+    <div class="cs-nav-item" onclick="menuSwitch('cart')"><span class="ic-box"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="20" r="1.4"/><circle cx="18" cy="20" r="1.4"/><path d="M3 4h2l2.2 11.1a2 2 0 0 0 2 1.6h7.9a2 2 0 0 0 2-1.6L21 8H6.2"/></svg></span><span>سلتي</span><span class="chev">‹</span></div>
+    <div class="cs-nav-item" onclick="menuSwitch('account')"><span class="ic-box"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3 4 7v10l8 4 8-4V7l-8-4Z"/><path d="M4 7l8 4 8-4"/><path d="M12 11v10"/></svg></span><span>طلباتي وحسابي</span><span class="chev">‹</span></div>
     <div class="cs-nav-section-label">الحساب</div>
-    <div class="cs-nav-item" onclick="menuOpenAddresses()"><span class="ic-box">📍</span><span>عنواني</span><span class="chev">‹</span></div>
-    <div class="cs-nav-item" onclick="menuOpenComingSoon('payment')"><span class="ic-box">💳</span><span>معلومات الدفع</span><span class="chev">‹</span></div>
-    <div class="cs-nav-item" onclick="menuOpenSettings()"><span class="ic-box">⚙️</span><span>الإعدادات</span><span class="chev">‹</span></div>
-    <div class="cs-nav-item danger" onclick="logoutCustomer()"><span class="ic-box">⏻</span><span>تسجيل الخروج</span></div>
+    <div class="cs-nav-item" onclick="menuOpenAddresses()"><span class="ic-box"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s7-6.2 7-11.5A7 7 0 0 0 5 9.5C5 14.8 12 21 12 21Z"/><circle cx="12" cy="9.5" r="2.4"/></svg></span><span>عنواني</span><span class="chev">‹</span></div>
+    <div class="cs-nav-item" onclick="menuOpenComingSoon('payment')"><span class="ic-box"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="6" width="18" height="13" rx="2.2"/><path d="M3 10.5h18"/><path d="M7 14.5h4"/></svg></span><span>معلومات الدفع</span><span class="chev">‹</span></div>
+    <div class="cs-nav-item" onclick="menuOpenSettings()"><span class="ic-box"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 13a7.9 7.9 0 0 0 .1-2l2-1.5-2-3.4-2.3.9a8 8 0 0 0-1.7-1L15 3h-4l-.5 2.4a8 8 0 0 0-1.7 1l-2.3-.9-2 3.4L6.5 11a7.9 7.9 0 0 0 0 2l-2 1.5 2 3.4 2.3-.9c.5.4 1.1.8 1.7 1L11 21h4l.5-2.4c.6-.2 1.2-.6 1.7-1l2.3.9 2-3.4-2-1.5Z"/></svg></span><span>الإعدادات</span><span class="chev">‹</span></div>
+    <div class="cs-nav-item danger" onclick="logoutCustomer()"><span class="ic-box"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v8"/><path d="M6.3 6.3a8 8 0 1 0 11.4 0"/></svg></span><span>تسجيل الخروج</span></div>
     <div class="cs-drawer-footer">
-      أكليتو 🍽️<br>
+      أكليتو<br>
       <a href="akleto-terms.html" target="_blank" style="color:inherit;text-decoration:underline;">الشروط والأحكام</a>
       &nbsp;·&nbsp;
       <a href="akleto-privacy.html" target="_blank" style="color:inherit;text-decoration:underline;">سياسة الخصوصية</a>
@@ -861,12 +862,12 @@ if ("serviceWorker" in navigator) {
       <div class="error-text" id="set-name-error"></div>
 
       <div class="section-title" style="padding:22px 0 8px;font-size:15px;">الحساب</div>
-      <div class="cs-nav-item" style="border-radius:14px;border:1px solid var(--border);" onclick="closeSettingsScreen(); openNotifSheet();"><span class="ic-box">🔔</span><span>الإشعارات</span><span class="chev">‹</span></div>
+      <div class="cs-nav-item" style="border-radius:14px;border:1px solid var(--border);" onclick="closeSettingsScreen(); openNotifSheet();"><span class="ic-box"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9a6 6 0 0 1 12 0c0 5 2 6 2 6H4s2-1 2-6Z"/><path d="M10 19a2 2 0 0 0 4 0"/></svg></span><span>الإشعارات</span><span class="chev">‹</span></div>
       <a href="akleto-terms.html" target="_blank" style="text-decoration:none;color:inherit;">
-        <div class="cs-nav-item" style="border-radius:14px;border:1px solid var(--border);margin-top:10px;"><span class="ic-box">📄</span><span>الشروط والأحكام</span><span class="chev">‹</span></div>
+        <div class="cs-nav-item" style="border-radius:14px;border:1px solid var(--border);margin-top:10px;"><span class="ic-box"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M7 3h7l5 5v13H7Z"/><path d="M14 3v5h5"/><path d="M9.5 13h5M9.5 16.5h5"/></svg></span><span>الشروط والأحكام</span><span class="chev">‹</span></div>
       </a>
       <a href="akleto-privacy.html" target="_blank" style="text-decoration:none;color:inherit;">
-        <div class="cs-nav-item" style="border-radius:14px;border:1px solid var(--border);margin-top:10px;"><span class="ic-box">🔒</span><span>سياسة الخصوصية</span><span class="chev">‹</span></div>
+        <div class="cs-nav-item" style="border-radius:14px;border:1px solid var(--border);margin-top:10px;"><span class="ic-box"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="10.5" width="14" height="9.5" rx="2"/><path d="M8 10.5V7a4 4 0 0 1 8 0v3.5"/></svg></span><span>سياسة الخصوصية</span><span class="chev">‹</span></div>
       </a>
 
       <div class="section-title" style="padding:22px 0 8px;font-size:15px;">منطقة الخطر</div>

@@ -1764,7 +1764,7 @@ function renderMealsGrid() {
     return;
   }
   wrap.innerHTML = filtered.map(m => {
-    const thumb = m.image_url ? `<img class="meal-tile-img" src="${m.image_url}" />` : `<div class="meal-tile-img">🍽️</div>`;
+    const thumb = m.image_url ? `<img class="meal-tile-img" src="${m.image_url}" />` : `<div class="meal-tile-img" style="color:var(--text30);"><svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3c-.6 1-.6 1.6 0 2.6M9 2.5c-.6 1-.6 1.6 0 2.6M12 3c-.6 1-.6 1.6 0 2.6" opacity=".7"/><path d="M4 12a8 8 0 0 0 16 0"/><path d="M4 12h16"/></svg></div>`;
     const selected = selectedMeals.find(s => s.mealId === m.id);
     const badge = selected ? `<div class="meal-tile-badge">✓ بالسلة</div>` : '';
     const price = m.base_price ? `<div class="meal-tile-price">${m.base_price} <small>د.أ تقريباً</small></div>` : `<div class="meal-tile-price">&nbsp;</div>`;
@@ -1776,8 +1776,8 @@ function renderMealsGrid() {
           <div class="meal-tile-name">${m.name_ar || ''}</div>
           <div class="meal-tile-tags">
             <span>${difficultyLabel[m.difficulty]||''}</span>
-            <span>⏱️ ${m.prep_time_min||0} د</span>
-            <span>👥 ${m.servings_default||2}</span>
+            <span><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3.5 2"/></svg> ${m.prep_time_min||0} د</span>
+            <span><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3"/><path d="M3.5 19c1.1-3 3-4.5 5.5-4.5s4.4 1.5 5.5 4.5"/><circle cx="17" cy="9" r="2.4"/><path d="M15.5 14.2c1.8.4 3 1.7 3.7 3.8"/></svg> ${m.servings_default||2}</span>
           </div>
           <div class="meal-tile-footer">
             ${price}
@@ -1812,7 +1812,7 @@ window.onProductsSearchInput = (val) => {
 
 function productTileHtml(i, storePrice) {
   const price = storePrice != null ? storePrice : (i.price_per_package || 0);
-  const thumb = i.image_url ? `<img class="meal-tile-img" src="${i.image_url}" />` : `<div class="meal-tile-img">📦</div>`;
+  const thumb = i.image_url ? `<img class="meal-tile-img" src="${i.image_url}" />` : `<div class="meal-tile-img" style="color:var(--text30);"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3 4 7v10l8 4 8-4V7l-8-4Z"/><path d="M4 7l8 4 8-4"/><path d="M12 11v10"/></svg></div>`;
   const inCart = !!cartOverrides[i.id] || Object.keys(getFinalCartIngredients()).includes(i.id);
   return `
     <div class="meal-tile" onclick="openProductSheet('${i.id}', ${storePrice != null ? storePrice : 'null'})">

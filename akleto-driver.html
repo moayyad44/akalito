@@ -46,7 +46,7 @@
     display: flex; flex-direction: column; justify-content: center;
     min-height: 100vh; padding: 28px; text-align: center;
   }
-  #welcomeScreen .logo-emoji { font-size: 56px; margin-bottom: 8px; }
+  #welcomeScreen .logo-mark { margin-bottom: 8px; }
   #welcomeScreen h1 { font-size: 26px; color: var(--primary); margin-bottom: 6px; }
   #welcomeScreen p { color: var(--text30); font-size: 14px; margin-bottom: 28px; }
   .field-group { text-align: right; margin-bottom: 14px; }
@@ -260,7 +260,16 @@ if ("serviceWorker" in navigator) {
 
 <!-- ══════ شاشة الترحيب / تسجيل السائق ══════ -->
 <div id="welcomeScreen">
-  <div class="logo-emoji">🛵</div>
+  <div class="logo-mark">
+    <svg viewBox="0 0 48 48" width="60" height="60" aria-hidden="true">
+      <circle cx="24" cy="24" r="24" fill="#A23E48"/>
+      <circle cx="15" cy="32" r="3.2" stroke="#FDF8F3" stroke-width="2" fill="none"/>
+      <circle cx="33" cy="32" r="3.2" stroke="#FDF8F3" stroke-width="2" fill="none"/>
+      <path d="M15 32h8l4-9h6" stroke="#FDF8F3" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M19 23h6" stroke="#FDF8F3" stroke-width="2" stroke-linecap="round"/>
+      <path d="M29 23h4" stroke="#FDF8F3" stroke-width="2" stroke-linecap="round"/>
+    </svg>
+  </div>
   <h1>أكليتو للسائقين</h1>
   <p>سجّل بياناتك عشان تبدأ تستلم طلبات التوصيل</p>
 

@@ -44,7 +44,7 @@
     display: flex; flex-direction: column; justify-content: center;
     min-height: 100vh; padding: 28px; text-align: center;
   }
-  #welcomeScreen .logo-emoji { font-size: 56px; margin-bottom: 8px; }
+  #welcomeScreen .logo-mark { margin-bottom: 8px; }
   #welcomeScreen h1 { font-size: 28px; color: var(--primary); margin-bottom: 6px; }
   #welcomeScreen p { color: var(--text30); font-size: 14px; margin-bottom: 28px; }
   .field-group { text-align: right; margin-bottom: 14px; }
@@ -537,7 +537,15 @@ if ("serviceWorker" in navigator) {
 
 <!-- ══════ شاشة دخول المتجر (الشاشة الافتراضية) ══════ -->
 <div id="storeLoginScreen" style="display:flex;flex-direction:column;justify-content:center;min-height:100vh;padding:28px;text-align:center;">
-  <div class="logo-emoji">🏪</div>
+  <div class="logo-mark">
+    <svg viewBox="0 0 48 48" width="60" height="60" aria-hidden="true">
+      <circle cx="24" cy="24" r="24" fill="#A23E48"/>
+      <path d="M11 20l2-6h22l2 6" stroke="#FDF8F3" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M11 20a3 3 0 0 0 6 0 3 3 0 0 0 6 0 3 3 0 0 0 6 0 3 3 0 0 0 6 0 3 3 0 0 0 6 0" stroke="#FDF8F3" stroke-width="1.8" fill="none" stroke-linecap="round"/>
+      <path d="M12 20v11a1.5 1.5 0 0 0 1.5 1.5H34.5A1.5 1.5 0 0 0 36 31V20" stroke="#FDF8F3" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M20 32.5v-6h8v6" stroke="#FDF8F3" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>
+  </div>
   <h1 style="font-size:24px;color:var(--primary);margin-bottom:6px;font-family:'Tajawal',sans-serif;">الدخول كتاجر</h1>
   <p style="color:var(--text30);font-size:14px;margin-bottom:24px;">لموظفي المتاجر الشريكة فقط — رمز PIN بيعطيكم إياه الأدمن</p>
 

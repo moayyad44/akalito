@@ -136,6 +136,7 @@
     display:flex; align-items:center; justify-content:center; font-size:16px; flex-shrink:0;
     transition: background .12s ease;
   }
+  .cs-nav-item .ic-box svg { width:18px; height:18px; }
   .cs-nav-item .chev { margin-right:auto; color: var(--border); font-size:13px; }
   .cs-nav-item.danger { color:#D9534F; margin-top:auto; padding-top:16px; border-top:1px solid var(--border); }
   .cs-nav-item.danger .ic-box { background: rgba(217,83,79,.09); color:#D9534F; }
@@ -582,7 +583,7 @@ if ("serviceWorker" in navigator) {
         </div>
       </div>
       <div class="bell-wrap">
-        <button class="icon-btn" onclick="openNotifSheet()" title="الإشعارات">🔔</button>
+        <button class="icon-btn" onclick="openNotifSheet()" title="الإشعارات"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9a6 6 0 0 1 12 0c0 5 2 6 2 6H4s2-1 2-6Z"/><path d="M10 19a2 2 0 0 0 4 0"/></svg></button>
         <span class="bell-dot hidden" id="bellDotStore"></span>
       </div>
     </div>
@@ -671,7 +672,7 @@ if ("serviceWorker" in navigator) {
     <div class="sheet-card" style="max-height:80vh;">
       <button class="sheet-close" onclick="closeNotifSheet()">✕</button>
       <div class="sheet-body">
-        <div class="sheet-title">🔔 الإشعارات</div>
+        <div class="sheet-title"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;"><path d="M6 9a6 6 0 0 1 12 0c0 5 2 6 2 6H4s2-1 2-6Z"/><path d="M10 19a2 2 0 0 0 4 0"/></svg> الإشعارات</div>
         <div id="notifList"></div>
       </div>
     </div>
@@ -687,13 +688,13 @@ if ("serviceWorker" in navigator) {
       <div class="cs-drawer-phone" id="csd-store-phone"></div>
     </div>
     <div class="cs-nav-section-label">التنقّل</div>
-    <div class="cs-nav-item" onclick="menuStoreGoHome()"><span class="ic-box">🏪</span><span>الرئيسية</span><span class="chev">‹</span></div>
-    <div class="cs-nav-item" onclick="menuStoreGoOrders()"><span class="ic-box">📦</span><span>طلبات المتجر</span><span class="chev">‹</span></div>
-    <div class="cs-nav-item" onclick="menuStoreGoProducts()"><span class="ic-box">🧺</span><span>منتجاتي</span><span class="chev">‹</span></div>
+    <div class="cs-nav-item" onclick="menuStoreGoHome()"><span class="ic-box"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9l1-4h14l1 4"/><path d="M4 9a2 2 0 0 0 4 0 2 2 0 0 0 4 0 2 2 0 0 0 4 0 2 2 0 0 0 4 0"/><path d="M5 9v9a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V9"/></svg></span><span>الرئيسية</span><span class="chev">‹</span></div>
+    <div class="cs-nav-item" onclick="menuStoreGoOrders()"><span class="ic-box"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3 4 7v10l8 4 8-4V7l-8-4Z"/><path d="M4 7l8 4 8-4"/><path d="M12 11v10"/></svg></span><span>طلبات المتجر</span><span class="chev">‹</span></div>
+    <div class="cs-nav-item" onclick="menuStoreGoProducts()"><span class="ic-box"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9h16l-1.2 9.6a2 2 0 0 1-2 1.9H7.2a2 2 0 0 1-2-1.9L4 9Z"/><path d="M8 9V7a4 4 0 0 1 8 0v2"/><path d="M9 13v3M12 13v3M15 13v3"/></svg></span><span>منتجاتي</span><span class="chev">‹</span></div>
     <div class="cs-nav-section-label">الحساب</div>
-    <div class="cs-nav-item" onclick="closeStoreMenu(); openNotifSheet();"><span class="ic-box">🔔</span><span>الإشعارات</span><span class="chev">‹</span></div>
-    <div class="cs-nav-item" onclick="closeStoreMenu(); showToast('قريباً — تقارير المبيعات والأرباح 📊');"><span class="ic-box">📊</span><span>بوابة المتجر</span><span class="chev">‹</span></div>
-    <div class="cs-nav-item danger" onclick="logoutStore()"><span class="ic-box">⏻</span><span>خروج من حساب المتجر</span></div>
+    <div class="cs-nav-item" onclick="closeStoreMenu(); openNotifSheet();"><span class="ic-box"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9a6 6 0 0 1 12 0c0 5 2 6 2 6H4s2-1 2-6Z"/><path d="M10 19a2 2 0 0 0 4 0"/></svg></span><span>الإشعارات</span><span class="chev">‹</span></div>
+    <div class="cs-nav-item" onclick="closeStoreMenu(); showToast('قريباً — تقارير المبيعات والأرباح 📊');"><span class="ic-box"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20V11"/><path d="M10 20V6"/><path d="M16 20v-8"/><path d="M2 20h20"/></svg></span><span>بوابة المتجر</span><span class="chev">‹</span></div>
+    <div class="cs-nav-item danger" onclick="logoutStore()"><span class="ic-box"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v8"/><path d="M6.3 6.3a8 8 0 1 0 11.4 0"/></svg></span><span>خروج من حساب المتجر</span></div>
     <div class="cs-drawer-footer">أكليتو 🍽️ — المتجر</div>
   </div>
 

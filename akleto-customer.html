@@ -44,7 +44,7 @@
     display: flex; flex-direction: column; justify-content: center;
     min-height: 100vh; padding: 28px; text-align: center;
   }
-  #welcomeScreen .logo-emoji { font-size: 56px; margin-bottom: 8px; }
+  #welcomeScreen .logo-mark { margin-bottom: 8px; }
   #welcomeScreen h1 { font-size: 28px; color: var(--primary); margin-bottom: 6px; }
   #welcomeScreen p { color: var(--text30); font-size: 14px; margin-bottom: 28px; }
   #welcomeScreen .tagline { color: var(--primary); font-size: 16px; font-weight: 700; margin-bottom: 10px; }
@@ -417,6 +417,7 @@
     width:22px; height:3px; border-radius:0 0 4px 4px; background: var(--primary);
   }
   .nav-btn .icon { font-size: 20px; transition: transform .15s; }
+  .nav-btn .icon svg { width:22px; height:22px; display:block; }
   .nav-btn.active .icon { transform: translateY(-1px) scale(1.08); }
   .nav-badge {
     position:absolute; top:2px; left:calc(50% + 6px); background:var(--primary); color:#fff;
@@ -569,7 +570,15 @@ if ("serviceWorker" in navigator) {
 
 <!-- ══════ شاشة الترحيب / التسجيل ══════ -->
 <div id="welcomeScreen">
-  <div class="logo-emoji">🍽️</div>
+  <div class="logo-mark">
+    <svg viewBox="0 0 48 48" width="60" height="60" aria-hidden="true">
+      <circle cx="24" cy="24" r="24" fill="#A23E48"/>
+      <path d="M19 13c-1 1.5-1 2.5 0 4M24 12c-1 1.5-1 2.5 0 4M29 13c-1 1.5-1 2.5 0 4"
+            stroke="#FDF8F3" stroke-width="1.8" fill="none" stroke-linecap="round"/>
+      <path d="M12 24a12 12 0 0 0 24 0" stroke="#FDF8F3" stroke-width="2.6" fill="none" stroke-linecap="round"/>
+      <path d="M12 24h24" stroke="#FDF8F3" stroke-width="2.6" stroke-linecap="round"/>
+    </svg>
+  </div>
   <h1>أكليتو</h1>
   <div class="tagline">خلي الطعمة على مزاجك 😋</div>
   <p>اختار وجباتك، ونجهزلك مكوناتها بالكمية الصح</p>
@@ -735,17 +744,17 @@ if ("serviceWorker" in navigator) {
   <!-- ═══ Bottom Nav ═══ -->
   <div class="bottom-nav" id="bottomNav">
     <button class="nav-btn active" id="nav-home" onclick="switchScreen('home')">
-      <span class="icon">🏠</span><span>الرئيسية</span>
+      <span class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11.5 12 4l9 7.5"/><path d="M5.5 10v9a1 1 0 0 0 1 1H9a1 1 0 0 0 1-1v-4a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v4a1 1 0 0 0 1 1h2.5a1 1 0 0 0 1-1v-9"/></svg></span><span>الرئيسية</span>
     </button>
     <button class="nav-btn" id="nav-products" onclick="switchScreen('products')">
-      <span class="icon">🧺</span><span>المنتجات</span>
+      <span class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9h16l-1.2 9.6a2 2 0 0 1-2 1.9H7.2a2 2 0 0 1-2-1.9L4 9Z"/><path d="M8 9V7a4 4 0 0 1 8 0v2"/><path d="M9 13v3M12 13v3M15 13v3"/></svg></span><span>المنتجات</span>
     </button>
     <button class="nav-btn" id="nav-cart" onclick="switchScreen('cart')">
-      <span class="icon">🛒</span><span>سلتي</span>
+      <span class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="20" r="1.4"/><circle cx="18" cy="20" r="1.4"/><path d="M3 4h2l2.2 11.1a2 2 0 0 0 2 1.6h7.9a2 2 0 0 0 2-1.6L21 8H6.2"/></svg></span><span>سلتي</span>
       <span class="nav-badge hidden" id="cartBadge">0</span>
     </button>
     <button class="nav-btn" id="nav-account" onclick="switchScreen('account')">
-      <span class="icon">👤</span><span>حسابي</span>
+      <span class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="3.6"/><path d="M4.5 19.2c1.4-3.4 4.3-5.1 7.5-5.1s6.1 1.7 7.5 5.1"/></svg></span><span>حسابي</span>
     </button>
   </div>
 

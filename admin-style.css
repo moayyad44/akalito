@@ -157,7 +157,8 @@
 
   .nav-item.active .nav-icon { filter: drop-shadow(0 0 6px var(--red)); }
 
-  .nav-icon { font-size: 18px; width: 22px; text-align: center; }
+  .nav-icon { font-size: 18px; width: 22px; text-align: center; display:inline-flex; align-items:center; justify-content:center; }
+  .nav-icon svg { width:18px; height:18px; }
 
   .nav-badge {
     margin-right: auto;

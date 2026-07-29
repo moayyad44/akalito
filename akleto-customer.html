@@ -506,9 +506,12 @@
   .addr-card.is-default { border-color: var(--primary); background: rgba(162,62,72,.04); }
   .addr-card-head { display:flex; align-items:center; gap:10px; margin-bottom:8px; }
   .addr-card-icon {
-    width:36px; height:36px; border-radius:10px; background: rgba(162,62,72,.08);
+    width:36px; height:36px; border-radius:10px; background: rgba(162,62,72,.08); color: var(--primary);
     display:flex; align-items:center; justify-content:center; font-size:17px; flex-shrink:0;
   }
+  .addr-card-icon svg { width:18px; height:18px; }
+  .addr-icon-svg { display:inline-flex; vertical-align:-3px; color: var(--primary); }
+  .addr-icon-svg svg { width:14px; height:14px; }
   .addr-card-label { font-weight:800; font-size:14.5px; flex:1; min-width:0; }
   .addr-default-badge { font-size:10.5px; font-weight:800; color: var(--primary); background: rgba(162,62,72,.1); padding:3px 9px; border-radius:20px; flex-shrink:0; }
   .addr-card-line { font-size:12.5px; color: var(--text30); line-height:1.6; margin-bottom:12px; }
@@ -616,7 +619,7 @@ if ("serviceWorker" in navigator) {
       <div style="display:flex;align-items:center;gap:10px;">
         <div class="topbar-logo">أكليتو</div>
         <div class="bell-wrap">
-          <button class="icon-btn" onclick="openNotifSheet()" title="الإشعارات">🔔</button>
+          <button class="icon-btn" onclick="openNotifSheet()" title="الإشعارات"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9a6 6 0 0 1 12 0c0 5 2 6 2 6H4s2-1 2-6Z"/><path d="M10 19a2 2 0 0 0 4 0"/></svg></button>
           <span class="bell-dot hidden" id="bellDotHome"></span>
         </div>
         <button class="icon-btn" onclick="toggleCustomerMenu()" title="القائمة">☰</button>
@@ -726,7 +729,7 @@ if ("serviceWorker" in navigator) {
     <div class="sheet-card" style="max-height:80vh;">
       <button class="sheet-close" onclick="closeNotifSheet()">✕</button>
       <div class="sheet-body">
-        <div class="sheet-title">🔔 الإشعارات</div>
+        <div class="sheet-title"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;"><path d="M6 9a6 6 0 0 1 12 0c0 5 2 6 2 6H4s2-1 2-6Z"/><path d="M10 19a2 2 0 0 0 4 0"/></svg> الإشعارات</div>
         <div id="notifList"></div>
       </div>
     </div>
@@ -1323,10 +1326,13 @@ function loadGoogleMapsApi() {
 
 const ADDRESS_LABEL_PRESETS = ['المنزل', 'العمل', 'بيت الأهل', 'عنوان آخر'];
 function addressIconFor(label) {
-  if (label === 'المنزل') return '🏠';
-  if (label === 'العمل') return '🏢';
-  if (label === 'بيت الأهل') return '👨‍👩‍👧';
-  return '📍';
+  const svgs = {
+    'المنزل': '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11.5 12 4l9 7.5"/><path d="M5.5 10v9a1 1 0 0 0 1 1H9a1 1 0 0 0 1-1v-4a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v4a1 1 0 0 0 1 1h2.5a1 1 0 0 0 1-1v-9"/></svg>',
+    'العمل': '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="7" width="18" height="13" rx="2"/><path d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M3 12h18"/></svg>',
+    'بيت الأهل': '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="2.6"/><circle cx="16.5" cy="9" r="2"/><path d="M4 19c.8-3 3-4.6 5-4.6s3.6 1.2 4.4 3"/><path d="M14 14.8c1.6.3 3 1.6 3.5 3.5"/></svg>',
+  };
+  const pin = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s7-6.2 7-11.5A7 7 0 0 0 5 9.5C5 14.8 12 21 12 21Z"/><circle cx="12" cy="9.5" r="2.4"/></svg>';
+  return `<span class="addr-icon-svg">${svgs[label] || pin}</span>`;
 }
 function addressLineFor(a) {
   return `${a.street || ''}${a.building_number ? '، بناية ' + a.building_number : ''}${a.floor ? '، طابق ' + a.floor : ''}${a.apartment_number ? '، شقة ' + a.apartment_number : ''}`;
@@ -1351,7 +1357,7 @@ function refreshHomeLocationWidget() {
   const el = document.getElementById('homeLocationLabel');
   if (!el) return;
   const def = addressesCache.find(a => a.id === defaultAddressId);
-  el.textContent = def ? `${addressIconFor(def.label)} ${def.label}${def.street ? ' — ' + def.street : ''}` : 'حدد عنوان التوصيل';
+  el.innerHTML = def ? `${addressIconFor(def.label)} ${def.label}${def.street ? ' — ' + def.street : ''}` : 'حدد عنوان التوصيل';
 }
 
 window.menuOpenAddresses = () => {

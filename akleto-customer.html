@@ -181,9 +181,8 @@
     color:#fff; font-size:15px; font-weight:800; display:flex; align-items:center; justify-content:center; flex-shrink:0;
   }
   .meal-tile-badge {
-    position:absolute; top:6px; left:6px; background: var(--olive); color:#fff;
-    font-size: 11px; font-weight:800; padding: 7px 13px 6px; z-index:2;
-    clip-path: polygon(18% 0%, 58% 2%, 78% 9%, 96% 24%, 100% 52%, 92% 78%, 68% 98%, 38% 100%, 12% 90%, 0% 65%, 2% 34%, 8% 10%);
+    position:absolute; top:8px; left:8px; background: var(--olive); color:#fff;
+    font-size: 11px; font-weight:700; padding: 3px 9px; border-radius: 20px; z-index:2;
   }
 
   /* ═══ حاوية الموقع/عنوان التوصيل ═══ */
@@ -334,10 +333,10 @@
   .sheet-title { font-size: 21px; font-weight: 800; font-family:'Tajawal',sans-serif; margin-bottom:6px; }
   .sheet-desc { font-size: 13.5px; color: var(--text30); line-height:1.6; margin-bottom: 18px; }
   .servings-row {
+    display:flex; align-items:center; justify-content:space-between;
     background: var(--surface); border:1px solid var(--border); border-radius:14px;
-    padding: 12px 16px 14px; margin-bottom:18px;
+    padding: 12px 16px; margin-bottom:18px;
   }
-  .servings-row-top { display:flex; align-items:center; justify-content:space-between; margin-bottom:10px; }
   .servings-row .label { font-size:14px; font-weight:700; }
   .stepper { display:flex; align-items:center; gap:14px; }
   .stepper button {
@@ -345,8 +344,6 @@
     background:#fff; color:var(--primary); font-size:16px; font-weight:800;
   }
   .stepper span { font-size:16px; font-weight:800; min-width:20px; text-align:center; }
-  .servings-progress { height:6px; border-radius:5px; background: var(--border); overflow:hidden; }
-  .servings-progress-fill { height:100%; border-radius:5px; background: var(--primary); transition: width .2s ease; }
   .brand-spinner {
     width:32px; height:32px; border-radius:50%; border:4px solid var(--border);
     border-top-color: var(--primary); animation: brandSpin .8s linear infinite; display:inline-block;
@@ -1018,15 +1015,12 @@ if ("serviceWorker" in navigator) {
       <div class="sheet-desc" id="sheet-desc"></div>
 
       <div class="servings-row">
-        <div class="servings-row-top">
-          <div class="label">👥 عدد الأشخاص</div>
-          <div class="stepper">
-            <button onclick="changeSheetServings(-1)">−</button>
-            <span id="sheet-servings">2</span>
-            <button onclick="changeSheetServings(1)">+</button>
-          </div>
+        <div class="label">👥 عدد الأشخاص</div>
+        <div class="stepper">
+          <button onclick="changeSheetServings(-1)">−</button>
+          <span id="sheet-servings">2</span>
+          <button onclick="changeSheetServings(1)">+</button>
         </div>
-        <div class="servings-progress"><div class="servings-progress-fill" id="sheet-servings-fill" style="width:20%;"></div></div>
       </div>
 
       <div class="section-title" style="padding:0 0 8px;font-size:14px;">المكونات المطلوبة</div>
@@ -2085,8 +2079,6 @@ window.changeSheetServings = (delta) => {
 
 function renderSheetServings() {
   document.getElementById('sheet-servings').textContent = currentSheetServings;
-  const fillPct = Math.max(6, Math.min(100, (currentSheetServings / 10) * 100));
-  document.getElementById('sheet-servings-fill').style.width = fillPct + '%';
   const ings = getMealIngredients(currentSheetMealId);
   const wrap = document.getElementById('sheetIngredientsList');
   if (!ings.length) {

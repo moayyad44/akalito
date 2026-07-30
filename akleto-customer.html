@@ -181,8 +181,9 @@
     color:#fff; font-size:15px; font-weight:800; display:flex; align-items:center; justify-content:center; flex-shrink:0;
   }
   .meal-tile-badge {
-    position:absolute; top:8px; left:8px; background: var(--olive); color:#fff;
-    font-size: 11px; font-weight:700; padding: 3px 9px; border-radius: 20px; z-index:2;
+    position:absolute; top:6px; left:6px; background: var(--olive); color:#fff;
+    font-size: 11px; font-weight:800; padding: 7px 13px 6px; z-index:2;
+    clip-path: polygon(18% 0%, 58% 2%, 78% 9%, 96% 24%, 100% 52%, 92% 78%, 68% 98%, 38% 100%, 12% 90%, 0% 65%, 2% 34%, 8% 10%);
   }
 
   /* ═══ حاوية الموقع/عنوان التوصيل ═══ */
@@ -333,10 +334,10 @@
   .sheet-title { font-size: 21px; font-weight: 800; font-family:'Tajawal',sans-serif; margin-bottom:6px; }
   .sheet-desc { font-size: 13.5px; color: var(--text30); line-height:1.6; margin-bottom: 18px; }
   .servings-row {
-    display:flex; align-items:center; justify-content:space-between;
     background: var(--surface); border:1px solid var(--border); border-radius:14px;
-    padding: 12px 16px; margin-bottom:18px;
+    padding: 12px 16px 14px; margin-bottom:18px;
   }
+  .servings-row-top { display:flex; align-items:center; justify-content:space-between; margin-bottom:10px; }
   .servings-row .label { font-size:14px; font-weight:700; }
   .stepper { display:flex; align-items:center; gap:14px; }
   .stepper button {
@@ -344,6 +345,25 @@
     background:#fff; color:var(--primary); font-size:16px; font-weight:800;
   }
   .stepper span { font-size:16px; font-weight:800; min-width:20px; text-align:center; }
+  .servings-progress { height:6px; border-radius:5px; background: var(--border); overflow:hidden; }
+  .servings-progress-fill { height:100%; border-radius:5px; background: var(--primary); transition: width .2s ease; }
+  .brand-spinner {
+    width:32px; height:32px; border-radius:50%; border:4px solid var(--border);
+    border-top-color: var(--primary); animation: brandSpin .8s linear infinite; display:inline-block;
+  }
+  @keyframes brandSpin { to { transform: rotate(360deg); } }
+  .toss-dot {
+    position: fixed; width:16px; height:16px; border-radius:50%; background: var(--olive);
+    z-index: 9999; pointer-events:none; margin:-8px 0 0 -8px; box-shadow:0 2px 6px rgba(0,0,0,.2);
+    animation: tossFly .6s cubic-bezier(.3,.6,.3,1) forwards;
+  }
+  @keyframes tossFly {
+    0%   { transform: translate(0,0) scale(1); opacity:1; }
+    60%  { transform: translate(calc(var(--tx) * 0.6), calc(var(--ty) * 0.55 - 34px)) scale(.85); opacity:1; }
+    100% { transform: translate(var(--tx), var(--ty)) scale(.15); opacity:0; }
+  }
+  .nav-btn.bump .icon { animation: navBump .35s ease; }
+  @keyframes navBump { 30% { transform: scale(1.35); } 100% { transform: scale(1); } }
 
   .ing-preview-item {
     display:flex; justify-content:space-between; align-items:flex-start;
@@ -557,6 +577,16 @@
   .success-screen { display:flex; flex-direction:column; align-items:center; justify-content:center;
     min-height:100vh; padding:30px; text-align:center; }
   .success-screen .emoji { font-size: 64px; margin-bottom:16px; }
+  .order-stamp {
+    width:96px; height:96px; border-radius:50%; border:3px solid var(--olive); color:var(--olive);
+    display:flex; align-items:center; justify-content:center; flex-direction:column;
+    transform: rotate(-8deg); font-family:'Tajawal',sans-serif; position:relative; margin-bottom:20px;
+    box-shadow: 0 0 0 3px var(--bg), 0 0 0 4px var(--olive);
+    animation: stampIn .45s cubic-bezier(.2,1.4,.4,1);
+  }
+  .order-stamp span.big { font-size:28px; line-height:1; }
+  .order-stamp span.small { font-size:9px; font-weight:800; letter-spacing:1px; margin-top:2px; }
+  @keyframes stampIn { 0%{ transform:rotate(-8deg) scale(2.2); opacity:0; } 60%{ opacity:1; } 100%{ transform:rotate(-8deg) scale(1); opacity:1; } }
   .success-screen h2 { font-family:'Tajawal',sans-serif; font-size:22px; margin-bottom:8px; color: var(--olive); }
   .success-screen p { color:var(--text30); font-size:14px; margin-bottom:26px; }
 
@@ -738,7 +768,7 @@ if ("serviceWorker" in navigator) {
   <!-- ═══ شاشة نجاح الطلب ═══ -->
   <!-- ═══ شاشة نجاح الطلب ═══ -->
   <div id="successScreen" class="hidden success-screen">
-    <div class="emoji">✅</div>
+    <div class="order-stamp"><span class="big">✓</span><span class="small">تم التأكيد</span></div>
     <h2>تم استلام طلبك!</h2>
     <p id="success-store-note">رح نجهزلك المكونات ونوصلها أقرب وقت ممكن 🚴</p>
     <button class="btn-main" onclick="backToHomeFromSuccess()" style="max-width:260px;">رجوع للرئيسية</button>
@@ -988,12 +1018,15 @@ if ("serviceWorker" in navigator) {
       <div class="sheet-desc" id="sheet-desc"></div>
 
       <div class="servings-row">
-        <div class="label">👥 عدد الأشخاص</div>
-        <div class="stepper">
-          <button onclick="changeSheetServings(-1)">−</button>
-          <span id="sheet-servings">2</span>
-          <button onclick="changeSheetServings(1)">+</button>
+        <div class="servings-row-top">
+          <div class="label">👥 عدد الأشخاص</div>
+          <div class="stepper">
+            <button onclick="changeSheetServings(-1)">−</button>
+            <span id="sheet-servings">2</span>
+            <button onclick="changeSheetServings(1)">+</button>
+          </div>
         </div>
+        <div class="servings-progress"><div class="servings-progress-fill" id="sheet-servings-fill" style="width:20%;"></div></div>
       </div>
 
       <div class="section-title" style="padding:0 0 8px;font-size:14px;">المكونات المطلوبة</div>
@@ -2052,6 +2085,8 @@ window.changeSheetServings = (delta) => {
 
 function renderSheetServings() {
   document.getElementById('sheet-servings').textContent = currentSheetServings;
+  const fillPct = Math.max(6, Math.min(100, (currentSheetServings / 10) * 100));
+  document.getElementById('sheet-servings-fill').style.width = fillPct + '%';
   const ings = getMealIngredients(currentSheetMealId);
   const wrap = document.getElementById('sheetIngredientsList');
   if (!ings.length) {
@@ -2086,6 +2121,31 @@ function renderSheetServings() {
 
 function formatQty(n) {
   return Number.isInteger(n) ? n : n.toFixed(2).replace(/\.?0+$/, '');
+}
+
+/* حركة "الإضافة للسلة" — دائرة صغيرة تطير من زر الإضافة لأيقونة السلة بالشريط السفلي */
+function playAddToCartToss(fromEl) {
+  const toEl = document.getElementById('nav-cart');
+  if (!fromEl || !toEl) return;
+  const fromRect = fromEl.getBoundingClientRect();
+  const toRect = toEl.getBoundingClientRect();
+  const startX = fromRect.left + fromRect.width / 2;
+  const startY = fromRect.top + fromRect.height / 2;
+  const endX = toRect.left + toRect.width / 2;
+  const endY = toRect.top + toRect.height / 2;
+
+  const dot = document.createElement('div');
+  dot.className = 'toss-dot';
+  dot.style.left = startX + 'px';
+  dot.style.top = startY + 'px';
+  dot.style.setProperty('--tx', (endX - startX) + 'px');
+  dot.style.setProperty('--ty', (endY - startY) + 'px');
+  document.body.appendChild(dot);
+  dot.addEventListener('animationend', () => {
+    dot.remove();
+    toEl.classList.add('bump');
+    setTimeout(() => toEl.classList.remove('bump'), 400);
+  });
 }
 
 window.confirmAddMealToCart = async () => {
@@ -2136,6 +2196,7 @@ window.confirmAddMealToCart = async () => {
   const idx = selectedMeals.findIndex(s => s.mealId === currentSheetMealId);
   if (idx > -1) selectedMeals[idx].servings = currentSheetServings;
   else selectedMeals.push({ mealId: currentSheetMealId, servings: currentSheetServings });
+  playAddToCartToss(btn);
   updateCartBadge();
   renderMealsGrid();
   closeMealSheet();

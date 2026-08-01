@@ -385,12 +385,19 @@ if (session) document.getElementById('greet-name').textContent = session.name;
 /* ═══ خرائط جوجل — تحميل كسول ═══ */
 const GOOGLE_MAPS_API_KEY = 'AIzaSyD9MvJvwKWxnYtiNhFBPO9Z_4tv9qoSeMY';
 let googleMapsLoadPromise = null;
-window.gm_authFailure = function () {
-  showToast('⚠️ خطأ بمفتاح خرائط جوجل — تحقق من الإعدادات');
-};
 function loadGoogleMapsApi() {
   if (window.google && window.google.maps) return Promise.resolve();
   if (googleMapsLoadPromise) return googleMapsLoadPromise;
+  const already = document.querySelector('script[src*="maps.googleapis.com/maps/api/js"]');
+  if (already) {
+    // سكربت الخرائط أصلاً موجود بالصفحة (مثلاً حُمّل من مكان تاني) — ننتظر تحميله بدل ما نضيف نسخة ثانية
+    googleMapsLoadPromise = new Promise((resolve, reject) => {
+      already.addEventListener('load', () => resolve());
+      already.addEventListener('error', () => reject(new Error('فشل تحميل خرائط جوجل')));
+      if (window.google && window.google.maps) resolve();
+    });
+    return googleMapsLoadPromise;
+  }
   googleMapsLoadPromise = new Promise((resolve, reject) => {
     const script = document.createElement('script');
     script.src = `https://maps.googleapis.com/maps/api/js?key=${GOOGLE_MAPS_API_KEY}&libraries=places`;
@@ -425,16 +432,40 @@ function dotIcon(color, size) {
   return { path: google.maps.SymbolPath.CIRCLE, fillColor: color, fillOpacity: .92, strokeColor: '#fff', strokeWeight: 2, scale: size || 12 };
 }
 
+function showMapError(msg) {
+  const box = document.createElement('div');
+  box.id = 'mapErrorBanner';
+  box.style.cssText = 'position:fixed;top:120px;left:14px;right:14px;z-index:70;background:#D9534F;color:#fff;padding:14px 16px;border-radius:14px;font-size:13px;font-weight:700;line-height:1.6;box-shadow:0 4px 14px rgba(0,0,0,.25);';
+  box.textContent = '⚠️ ' + msg;
+  const old = document.getElementById('mapErrorBanner');
+  if (old) old.remove();
+  document.body.appendChild(box);
+}
+window.gm_authFailure = function () {
+  showMapError('خطأ بمفتاح خرائط جوجل (Auth) — تأكد من قيود الـ Referrer والفوترة بمفتاح API');
+};
+
 async function initMap() {
   try {
     await loadGoogleMapsApi();
   } catch (e) {
     document.getElementById('map').innerHTML = '<div style="padding:40px 16px;text-align:center;color:var(--text30);">ما قدرنا نحمّل الخريطة — تحقق من الإنترنت</div>';
+    showMapError('فشل تحميل سكربت خرائط جوجل — تحقق من الإنترنت أو حظر إعلانات يمنع الطلب');
     return;
   }
-  map = new google.maps.Map(document.getElementById('map'), {
-    center: AMMAN, zoom: 12, disableDefaultUI: true, zoomControl: true, gestureHandling: 'greedy', clickableIcons: false
-  });
+  try {
+    map = new google.maps.Map(document.getElementById('map'), {
+      center: AMMAN, zoom: 12, disableDefaultUI: true, zoomControl: true, gestureHandling: 'greedy', clickableIcons: false
+    });
+    google.maps.event.addListenerOnce(map, 'idle', () => {
+      const el = document.getElementById('mapErrorBanner');
+      if (el) el.remove(); // لو الخريطة فعلاً اشتغلت وطلعت بلاطات، منشيل أي رسالة خطأ قديمة
+    });
+  } catch (e) {
+    console.error('map init error', e);
+    showMapError('صار خطأ بإنشاء الخريطة: ' + (e.message || e));
+    return;
+  }
   centerOnMyLocation(true);
 }
 

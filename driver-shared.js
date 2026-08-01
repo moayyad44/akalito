@@ -1,0 +1,178 @@
+// ══════════════════════════════════════════════════════════
+// driver-shared.js — أدوات مشتركة بين كل صفحات تطبيق السائق
+// (akleto-driver.html, akleto-driver-home.html, akleto-driver-orders.html,
+//  akleto-driver-deliveries.html, akleto-driver-account.html)
+// ══════════════════════════════════════════════════════════
+import {
+  db, doc, updateDoc, deleteDoc, collection, query, where, onSnapshot,
+  serverTimestamp, withTimeout
+} from "./firebase-init.js";
+
+export const DRIVER_STORAGE_KEY = 'akleto_driver_id';
+export const DRIVER_NAME_KEY = 'akleto_driver_name';
+export const DRIVER_PHONE_KEY = 'akleto_driver_phone';
+export const DRIVER_AVAIL_KEY = 'akleto_driver_available';
+export const DRIVER_NOTIF_SEEN_KEY = 'akleto_driver_notif_seen';
+
+/* ═══ الجلسة ═══ */
+export function getDriverSession() {
+  const id = localStorage.getItem(DRIVER_STORAGE_KEY);
+  if (!id) return null;
+  return {
+    id,
+    name: localStorage.getItem(DRIVER_NAME_KEY) || '',
+    phone: localStorage.getItem(DRIVER_PHONE_KEY) || ''
+  };
+}
+
+// يتأكد إنه في جلسة سائق محفوظة، وإلا يرجّع لصفحة الدخول
+export function requireDriverSession() {
+  const s = getDriverSession();
+  if (!s) { window.location.href = 'akleto-driver.html'; return null; }
+  return s;
+}
+
+export function saveDriverSession(id, name, phone) {
+  localStorage.setItem(DRIVER_STORAGE_KEY, id);
+  localStorage.setItem(DRIVER_NAME_KEY, name);
+  localStorage.setItem(DRIVER_PHONE_KEY, phone);
+}
+
+export function logoutDriver() {
+  localStorage.removeItem(DRIVER_STORAGE_KEY);
+  localStorage.removeItem(DRIVER_NAME_KEY);
+  localStorage.removeItem(DRIVER_PHONE_KEY);
+  localStorage.removeItem(DRIVER_AVAIL_KEY);
+  window.location.href = 'akleto-driver.html';
+}
+
+export async function deleteDriverAccountById(driverId) {
+  await withTimeout(deleteDoc(doc(db, 'drivers', driverId)), 15000, 'انتهت مهلة الحذف — تأكد من الإنترنت');
+  localStorage.removeItem(DRIVER_STORAGE_KEY);
+  localStorage.removeItem(DRIVER_NAME_KEY);
+  localStorage.removeItem(DRIVER_PHONE_KEY);
+  localStorage.removeItem(DRIVER_AVAIL_KEY);
+  window.location.href = 'akleto-driver.html';
+}
+
+/* ═══ عرض ═══ */
+export function ticketCode(id) { return '#' + (id || '----').slice(-4).toUpperCase(); }
+
+export function timeAgo(ts) {
+  if (!ts || !ts.toDate) return '—';
+  const diffMs = Date.now() - ts.toDate().getTime();
+  const mins = Math.floor(diffMs / 60000);
+  if (mins < 1) return 'الآن';
+  if (mins < 60) return `قبل ${mins} د`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return `قبل ${hrs} س`;
+  return `قبل ${Math.floor(hrs / 24)} يوم`;
+}
+
+export function timeAgoNotif(ts) {
+  if (!ts || !ts.toDate) return '—';
+  const d = ts.toDate();
+  const diffSec = Math.floor((Date.now() - d.getTime()) / 1000);
+  if (diffSec < 60) return 'الآن';
+  if (diffSec < 3600) return `منذ ${Math.floor(diffSec / 60)} دقيقة`;
+  if (diffSec < 86400) return `منذ ${Math.floor(diffSec / 3600)} ساعة`;
+  if (diffSec < 2592000) return `منذ ${Math.floor(diffSec / 86400)} يوم`;
+  return d.toLocaleDateString('ar-JO');
+}
+
+export function showToast(msg) {
+  const t = document.getElementById('toast');
+  if (!t) return;
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(window._toastT);
+  window._toastT = setTimeout(() => t.classList.remove('show'), 2400);
+}
+
+/* ═══ التوفر (متاح/غير متاح) + الموقع الحي ═══ */
+export function setDriverAvailability(driverId, isAvailable, coords) {
+  const payload = { is_available: isAvailable, availability_updated_at: serverTimestamp() };
+  if (coords) {
+    payload.lat = coords.lat;
+    payload.lng = coords.lng;
+    payload.location_updated_at = serverTimestamp();
+  }
+  return updateDoc(doc(db, 'drivers', driverId), payload);
+}
+
+export function updateDriverLocation(driverId, lat, lng) {
+  return updateDoc(doc(db, 'drivers', driverId), { lat, lng, location_updated_at: serverTimestamp() })
+    .catch(e => console.error('update driver location error', e));
+}
+
+/* ═══ الإشعارات (بث عام + رسائل موجهة للسائق) ═══ */
+export function watchDriverNotifs(driverId, cb) {
+  const buckets = { all: [], mine: [] };
+  const merge = () => {
+    const combined = [...buckets.all, ...buckets.mine].sort(
+      (a, b) => (b.created_at?.toMillis?.() || 0) - (a.created_at?.toMillis?.() || 0)
+    );
+    cb(combined);
+  };
+  const qAll = query(collection(db, 'user_notifications'), where('audience', '==', 'all_drivers'));
+  const qMine = query(collection(db, 'user_notifications'), where('audience', '==', 'driver'), where('target_id', '==', driverId));
+  const u1 = onSnapshot(qAll, snap => { buckets.all = snap.docs.map(d => ({ id: d.id, ...d.data() })); merge(); }, e => console.error('notif all_drivers error', e));
+  const u2 = onSnapshot(qMine, snap => { buckets.mine = snap.docs.map(d => ({ id: d.id, ...d.data() })); merge(); }, e => console.error('notif driver error', e));
+  return () => { u1(); u2(); };
+}
+
+export function updateNotifBadge(notifItems) {
+  const seen = parseInt(localStorage.getItem(DRIVER_NOTIF_SEEN_KEY) || '0', 10);
+  const unread = (notifItems || []).filter(n => (n.created_at?.toMillis?.() || 0) > seen).length;
+  document.querySelectorAll('.bell-dot').forEach(d => d.classList.toggle('hidden', unread === 0));
+}
+
+export function renderNotifList(wrapId, notifItems) {
+  const wrap = document.getElementById(wrapId);
+  if (!wrap) return;
+  if (!notifItems.length) {
+    wrap.innerHTML = `<div class="empty-state-c" style="padding:30px 0;">ولا إشعار لسا 🔕</div>`;
+    return;
+  }
+  wrap.innerHTML = notifItems.map(n => `
+    <div style="background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:14px 16px;margin-bottom:10px;">
+      <div style="font-weight:800;font-size:14px;margin-bottom:4px;">${n.title || ''}</div>
+      <div style="font-size:13px;color:var(--text30);line-height:1.5;">${n.message || ''}</div>
+      <div style="font-size:11px;color:var(--text30);margin-top:6px;">${timeAgoNotif(n.created_at)}</div>
+    </div>`).join('');
+}
+
+/* ═══ الطلبات ═══ */
+export function watchAvailableOrders(cb) {
+  const q = query(collection(db, 'orders'), where('status', '==', 'ready'));
+  return onSnapshot(q, snap => {
+    const list = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    list.sort((a, b) => (a.created_at?.toMillis?.() || 0) - (b.created_at?.toMillis?.() || 0));
+    cb(list);
+  }, err => { console.error('available orders error', err); cb([]); });
+}
+
+export function watchMyOrders(driverId, cb) {
+  const q = query(collection(db, 'orders'), where('driver_id', '==', driverId));
+  return onSnapshot(q, snap => cb(snap.docs.map(d => ({ id: d.id, ...d.data() }))), err => console.error('my orders error', err));
+}
+
+/* ═══ خريطة السائق: طلبات نشطة تجمّعت عند متاجر (نقاط تكاثر) ═══ */
+export function watchHotspotOrders(cb) {
+  const q = query(collection(db, 'orders'), where('status', 'in', ['pending', 'preparing', 'ready']));
+  return onSnapshot(q, snap => cb(snap.docs.map(d => ({ id: d.id, ...d.data() }))), err => console.error('hotspot orders error', err));
+}
+
+/* ═══ خريطة السائق: بقية السائقين المتاحين حالياً (حركة لايف) ═══ */
+export function watchActiveDrivers(cb) {
+  const q = query(collection(db, 'drivers'), where('is_available', '==', true));
+  return onSnapshot(q, snap => cb(snap.docs.map(d => ({ id: d.id, ...d.data() }))), err => console.error('active drivers error', err));
+}
+
+/* ═══ عدّاد شارة سفلية موحّد ═══ */
+export function setNavBadge(elId, count) {
+  const el = document.getElementById(elId);
+  if (!el) return;
+  if (count > 0) { el.textContent = count; el.classList.remove('hidden'); }
+  else { el.classList.add('hidden'); }
+}

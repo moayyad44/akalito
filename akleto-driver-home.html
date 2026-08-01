@@ -453,8 +453,12 @@ async function initMap() {
     showMapError('فشل تحميل سكربت خرائط جوجل — تحقق من الإنترنت أو حظر إعلانات يمنع الطلب');
     return;
   }
+  // تأخير بسيط قبل إنشاء الخريطة عشان نتأكد إنه الـ CSS والتخطيط استقرّوا بالكامل
+  // (نفس الحل المستخدم بخريطة akleto-admin-stores.html لمشاكل مشابهة)
+  await new Promise(r => setTimeout(r, 60));
+  const mapEl = document.getElementById('map');
   try {
-    map = new google.maps.Map(document.getElementById('map'), {
+    map = new google.maps.Map(mapEl, {
       center: AMMAN, zoom: 12, disableDefaultUI: true, zoomControl: true, gestureHandling: 'greedy', clickableIcons: false
     });
     google.maps.event.addListenerOnce(map, 'idle', () => {
@@ -466,6 +470,10 @@ async function initMap() {
     showMapError('صار خطأ بإنشاء الخريطة: ' + (e.message || e));
     return;
   }
+  // إعادة حساب حجم الخريطة بعد الإنشاء مباشرة وبعد نص ثانية (تفادي مشكلة "خريطة بحجم صفر" الشائعة)
+  setTimeout(() => { if (map) google.maps.event.trigger(map, 'resize'); map.setCenter(AMMAN); }, 200);
+  window.addEventListener('resize', () => { if (map) google.maps.event.trigger(map, 'resize'); });
+  window.addEventListener('orientationchange', () => { if (map) setTimeout(() => google.maps.event.trigger(map, 'resize'), 200); });
   centerOnMyLocation(true);
 }
 

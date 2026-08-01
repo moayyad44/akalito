@@ -34,7 +34,7 @@
     background: var(--bg);
     color: var(--text);
     direction: rtl;
-    padding-bottom: 76px;
+    padding-bottom: 20px;
     min-height: 100vh;
     overflow-x: hidden;
   }
@@ -115,7 +115,13 @@
     transition: background .12s ease;
   }
   .cs-nav-item .ic-box svg { width:18px; height:18px; }
-  .cs-nav-item .chev { margin-right:auto; color: var(--border); font-size:13px; }
+  .cs-nav-item .chev { color: var(--border); font-size:13px; }
+  .drawer-badge {
+    background:var(--primary); color:#fff; font-size:11px; font-weight:800;
+    min-width:19px; height:19px; padding:0 5px; border-radius:10px;
+    display:flex; align-items:center; justify-content:center;
+  }
+  .drawer-badge.hidden { display:none; }
   .cs-nav-item.danger { color:#D9534F; margin-top:auto; padding-top:16px; border-top:1px solid var(--border); }
   .cs-nav-item.danger .ic-box { background: rgba(217,83,79,.09); color:#D9534F; }
   .cs-drawer-footer { padding:14px 20px calc(16px + env(safe-area-inset-bottom)); text-align:center; font-size:11px; color: var(--text30); }
@@ -333,13 +339,6 @@ if ("serviceWorker" in navigator) {
 </div>
 
 
-  <div class="bottom-nav" id="bottomNav">
-    <a class="nav-btn active" href="akleto-driver-home.html"><span class="icon">🗺️</span><span>الرئيسية</span></a>
-    <a class="nav-btn" href="akleto-driver-orders.html"><span class="icon">📦</span><span>المتاحة</span><span class="nav-badge hidden" id="availBadge">0</span></a>
-    <a class="nav-btn" href="akleto-driver-deliveries.html"><span class="icon">🛵</span><span>توصيلاتي</span><span class="nav-badge hidden" id="myBadge">0</span></a>
-    <a class="nav-btn" href="akleto-driver-account.html"><span class="icon">👤</span><span>حسابي</span></a>
-  </div>
-
 <div class="sheet-overlay" id="notifSheet" onclick="if(event.target===this) closeNotifSheet()">
   <div class="sheet-card" style="max-height:80vh;">
     <button class="sheet-close" onclick="closeNotifSheet()">✕</button>
@@ -359,10 +358,10 @@ if ("serviceWorker" in navigator) {
     <div class="cs-drawer-phone" id="csd-driver-phone"></div>
   </div>
   <div class="cs-nav-section-label">التنقّل</div>
-  <div class="cs-nav-item" onclick="location.href='akleto-driver-home.html'" style="color:var(--primary);"><span class="ic-box"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11 12 4l9 7"/><path d="M5 10v9h5v-6h4v6h5v-9"/></svg></span><span>الرئيسية (الخريطة)</span><span class="chev">‹</span></div>
-  <div class="cs-nav-item" onclick="location.href='akleto-driver-orders.html'"><span class="ic-box"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3 4 7v10l8 4 8-4V7l-8-4Z"/><path d="M4 7l8 4 8-4"/><path d="M12 11v10"/></svg></span><span>الطلبات المتاحة</span><span class="chev">‹</span></div>
-  <div class="cs-nav-item" onclick="location.href='akleto-driver-deliveries.html'"><span class="ic-box"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="17" r="2.2"/><circle cx="18" cy="17" r="2.2"/><path d="M6 17h5l3-7h4"/><path d="M9.5 10h4"/></svg></span><span>توصيلاتي</span><span class="chev">‹</span></div>
-  <div class="cs-nav-item" onclick="location.href='akleto-driver-account.html'"><span class="ic-box"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="3.6"/><path d="M4.5 19.2c1.4-3.4 4.3-5.1 7.5-5.1s6.1 1.7 7.5 5.1"/></svg></span><span>حسابي</span><span class="chev">‹</span></div>
+  <div class="cs-nav-item" onclick="location.href='akleto-driver-home.html'" style="color:var(--primary);"><span class="ic-box"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11 12 4l9 7"/><path d="M5 10v9h5v-6h4v6h5v-9"/></svg></span><span style="flex:1;">الرئيسية (الخريطة)</span><span class="chev">‹</span></div>
+  <div class="cs-nav-item" onclick="location.href='akleto-driver-orders.html'"><span class="ic-box"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3 4 7v10l8 4 8-4V7l-8-4Z"/><path d="M4 7l8 4 8-4"/><path d="M12 11v10"/></svg></span><span style="flex:1;">الطلبات المتاحة</span><span class="drawer-badge hidden" id="availBadge">0</span><span class="chev">‹</span></div>
+  <div class="cs-nav-item" onclick="location.href='akleto-driver-deliveries.html'"><span class="ic-box"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="17" r="2.2"/><circle cx="18" cy="17" r="2.2"/><path d="M6 17h5l3-7h4"/><path d="M9.5 10h4"/></svg></span><span style="flex:1;">توصيلاتي</span><span class="drawer-badge hidden" id="myBadge">0</span><span class="chev">‹</span></div>
+  <div class="cs-nav-item" onclick="location.href='akleto-driver-account.html'"><span class="ic-box"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="3.6"/><path d="M4.5 19.2c1.4-3.4 4.3-5.1 7.5-5.1s6.1 1.7 7.5 5.1"/></svg></span><span style="flex:1;">حسابي</span><span class="chev">‹</span></div>
   <div class="cs-nav-section-label">الحساب</div>
   <div class="cs-nav-item" onclick="closeDriverMenu(); openNotifSheet();"><span class="ic-box"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9a6 6 0 0 1 12 0c0 5 2 6 2 6H4s2-1 2-6Z"/><path d="M10 19a2 2 0 0 0 4 0"/></svg></span><span>الإشعارات</span><span class="chev">‹</span></div>
   <div class="cs-nav-item danger" onclick="logoutDriverConfirm()"><span class="ic-box"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v8"/><path d="M6.3 6.3a8 8 0 1 0 11.4 0"/></svg></span><span>تسجيل الخروج</span></div>

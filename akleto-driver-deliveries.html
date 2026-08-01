@@ -1,0 +1,491 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<title>أكليتو — توصيلاتي</title>
+<link rel="manifest" href="manifest-driver.json">
+<meta name="theme-color" content="#A23E48">
+<link rel="apple-touch-icon" href="icons/driver-180.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="سائق أكليتو">
+<meta name="mobile-web-app-capable" content="yes">
+<link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;900&family=Tajawal:wght@400;500;700;800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+
+<style>
+
+  :root {
+    --primary:  #A23E48;
+    --secondary:#F5A65B;
+    --olive:    #65743A;
+    --purple:   #8E44AD;
+    --bg:       #FDF8F3;
+    --surface:  #FFFFFE;
+    --border:   #EBE0D3;
+    --text:     #3A2A28;
+    --text30:   #9C8C82;
+  }
+  * { box-sizing: border-box; margin:0; padding:0; }
+  html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; overflow-x: hidden; }
+  body {
+    font-family: 'Cairo', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    direction: rtl;
+    padding-bottom: 76px;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+  h1,h2,h3,.font-title { font-family: 'Tajawal', sans-serif; }
+  button { font-family: inherit; cursor: pointer; }
+  .mono { font-family: 'JetBrains Mono', monospace; }
+  .hidden { display: none !important; }
+
+  /* ═══ الهيدر العلوي ═══ */
+  .topbar {
+    display:flex; align-items:center; justify-content:space-between;
+    padding: 16px 18px 10px;
+  }
+  .topbar .greeting { font-size: 13px; color: var(--text30); }
+  .topbar .greeting b { color: var(--text); }
+  .topbar-logo { font-family:'Tajawal',sans-serif; font-weight:900; color: var(--primary); font-size: 20px; }
+  .icon-btn {
+    width:38px; height:38px; border-radius:50%; flex-shrink:0;
+    border:1.5px solid var(--border); background: var(--surface); color: var(--primary);
+    font-size:16px; display:flex; align-items:center; justify-content:center;
+    cursor:pointer; transition: background .15s ease;
+  }
+  .icon-btn:active { background: var(--border); }
+  .bell-wrap { position:relative; display:inline-flex; }
+  .bell-dot {
+    position:absolute; top:1px; left:1px; width:11px; height:11px; border-radius:50%;
+    background: var(--primary); border:2px solid var(--bg);
+  }
+
+  .section-title { font-size: 16px; font-weight: 800; padding: 6px 18px 12px; font-family:'Tajawal',sans-serif; }
+  .content-wrap { max-width: 640px; margin: 0 auto; }
+
+  /* ═══ القائمة الجانبية ═══ */
+  .cs-overlay {
+    position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(20,10,10,.5); z-index:300;
+    opacity:0; pointer-events:none; transition:opacity .2s ease;
+    backdrop-filter: blur(2px); -webkit-backdrop-filter: blur(2px);
+  }
+  .cs-overlay.open { opacity:1; pointer-events:auto; }
+  .cs-drawer {
+    position:fixed; top:0; right:0; height:100%; width:82%; max-width:310px;
+    background:var(--bg); z-index:301; transform:translateX(100%);
+    transition:transform .28s cubic-bezier(.22,.68,.35,1); box-shadow:-10px 0 32px rgba(0,0,0,.22);
+    display:flex; flex-direction:column;
+  }
+  .cs-drawer.open { transform:translateX(0); }
+  .cs-drawer-header {
+    padding:30px 20px 22px; background: linear-gradient(135deg, var(--primary), #B8535E);
+    color:#fff; position:relative; overflow:hidden;
+  }
+  .cs-drawer-header::after {
+    content:"🛵"; position:absolute; font-size:70px; opacity:.14; left:-10px; bottom:-16px;
+  }
+  .cs-drawer-close {
+    position:absolute; top:16px; left:16px; width:30px; height:30px; border-radius:50%;
+    border:none; background:rgba(255,255,255,.18); color:#fff; font-size:14px;
+  }
+  .cs-drawer-avatar {
+    width:50px; height:50px; border-radius:50%; background:rgba(255,255,255,.22); color:#fff;
+    border: 1.5px solid rgba(255,255,255,.5);
+    display:flex; align-items:center; justify-content:center; font-size:20px; font-weight:800;
+    margin-bottom:12px; position:relative;
+  }
+  .cs-drawer-name { font-weight:800; font-size:16.5px; font-family:'Tajawal',sans-serif; position:relative; }
+  .cs-drawer-phone { font-size:12.5px; opacity:.88; margin-top:3px; position:relative; }
+  .cs-nav-section-label {
+    padding: 16px 20px 6px; font-size:11px; font-weight:800; color: var(--text30);
+    letter-spacing:.3px;
+  }
+  .cs-nav-item {
+    display:flex; align-items:center; gap:12px; padding:12px 20px; font-size:14px;
+    font-weight:700; cursor:pointer;
+  }
+  .cs-nav-item:active .ic-box { background: var(--border); }
+  .cs-nav-item .ic-box {
+    width:36px; height:36px; border-radius:11px; background: rgba(162,62,72,.08); color: var(--primary);
+    display:flex; align-items:center; justify-content:center; font-size:16px; flex-shrink:0;
+    transition: background .12s ease;
+  }
+  .cs-nav-item .ic-box svg { width:18px; height:18px; }
+  .cs-nav-item .chev { margin-right:auto; color: var(--border); font-size:13px; }
+  .cs-nav-item.danger { color:#D9534F; margin-top:auto; padding-top:16px; border-top:1px solid var(--border); }
+  .cs-nav-item.danger .ic-box { background: rgba(217,83,79,.09); color:#D9534F; }
+  .cs-drawer-footer { padding:14px 20px calc(16px + env(safe-area-inset-bottom)); text-align:center; font-size:11px; color: var(--text30); }
+
+  /* ═══ بطاقة طلب ═══ */
+  .order-card {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 16px;
+    padding: 14px 16px; margin: 0 18px 12px;
+    border-inline-start: 5px solid var(--st-color, var(--primary));
+  }
+  .order-card-head { display:flex; align-items:center; justify-content:space-between; margin-bottom:8px; }
+  .order-card-code { font-size: 15px; font-weight: 800; }
+  .order-card-time { font-size: 11.5px; color: var(--text30); }
+  .order-card-meta { font-size: 12.5px; color: var(--text30); display:flex; gap:10px; margin-bottom: 10px; flex-wrap: wrap; }
+  .order-card-price { font-weight: 800; color: var(--primary); font-size: 14px; }
+  .order-card-actions { display:flex; gap: 8px; margin-top: 6px; }
+  .btn-claim {
+    flex:1; padding: 11px; border-radius: 12px; border:none; background: var(--olive);
+    color:#fff; font-weight:700; font-size: 13.5px;
+  }
+  .btn-claim:disabled { opacity:.5; }
+  .btn-secondary-sm {
+    flex:1; padding: 11px; border-radius: 12px; border: 1.5px solid var(--border); background: transparent;
+    color: var(--text); font-weight:700; font-size: 13.5px;
+  }
+  .status-pill { font-size: 11px; font-weight: 700; padding: 3px 10px; border-radius: 20px; color:#fff; background: var(--st-color, var(--primary)); }
+
+  .empty-state-c { text-align:center; padding: 60px 30px; color: var(--text30); font-size:14px; }
+  .empty-state-c .emoji { font-size: 44px; margin-bottom: 12px; }
+
+  /* ═══ حسابي ═══ */
+  .account-card {
+    background: var(--surface); border:1px solid var(--border); border-radius:16px;
+    padding: 20px; margin: 0 18px 16px; text-align:center;
+  }
+  .account-avatar {
+    width:64px; height:64px; border-radius:50%; background: var(--primary); color:#fff;
+    display:flex; align-items:center; justify-content:center; font-size:26px; font-weight:800;
+    margin: 0 auto 12px;
+  }
+  .account-name { font-size:17px; font-weight:800; font-family:'Tajawal',sans-serif; }
+  .account-phone { font-size:13px; color:var(--text30); margin-top:2px; }
+  .stat-row { display:flex; gap:10px; margin: 0 18px 18px; }
+  .stat-box { flex:1; background: var(--surface); border:1px solid var(--border); border-radius:14px; padding:14px; text-align:center; }
+  .stat-box .num { font-size:20px; font-weight:800; color: var(--primary); }
+  .stat-box .lbl { font-size:11.5px; color:var(--text30); margin-top:2px; }
+  .field-group { text-align: right; margin-bottom: 14px; }
+  .field-group label { font-size: 13px; font-weight: 600; display:block; margin-bottom: 6px; }
+  .field-group input {
+    width: 100%; padding: 13px 16px; border-radius: 12px; border: 1.5px solid var(--border);
+    background: var(--surface); font-family: inherit; font-size: 15px; color: var(--text);
+  }
+  .field-group input:focus { outline: none; border-color: var(--primary); }
+  .btn-main {
+    width: 100%; padding: 15px; border-radius: 14px; border: none;
+    background: var(--primary); color: #fff; font-weight: 700; font-size: 15px;
+    display:flex; align-items:center; justify-content:center; gap:8px;
+  }
+  .btn-main:disabled { opacity: .5; }
+  .btn-outline {
+    width: 100%; padding: 13px; border-radius: 14px; border: 1.5px solid var(--primary);
+    background: transparent; color: var(--primary); font-weight: 700; font-size: 14px;
+  }
+  .error-text { color: var(--primary); font-size: 12.5px; margin-top: 10px; display:none; }
+
+  /* ═══ Bottom Nav ═══ */
+  .bottom-nav {
+    position:fixed; bottom:0; right:0; left:0; background: var(--surface);
+    border-top:1px solid var(--border); display:flex; z-index: 150;
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+  .nav-btn {
+    flex:1; border:none; background:none; padding:11px 0 9px; display:flex;
+    flex-direction:column; align-items:center; gap:3px; color: var(--text30); font-size:11px; font-weight:600;
+    position:relative; text-decoration:none;
+  }
+  .nav-btn.active { color: var(--primary); }
+  .nav-btn .icon { font-size: 20px; }
+  .nav-badge {
+    position:absolute; top:2px; left:calc(50% + 6px); background:var(--primary); color:#fff;
+    font-size:10px; font-weight:800; width:16px; height:16px; border-radius:50%;
+    display:flex; align-items:center; justify-content:center;
+  }
+
+  /* ═══ ورقة تفاصيل الطلب / الإشعارات ═══ */
+  .sheet-overlay {
+    position: fixed; top:0; left:0; right:0; bottom:0; background: rgba(58,42,40,.4); z-index: 200;
+    display:none; align-items:flex-end; justify-content:center;
+  }
+  .sheet-overlay.open { display:flex; }
+  .sheet-card {
+    background: var(--bg); width:100%; max-width: 480px; max-height: 88vh; overflow-y:auto;
+    border-radius: 24px 24px 0 0; padding-bottom: 20px; position: relative;
+  }
+  .sheet-close {
+    position:absolute; top:14px; left:14px; width:34px; height:34px; border-radius:50%;
+    background: rgba(0,0,0,.06); border:none; font-size:16px; color:var(--text); z-index: 2;
+  }
+  .sheet-body { padding: 24px 20px 6px; }
+  .sheet-title { font-size: 19px; font-weight: 800; font-family:'Tajawal',sans-serif; margin-bottom:12px; }
+  .receipt-row { display:flex; justify-content:space-between; gap:10px; padding:8px 0; font-size:14px; border-bottom: 1px solid var(--border); }
+  .receipt-row:last-child { border-bottom:none; }
+  .receipt-row span:last-child { color: var(--text30); flex-shrink:0; }
+  .receipt-section-title { font-size:12px; font-weight:700; color:var(--text30); margin: 14px 0 6px; }
+  .receipt-note { font-size: 12.5px; color: var(--secondary); background: rgba(245,166,91,.12); border-radius: 8px; padding: 8px 10px; margin: 8px 0; line-height:1.6; }
+  .map-link-btn {
+    display:block; text-align:center; font-size:12.5px; font-weight:800; color: var(--primary);
+    background: rgba(162,62,72,.08); border-radius: 8px; padding: 9px 10px; margin: 8px 0; text-decoration:none;
+  }
+  .receipt-total { display:flex; justify-content:space-between; font-weight:800; font-size:16px; padding-top:14px; margin-top:10px; border-top: 2px dashed var(--border); color: var(--primary); }
+  .sheet-footer { padding: 16px 20px 4px; }
+
+  .toast {
+    position:fixed; bottom:90px; right:50%; transform:translateX(50%) translateY(20px);
+    background: var(--text); color:#fff; padding: 12px 22px; border-radius: 30px;
+    font-size:13.5px; font-weight:600; opacity:0; transition: all .25s; z-index: 300; white-space:nowrap;
+    max-width: 90vw; text-align:center;
+  }
+  .toast.show { opacity:1; transform:translateX(50%) translateY(0); }
+
+  @media (min-width: 640px) {
+    .sheet-overlay { align-items:center; }
+    .sheet-card { border-radius: 20px; max-height: 85vh; }
+  }
+
+
+</style>
+<script>
+if ("serviceWorker" in navigator) {
+  window.addEventListener("load", () => { navigator.serviceWorker.register("./sw.js").catch(() => {}); });
+}
+</script>
+</head>
+<body>
+
+<div id="appShell">
+
+  <div class="topbar">
+    <div style="display:flex;align-items:center;gap:10px;">
+      <button class="icon-btn" onclick="toggleDriverMenu()" title="القائمة">☰</button>
+      <div><div class="topbar-logo">أكليتو 🛵</div><div class="greeting">أهلاً <b id="greet-name">—</b></div></div>
+    </div>
+    <div class="bell-wrap">
+      <button class="icon-btn" onclick="openNotifSheet()" title="الإشعارات"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9a6 6 0 0 1 12 0c0 5 2 6 2 6H4s2-1 2-6Z"/><path d="M10 19a2 2 0 0 0 4 0"/></svg></button>
+      <span class="bell-dot hidden" id="bellDotDriver"></span>
+    </div>
+  </div>
+
+  <div id="myScreen" class="content-wrap">
+    <div class="section-title">🛵 قيد التوصيل الآن</div>
+    <div id="activeDeliveries"><div class="empty-state-c" style="padding:30px 0;">جاري التحميل...</div></div>
+    <div class="section-title">📜 توصيلات سابقة</div>
+    <div id="deliveryHistory"><div class="empty-state-c" style="padding:30px 0;">جاري التحميل...</div></div>
+  </div>
+
+  <div class="bottom-nav" id="bottomNav">
+    <a class="nav-btn" href="akleto-driver-home.html"><span class="icon">🗺️</span><span>الرئيسية</span></a>
+    <a class="nav-btn" href="akleto-driver-orders.html"><span class="icon">📦</span><span>المتاحة</span><span class="nav-badge hidden" id="availBadge">0</span></a>
+    <a class="nav-btn active" href="akleto-driver-deliveries.html"><span class="icon">🛵</span><span>توصيلاتي</span><span class="nav-badge hidden" id="myBadge">0</span></a>
+    <a class="nav-btn" href="akleto-driver-account.html"><span class="icon">👤</span><span>حسابي</span></a>
+  </div>
+
+</div>
+
+<div class="sheet-overlay" id="notifSheet" onclick="if(event.target===this) closeNotifSheet()">
+  <div class="sheet-card" style="max-height:80vh;">
+    <button class="sheet-close" onclick="closeNotifSheet()">✕</button>
+    <div class="sheet-body">
+      <div class="sheet-title"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;"><path d="M6 9a6 6 0 0 1 12 0c0 5 2 6 2 6H4s2-1 2-6Z"/><path d="M10 19a2 2 0 0 0 4 0"/></svg> الإشعارات</div>
+      <div id="notifList"></div>
+    </div>
+  </div>
+</div>
+
+<div class="cs-overlay" id="csOverlayDriver" onclick="closeDriverMenu()"></div>
+<div class="cs-drawer" id="csDrawerDriver">
+  <div class="cs-drawer-header">
+    <button class="cs-drawer-close" onclick="closeDriverMenu()">✕</button>
+    <div class="cs-drawer-avatar" id="csd-driver-avatar">؟</div>
+    <div class="cs-drawer-name" id="csd-driver-name"></div>
+    <div class="cs-drawer-phone" id="csd-driver-phone"></div>
+  </div>
+  <div class="cs-nav-section-label">التنقّل</div>
+  <div class="cs-nav-item" onclick="location.href='akleto-driver-home.html'"><span class="ic-box"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11 12 4l9 7"/><path d="M5 10v9h5v-6h4v6h5v-9"/></svg></span><span>الرئيسية (الخريطة)</span><span class="chev">‹</span></div>
+  <div class="cs-nav-item" onclick="location.href='akleto-driver-orders.html'"><span class="ic-box"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3 4 7v10l8 4 8-4V7l-8-4Z"/><path d="M4 7l8 4 8-4"/><path d="M12 11v10"/></svg></span><span>الطلبات المتاحة</span><span class="chev">‹</span></div>
+  <div class="cs-nav-item" onclick="location.href='akleto-driver-deliveries.html'" style="color:var(--primary);"><span class="ic-box"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="17" r="2.2"/><circle cx="18" cy="17" r="2.2"/><path d="M6 17h5l3-7h4"/><path d="M9.5 10h4"/></svg></span><span>توصيلاتي</span><span class="chev">‹</span></div>
+  <div class="cs-nav-item" onclick="location.href='akleto-driver-account.html'"><span class="ic-box"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="3.6"/><path d="M4.5 19.2c1.4-3.4 4.3-5.1 7.5-5.1s6.1 1.7 7.5 5.1"/></svg></span><span>حسابي</span><span class="chev">‹</span></div>
+  <div class="cs-nav-section-label">الحساب</div>
+  <div class="cs-nav-item" onclick="closeDriverMenu(); openNotifSheet();"><span class="ic-box"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9a6 6 0 0 1 12 0c0 5 2 6 2 6H4s2-1 2-6Z"/><path d="M10 19a2 2 0 0 0 4 0"/></svg></span><span>الإشعارات</span><span class="chev">‹</span></div>
+  <div class="cs-nav-item danger" onclick="logoutDriverConfirm()"><span class="ic-box"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v8"/><path d="M6.3 6.3a8 8 0 1 0 11.4 0"/></svg></span><span>تسجيل الخروج</span></div>
+  <div class="cs-drawer-footer">أكليتو 🛵 — السائق</div>
+</div>
+
+<div class="sheet-overlay" id="orderSheet" onclick="if(event.target===this) closeOrderSheet()">
+  <div class="sheet-card">
+    <button class="sheet-close" onclick="closeOrderSheet()">✕</button>
+    <div class="sheet-body">
+      <div class="sheet-title">طلب <span id="sheet-code" class="mono"></span></div>
+      <div class="receipt-row"><span>🏪 الاستلام من</span><span id="sheet-store-name">—</span></div>
+      <div class="receipt-row"><span>👤 الزبون</span><span id="sheet-cust-name">—</span></div>
+      <div class="receipt-row"><span>📞 الهاتف</span><span id="sheet-cust-phone" class="mono">—</span></div>
+      <div class="receipt-row" id="sheet-address-row" style="align-items:flex-start;"><span>📍 عنوان التوصيل</span><span id="sheet-address" style="text-align:left;max-width:65%;">—</span></div>
+      <div id="sheet-map-link-wrap"></div>
+      <div id="sheet-notes-wrap"></div>
+
+      <div class="receipt-section-title">🍽️ الوجبات</div>
+      <div id="sheet-meals"></div>
+
+      <div id="sheet-tip-wrap"></div>
+
+      <div class="receipt-total">
+        <span id="sheet-price-label">المبلغ المطلوب تحصيله</span>
+        <span class="mono" id="sheet-price">—</span>
+      </div>
+    </div>
+    <div class="sheet-footer" id="sheet-actions"></div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script type="module">
+import { db, collection, getDocs, addDoc, doc, updateDoc, serverTimestamp, withTimeout } from "./firebase-init.js";
+import {
+  requireDriverSession, ticketCode, timeAgo, showToast, watchDriverNotifs, updateNotifBadge,
+  renderNotifList, watchAvailableOrders, watchMyOrders, setNavBadge, logoutDriver,
+  DRIVER_NOTIF_SEEN_KEY
+} from "./driver-shared.js";
+
+const session = requireDriverSession();
+if (session) document.getElementById('greet-name').textContent = session.name;
+
+let mealsCache = {};
+let myOrders = [];
+
+async function loadMeals() {
+  try {
+    const snap = await getDocs(collection(db, 'meals'));
+    snap.docs.forEach(d => { mealsCache[d.id] = (d.data().name_ar || 'وجبة'); });
+  } catch (e) { console.error('load meals error', e); }
+}
+
+function renderMyOrders() {
+  const active = myOrders.filter(o => o.status === 'delivering')
+    .sort((a, b) => (b.picked_up_at?.toMillis?.() || 0) - (a.picked_up_at?.toMillis?.() || 0));
+  const done = myOrders.filter(o => o.status === 'done')
+    .sort((a, b) => (b.delivered_at?.toMillis?.() || 0) - (a.delivered_at?.toMillis?.() || 0));
+
+  setNavBadge('myBadge', active.length);
+
+  document.getElementById('activeDeliveries').innerHTML = active.length ? active.map(o => `
+    <div class="order-card" style="--st-color:var(--olive)">
+      <div class="order-card-head">
+        <span class="order-card-code mono">${ticketCode(o.id)}</span>
+        <span class="order-card-time">${timeAgo(o.picked_up_at)}</span>
+      </div>
+      <div class="order-card-meta">
+        <span>🏪 ${o.store_name || 'غير محدد'}</span>
+        <span>👤 ${o.customer_name || 'زبون'}</span>
+        <span class="order-card-price">${(o.total_estimated_price || 0).toFixed(2)} د.أ</span>
+      </div>
+      <div class="order-card-actions">
+        <button class="btn-secondary-sm" onclick="openOrderSheet('${o.id}')">التفاصيل</button>
+        <button class="btn-claim" onclick="markDelivered('${o.id}')">تم التوصيل ✅</button>
+      </div>
+    </div>`).join('') : `<div class="empty-state-c" style="padding:30px 0;">ما عندك توصيلات حالياً</div>`;
+
+  document.getElementById('deliveryHistory').innerHTML = done.length ? done.map(o => `
+    <div class="order-card" style="--st-color:var(--text30)">
+      <div class="order-card-head">
+        <span class="order-card-code mono">${ticketCode(o.id)}</span>
+        <span class="status-pill" style="--st-color:var(--olive)">✅ تم التوصيل</span>
+      </div>
+      <div class="order-card-meta">
+        <span>👤 ${o.customer_name || 'زبون'}</span>
+        <span class="order-card-price">${(o.total_estimated_price || 0).toFixed(2)} د.أ</span>
+      </div>
+    </div>`).join('') : `<div class="empty-state-c" style="padding:30px 0;">ما في توصيلات مكتملة بعد</div>`;
+}
+
+watchMyOrders(session.id, list => { myOrders = list; renderMyOrders(); });
+watchAvailableOrders(list => setNavBadge('availBadge', list.length));
+
+window.markDelivered = async (orderId) => {
+  try {
+    const o = myOrders.find(x => x.id === orderId);
+    await withTimeout(
+      updateDoc(doc(db, 'orders', orderId), { status: 'done', delivered_at: serverTimestamp() }),
+      10000, 'انتهت مهلة تحديث الحالة'
+    );
+    addDoc(collection(db, 'admin_notifications'), {
+      type: 'order_delivered',
+      title: `تم التوصيل ${ticketCode(orderId)}`,
+      message: `السائق ${session.name || ''} وصّل طلب ${o ? (o.customer_name || 'زبون') : ''} بنجاح`,
+      related_id: orderId, created_at: serverTimestamp(), read: false
+    }).catch(e => console.error('admin_notifications write error', e));
+    showToast('✅ تم تسجيل التوصيل — شكراً!');
+    closeOrderSheet();
+  } catch (e) {
+    console.error('mark delivered error', e);
+    showToast('صار خطأ بتحديث الحالة', true);
+  }
+};
+
+window.openOrderSheet = (orderId) => {
+  const o = myOrders.find(x => x.id === orderId);
+  if (!o) return;
+  document.getElementById('sheet-code').textContent = ticketCode(o.id);
+  document.getElementById('sheet-store-name').textContent = o.store_name || 'غير محدد';
+  document.getElementById('sheet-cust-name').textContent = o.customer_name || 'زبون';
+  document.getElementById('sheet-cust-phone').textContent = o.customer_phone || '—';
+  document.getElementById('sheet-address').textContent = o.delivery_address || 'ما في عنوان محفوظ — تواصل مع الزبون';
+  const mapLinkWrap = document.getElementById('sheet-map-link-wrap');
+  mapLinkWrap.innerHTML = (o.delivery_lat != null && o.delivery_lng != null)
+    ? `<a href="https://www.google.com/maps/search/?api=1&query=${o.delivery_lat},${o.delivery_lng}" target="_blank" class="map-link-btn">🗺️ فتح الموقع بخرائط جوجل</a>` : '';
+  document.getElementById('sheet-notes-wrap').innerHTML = o.customer_notes ? `<div class="receipt-note">📝 ${o.customer_notes}</div>` : '';
+  const mealsHtml = (o.items || []).map(it =>
+    `<div class="receipt-row"><span>🍽️ ${mealsCache[it.meal_id] || 'وجبة'}</span><span class="mono">× ${it.servings || 1}</span></div>`
+  ).join('') || `<div class="empty-state-c" style="padding:8px 0;">لا توجد عناصر</div>`;
+  document.getElementById('sheet-meals').innerHTML = mealsHtml;
+  const tipWrap = document.getElementById('sheet-tip-wrap');
+  tipWrap.innerHTML = o.driver_tip
+    ? `<div class="receipt-note" style="color:#2ED573;background:rgba(46,213,115,.12);">🎁 منها إكرامية لك: ${o.driver_tip.toFixed(2)} د.أ</div>` : '';
+  document.getElementById('sheet-price-label').textContent = o.status === 'done' ? 'الإجمالي' : 'المبلغ المطلوب تحصيله';
+  document.getElementById('sheet-price').textContent = (o.total_estimated_price || 0).toFixed(2) + ' د.أ';
+  document.getElementById('sheet-actions').innerHTML = o.status === 'delivering'
+    ? `<button class="btn-main" onclick="markDelivered('${o.id}')">تم التوصيل ✅</button>` : '';
+  document.getElementById('orderSheet').classList.add('open');
+};
+window.closeOrderSheet = () => document.getElementById('orderSheet').classList.remove('open');
+
+
+window.toggleDriverMenu = () => {
+  document.getElementById('csd-driver-avatar').textContent = (session.name || '؟').trim().charAt(0);
+  document.getElementById('csd-driver-name').textContent = session.name || 'سائق';
+  document.getElementById('csd-driver-phone').textContent = session.phone || '';
+  document.getElementById('csOverlayDriver').classList.add('open');
+  document.getElementById('csDrawerDriver').classList.add('open');
+};
+window.closeDriverMenu = () => {
+  document.getElementById('csOverlayDriver').classList.remove('open');
+  document.getElementById('csDrawerDriver').classList.remove('open');
+};
+window.logoutDriverConfirm = () => {
+  if (confirm('متأكد إنك بدك تسجل خروج؟')) logoutDriver();
+};
+
+let notifItemsCache = [];
+let unsubNotif = null;
+function startNotifWatcher() {
+  unsubNotif = watchDriverNotifs(session.id, (items) => {
+    notifItemsCache = items;
+    updateNotifBadge(items);
+    if (document.getElementById('notifSheet').classList.contains('open')) renderNotifList('notifList', items);
+  });
+}
+window.openNotifSheet = () => {
+  document.getElementById('notifSheet').classList.add('open');
+  renderNotifList('notifList', notifItemsCache);
+  const latest = notifItemsCache.reduce((max, n) => Math.max(max, n.created_at?.toMillis?.() || 0), 0);
+  localStorage.setItem(DRIVER_NOTIF_SEEN_KEY, String(latest || Date.now()));
+  updateNotifBadge(notifItemsCache);
+};
+window.closeNotifSheet = () => document.getElementById('notifSheet').classList.remove('open');
+
+
+window.addEventListener('DOMContentLoaded', () => {
+  loadMeals();
+  startNotifWatcher();
+});
+</script>
+</body>
+</html>

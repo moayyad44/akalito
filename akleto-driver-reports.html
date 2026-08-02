@@ -271,16 +271,19 @@
   .period-tab.active { background:var(--primary); color:#fff; border-color:var(--primary); }
 
   .balance-card {
-    background: linear-gradient(135deg, var(--primary), #B8535E); color:#fff; border-radius:18px;
-    padding:18px 20px; margin: 0 18px 18px; position:relative; overflow:hidden;
+    border-radius:18px; padding:18px 20px; margin: 0 18px 18px; position:relative; overflow:hidden; color:#fff;
+    transition: background .3s ease;
   }
+  .balance-card.owe-akleto { background: linear-gradient(135deg, var(--primary), #B8535E); }
+  .balance-card.owe-driver { background: linear-gradient(135deg, #2E7D4F, #4CAF7D); }
+  .balance-card.neutral { background: linear-gradient(135deg, #7A7A7A, #9A9A9A); }
   .balance-row { display:flex; justify-content:space-between; align-items:center; padding:6px 0; position:relative; }
   .balance-row .lbl { font-size:12.5px; opacity:.85; }
   .balance-row .val { font-size:17px; font-weight:800; font-family:'JetBrains Mono',monospace; }
   .balance-divider { height:1px; background:rgba(255,255,255,.25); margin:6px 0; }
   .btn-settle {
     width:100%; margin-top:12px; padding:11px; border-radius:12px; border:none; background:#fff;
-    color:var(--primary); font-weight:800; font-size:13.5px; display:flex; align-items:center; justify-content:center; gap:6px;
+    font-weight:800; font-size:13.5px; display:flex; align-items:center; justify-content:center; gap:6px;
   }
 
   .stats-grid { display:grid; grid-template-columns:1fr 1fr; gap:10px; padding:0 18px 20px; }
@@ -319,11 +322,11 @@ if ("serviceWorker" in navigator) {
 
   <div class="content-wrap">
 
-    <div class="balance-card">
+    <div class="balance-card neutral" id="balanceCard">
       <div class="balance-row"><span class="lbl"><svg class="inline-ic" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="6.5" width="18" height="12.5" rx="2.2"/><path d="M3 10h18"/><circle cx="16.3" cy="14" r="1.3"/></svg>المبالغ اللي بجيبك (كاش لسا معك)</span><span class="val" id="rep-cash">—</span></div>
       <div class="balance-divider"></div>
-      <div class="balance-row"><span class="lbl">الرصيد المستحق لأكليتو</span><span class="val" id="rep-owed">—</span></div>
-      <button class="btn-settle" onclick="location.href='akleto-driver-settle.html'"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="6.5" width="18" height="12.5" rx="2.2"/><path d="M3 10h18"/><circle cx="16.3" cy="14" r="1.3"/></svg>تسديد الرصيد الآن</button>
+      <div class="balance-row"><span class="lbl" id="rep-net-lbl">صافي الرصيد</span><span class="val" id="rep-net">—</span></div>
+      <button class="btn-settle" id="rep-settle-btn" onclick="location.href='akleto-driver-settle.html'"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="6.5" width="18" height="12.5" rx="2.2"/><path d="M3 10h18"/><circle cx="16.3" cy="14" r="1.3"/></svg>إدارة الرصيد</button>
     </div>
 
     <div class="period-tabs">
@@ -384,7 +387,8 @@ if ("serviceWorker" in navigator) {
 import {
   requireDriverSession, ticketCode, timeAgo, showToast, watchDriverNotifs, updateNotifBadge,
   renderNotifList, watchAvailableOrders, watchMyOrders, watchDriverShifts, setNavBadge, logoutDriver,
-  computeOrderFinancials, aggregateOrderFinancials, watchCommissionSettings, getCommissionConfig, DRIVER_NOTIF_SEEN_KEY
+  computeOrderFinancials, aggregateOrderFinancials, watchCommissionSettings, getCommissionConfig,
+  watchDriverBalanceTransactions, computeNetBalance, DRIVER_NOTIF_SEEN_KEY
 } from "./driver-shared.js";
 
 const session = requireDriverSession();
@@ -392,6 +396,7 @@ if (session) document.getElementById('greet-name').textContent = session.name;
 
 let allDoneOrders = [];
 let allShifts = [];
+let allTransactions = [];
 let period = 'all';
 
 function formatCommissionLabel() {
@@ -407,6 +412,7 @@ watchMyOrders(session.id, list => {
   recompute();
 });
 watchDriverShifts(session.id, list => { allShifts = list; recompute(); });
+watchDriverBalanceTransactions(session.id, list => { allTransactions = list; recompute(); });
 
 window.setPeriod = (p) => {
   period = p;
@@ -427,8 +433,34 @@ function inPeriod(ts) {
 function recompute() {
   // ═══ الرصيد الحالي (كل الطلبات المكتملة، بدون تصفية بفترة) ═══
   const allTotals = aggregateOrderFinancials(allDoneOrders);
+  const balance = computeNetBalance(allTotals, allTransactions);
   document.getElementById('rep-cash').textContent = allTotals.collected.toFixed(2) + ' د.أ';
-  document.getElementById('rep-owed').textContent = allTotals.owed.toFixed(2) + ' د.أ';
+
+  const card = document.getElementById('balanceCard');
+  const netLbl = document.getElementById('rep-net-lbl');
+  const netVal = document.getElementById('rep-net');
+  const settleBtn = document.getElementById('rep-settle-btn');
+  card.classList.remove('owe-akleto', 'owe-driver', 'neutral');
+
+  if (balance.net > 0.009) {
+    card.classList.add('owe-akleto');
+    netLbl.textContent = 'الرصيد المستحق منك لأكليتو';
+    netVal.textContent = balance.net.toFixed(2) + ' د.أ';
+    settleBtn.style.color = 'var(--primary)';
+    settleBtn.innerHTML = `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="6.5" width="18" height="12.5" rx="2.2"/><path d="M3 10h18"/><circle cx="16.3" cy="14" r="1.3"/></svg>تسديد الرصيد الآن`;
+  } else if (balance.net < -0.009) {
+    card.classList.add('owe-driver');
+    netLbl.textContent = 'أكليتو مدينة لك بـ';
+    netVal.textContent = Math.abs(balance.net).toFixed(2) + ' د.أ';
+    settleBtn.style.color = '#2E7D4F';
+    settleBtn.innerHTML = `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="6.5" width="18" height="12.5" rx="2.2"/><path d="M3 10h18"/><circle cx="16.3" cy="14" r="1.3"/></svg>طلب تحويل رصيدك`;
+  } else {
+    card.classList.add('neutral');
+    netLbl.textContent = 'صافي الرصيد';
+    netVal.textContent = '0.00 د.أ';
+    settleBtn.style.color = '#7A7A7A';
+    settleBtn.innerHTML = `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="6.5" width="18" height="12.5" rx="2.2"/><path d="M3 10h18"/><circle cx="16.3" cy="14" r="1.3"/></svg>عرض سجل الطلبات`;
+  }
 
   // ═══ الطلبات المصفّاة بالفترة المختارة ═══
   const periodOrders = allDoneOrders.filter(o => inPeriod(o.delivered_at));

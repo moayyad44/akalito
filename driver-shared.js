@@ -217,7 +217,7 @@ export function computeOrderFinancials(order) {
 
 // تجميع الحسابات المالية لمجموعة طلبات (لتقارير العمل)
 export function aggregateOrderFinancials(orders) {
-  const totals = { count: orders.length, collected: 0, commission: 0, netProfit: 0, owed: 0 };
+  const totals = { count: orders.length, collected: 0, commission: 0, netProfit: 0, owed: 0, owedToDriver: 0 };
   orders.forEach(o => {
     const f = computeOrderFinancials(o);
     // "الكاش بالجيب" ما بيشمل إلا الطلبات اللي فعلاً الكابتن قبض كاشها (COD) —
@@ -226,12 +226,54 @@ export function aggregateOrderFinancials(orders) {
     totals.commission += f.commission;
     totals.netProfit += f.netProfit;
     totals.owed += f.owed;
+    // لو الطلب مدفوع أونلاين، الكابتن أدّى شغل التوصيل بس ما قبض كاش —
+    // فأكليتو أصبحت مدينة له بصافي ربحه (رسوم توصيل + إكرامية بعد العمولة)
+    if (f.isOnlinePaid) totals.owedToDriver += f.netProfit;
   });
   totals.collected = Math.round(totals.collected * 100) / 100;
   totals.commission = Math.round(totals.commission * 100) / 100;
   totals.netProfit = Math.round(totals.netProfit * 100) / 100;
   totals.owed = Math.round(totals.owed * 100) / 100;
+  totals.owedToDriver = Math.round(totals.owedToDriver * 100) / 100;
   return totals;
+}
+
+/* ═══ الرصيد الصافي (تسديدات/تحويلات فعلية) — Collection جديد driver_balance_transactions ═══ */
+// كل معاملة: { driver_id, driver_name, type: 'settlement'|'payout', amount, status: 'pending'|'completed'|'rejected', created_at, resolved_at }
+// 'settlement' = الكابتن سدّد مبلغ لأكليتو (يقلل owedByDriver). 'payout' = أكليتو حوّلت مبلغ للكابتن (يقلل owedToDriver).
+// ⚠️ فقط المعاملات status:'completed' تُحتسب بالرصيد — 'pending' لسا ما تأكدت من الإدارة (لأنه ما في بوابة دفع فعلية حالياً).
+export function watchDriverBalanceTransactions(driverId, cb) {
+  const q = query(collection(db, 'driver_balance_transactions'), where('driver_id', '==', driverId));
+  return onSnapshot(q, snap => cb(snap.docs.map(d => ({ id: d.id, ...d.data() }))), err => console.error('balance tx watch error', err));
+}
+
+export function createSettlementRequest(driverId, driverName, amount) {
+  return addDoc(collection(db, 'driver_balance_transactions'), {
+    driver_id: driverId, driver_name: driverName || '', type: 'settlement',
+    amount: Math.round(amount * 100) / 100, status: 'pending', created_at: serverTimestamp()
+  });
+}
+
+export function createPayoutRequest(driverId, driverName, amount) {
+  return addDoc(collection(db, 'driver_balance_transactions'), {
+    driver_id: driverId, driver_name: driverName || '', type: 'payout',
+    amount: Math.round(amount * 100) / 100, status: 'pending', created_at: serverTimestamp()
+  });
+}
+
+// يجمع أثر المعاملات المكتملة فقط على الرصيد الصافي، ويرجّع الرصيد النهائي بعد طرحها
+// net > 0 → الكابتن مدين لأكليتو. net < 0 → أكليتو مدينة للكابتن. net = 0 → متوازن.
+export function computeNetBalance(orderTotals, transactions) {
+  let settledByDriver = 0, paidToDriver = 0;
+  (transactions || []).forEach(t => {
+    if (t.status !== 'completed') return;
+    if (t.type === 'settlement') settledByDriver += (t.amount || 0);
+    else if (t.type === 'payout') paidToDriver += (t.amount || 0);
+  });
+  const owedByDriver = Math.max(0, Math.round((orderTotals.owed - settledByDriver) * 100) / 100);
+  const owedToDriver = Math.max(0, Math.round((orderTotals.owedToDriver - paidToDriver) * 100) / 100);
+  const net = Math.round((owedByDriver - owedToDriver) * 100) / 100;
+  return { owedByDriver, owedToDriver, net };
 }
 
 /* ═══ ورديات العمل (لحساب ساعات العمل والمسافة المقطوعة) ═══ */

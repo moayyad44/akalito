@@ -384,7 +384,7 @@ if ("serviceWorker" in navigator) {
 import {
   requireDriverSession, ticketCode, timeAgo, showToast, watchDriverNotifs, updateNotifBadge,
   renderNotifList, watchAvailableOrders, watchMyOrders, watchDriverShifts, setNavBadge, logoutDriver,
-  computeOrderFinancials, aggregateOrderFinancials, COMMISSION_RATE, DRIVER_NOTIF_SEEN_KEY
+  computeOrderFinancials, aggregateOrderFinancials, watchCommissionSettings, getCommissionConfig, DRIVER_NOTIF_SEEN_KEY
 } from "./driver-shared.js";
 
 const session = requireDriverSession();
@@ -394,6 +394,12 @@ let allDoneOrders = [];
 let allShifts = [];
 let period = 'all';
 
+function formatCommissionLabel() {
+  const cfg = getCommissionConfig();
+  return cfg.type === 'fixed' ? `${cfg.value.toFixed(2)} د.أ ثابتة` : `${Math.round(cfg.value * 100)}%`;
+}
+
+watchCommissionSettings(() => recompute());
 watchAvailableOrders(list => setNavBadge('availBadge', list.length));
 watchMyOrders(session.id, list => {
   setNavBadge('myBadge', list.filter(o => o.status === 'delivering').length);
@@ -467,7 +473,7 @@ function renderOrdersList(orders) {
       <div class="report-breakdown">
         <div><span>الكاش المحصّل</span><span>${f.collected.toFixed(2)} د.أ</span></div>
         <div><span>ربحك الصافي (بعد العمولة)</span><span style="color:var(--olive)">${f.netProfit.toFixed(2)} د.أ</span></div>
-        <div><span>العمولة (${Math.round(COMMISSION_RATE * 100)}%)</span><span style="color:var(--text30)">${f.commission.toFixed(2)} د.أ</span></div>
+        <div><span>العمولة (${formatCommissionLabel()})</span><span style="color:var(--text30)">${f.commission.toFixed(2)} د.أ</span></div>
         <div><span>المستحق لأكليتو</span><span style="color:var(--primary)">${f.owed.toFixed(2)} د.أ</span></div>
       </div>
     </div>`;

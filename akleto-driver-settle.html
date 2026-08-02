@@ -374,17 +374,24 @@ if ("serviceWorker" in navigator) {
 <script type="module">
 import {
   requireDriverSession, watchDriverNotifs, updateNotifBadge, renderNotifList,
-  watchAvailableOrders, watchMyOrders, aggregateOrderFinancials, setNavBadge, logoutDriver,
+  watchAvailableOrders, watchMyOrders, aggregateOrderFinancials, watchCommissionSettings, setNavBadge, logoutDriver,
   DRIVER_NOTIF_SEEN_KEY
 } from "./driver-shared.js";
 
 const session = requireDriverSession();
 if (session) document.getElementById('greet-name').textContent = session.name;
 
+let latestDoneOrders = [];
+watchCommissionSettings(() => {
+  const totals = aggregateOrderFinancials(latestDoneOrders);
+  document.getElementById('settle-owed').textContent = totals.owed.toFixed(2) + ' د.أ';
+});
+
 watchAvailableOrders(list => setNavBadge('availBadge', list.length));
 watchMyOrders(session.id, list => {
   setNavBadge('myBadge', list.filter(o => o.status === 'delivering').length);
-  const totals = aggregateOrderFinancials(list.filter(o => o.status === 'done'));
+  latestDoneOrders = list.filter(o => o.status === 'done');
+  const totals = aggregateOrderFinancials(latestDoneOrders);
   document.getElementById('settle-owed').textContent = totals.owed.toFixed(2) + ' د.أ';
 });
 

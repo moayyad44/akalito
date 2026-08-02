@@ -134,7 +134,8 @@
     display:flex; align-items:center; justify-content:center;
   }
   .drawer-badge.hidden { display:none; }
-  .cs-nav-item.danger { color:#D9534F; margin-top:auto; padding-top:16px; border-top:1px solid var(--border); }
+  .cs-drawer-body { flex:1; overflow-y:auto; -webkit-overflow-scrolling:touch; min-height:0; }
+  .cs-nav-item.danger { color:#D9534F; margin-top:10px; padding-top:16px; border-top:1px solid var(--border); }
   .cs-nav-item.danger .ic-box { background: rgba(217,83,79,.09); color:#D9534F; }
   .cs-drawer-footer { padding:14px 20px calc(16px + env(safe-area-inset-bottom)); text-align:center; font-size:11px; color: var(--text30); }
 
@@ -322,6 +323,7 @@ if ("serviceWorker" in navigator) {
     <div class="cs-drawer-name" id="csd-driver-name"></div>
     <div class="cs-drawer-phone" id="csd-driver-phone"></div>
   </div>
+  <div class="cs-drawer-body">
   <div class="cs-nav-section-label">التنقّل</div>
   <div class="cs-nav-item" onclick="location.href='akleto-driver-home.html'"><span class="ic-box"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11 12 4l9 7"/><path d="M5 10v9h5v-6h4v6h5v-9"/></svg></span><span style="flex:1;">الرئيسية (الخريطة)</span><span class="chev">‹</span></div>
   <div class="cs-nav-item" onclick="location.href='akleto-driver-orders.html'"><span class="ic-box"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3 4 7v10l8 4 8-4V7l-8-4Z"/><path d="M4 7l8 4 8-4"/><path d="M12 11v10"/></svg></span><span style="flex:1;">الطلبات المتاحة</span><span class="drawer-badge hidden" id="availBadge">0</span><span class="chev">‹</span></div>
@@ -334,6 +336,7 @@ if ("serviceWorker" in navigator) {
   <div class="cs-nav-section-label">الحساب</div>
   <div class="cs-nav-item" onclick="closeDriverMenu(); openNotifSheet();"><span class="ic-box"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9a6 6 0 0 1 12 0c0 5 2 6 2 6H4s2-1 2-6Z"/><path d="M10 19a2 2 0 0 0 4 0"/></svg></span><span>الإشعارات</span><span class="chev">‹</span></div>
   <div class="cs-nav-item danger" onclick="logoutDriverConfirm()"><span class="ic-box"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v8"/><path d="M6.3 6.3a8 8 0 1 0 11.4 0"/></svg></span><span>تسجيل الخروج</span></div>
+  </div>
   <div class="cs-drawer-footer">أكليتو — السائق</div>
 </div>
 

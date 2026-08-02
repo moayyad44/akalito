@@ -5,14 +5,19 @@
 // ══════════════════════════════════════════════════════════
 import {
   db, doc, updateDoc, deleteDoc, collection, query, where, onSnapshot,
-  serverTimestamp, withTimeout
+  serverTimestamp, withTimeout, addDoc
 } from "./firebase-init.js";
 
 export const DRIVER_STORAGE_KEY = 'akleto_driver_id';
 export const DRIVER_NAME_KEY = 'akleto_driver_name';
 export const DRIVER_PHONE_KEY = 'akleto_driver_phone';
 export const DRIVER_AVAIL_KEY = 'akleto_driver_available';
+export const DRIVER_SHIFT_ID_KEY = 'akleto_driver_shift_id';
 export const DRIVER_NOTIF_SEEN_KEY = 'akleto_driver_notif_seen';
+
+// ⚠️ نسبة عمولة أكليتو من أرباح الكابتن (رسوم التوصيل + الإكرامية) — قيمة افتراضية مؤقتة
+// لسا ما تحدد الرقم النهائي مع مؤيد. عدّل هالرقم بس (مثلاً 0.10 = 10%) وكل التقارير بتنعدّل تلقائياً.
+export const COMMISSION_RATE = 0.10;
 
 /* ═══ الجلسة ═══ */
 export function getDriverSession() {
@@ -169,7 +174,72 @@ export function watchActiveDrivers(cb) {
   return onSnapshot(q, snap => cb(snap.docs.map(d => ({ id: d.id, ...d.data() }))), err => console.error('active drivers error', err));
 }
 
-/* ═══ عدّاد شارة سفلية موحّد ═══ */
+/* ═══ حساب أرباح/عمولة/مستحقات طلب واحد ═══ */
+// الكابتن ياخذ كامل مبلغ الطلب كاش (COD) وقت التسليم، وبيحتفظ برسوم التوصيل + الإكرامية،
+// وبيسدد الباقي لأكليتو، بعد ما تُخصم عمولة أكليتو من (رسوم التوصيل + الإكرامية).
+export function computeOrderFinancials(order) {
+  const collected = order.total_estimated_price || 0;      // الكاش اللي أخذه الكابتن من الزبون
+  const deliveryFee = order.delivery_fee || 0;
+  const tip = order.driver_tip || 0;
+  const grossEarning = deliveryFee + tip;                   // نصيب الكابتن قبل العمولة
+  const commission = Math.round(grossEarning * COMMISSION_RATE * 100) / 100;
+  const netProfit = Math.round((grossEarning - commission) * 100) / 100; // صافي ربح الكابتن
+  const owed = Math.round((collected - netProfit) * 100) / 100;         // المستحق لأكليتو
+  return { collected, deliveryFee, tip, grossEarning, commission, netProfit, owed };
+}
+
+// تجميع الحسابات المالية لمجموعة طلبات (لتقارير العمل)
+export function aggregateOrderFinancials(orders) {
+  const totals = { count: orders.length, collected: 0, commission: 0, netProfit: 0, owed: 0 };
+  orders.forEach(o => {
+    const f = computeOrderFinancials(o);
+    totals.collected += f.collected;
+    totals.commission += f.commission;
+    totals.netProfit += f.netProfit;
+    totals.owed += f.owed;
+  });
+  totals.collected = Math.round(totals.collected * 100) / 100;
+  totals.commission = Math.round(totals.commission * 100) / 100;
+  totals.netProfit = Math.round(totals.netProfit * 100) / 100;
+  totals.owed = Math.round(totals.owed * 100) / 100;
+  return totals;
+}
+
+/* ═══ ورديات العمل (لحساب ساعات العمل والمسافة المقطوعة) ═══ */
+// تُنشأ وردية جديدة كل ما يفعّل الكابتن "متاح"، وتُقفل لما يوقف التوفر.
+// ⚠️ لو سكّر المتصفح فجأة بدون ما يضغط "غير متاح"، الوردية بتضل مفتوحة (end_at فاضي) —
+// نفس القيد الموثّق سابقاً بمشكلة is_available. تقارير الساعات بتحسب بس الورديات المقفولة.
+export async function startShift(driverId) {
+  try {
+    const ref = await addDoc(collection(db, 'driver_shifts'), {
+      driver_id: driverId, start_at: serverTimestamp(), end_at: null, distance_km: 0
+    });
+    return ref.id;
+  } catch (e) { console.error('start shift error', e); return null; }
+}
+
+export async function endShift(shiftId, distanceKm) {
+  if (!shiftId) return;
+  try {
+    await updateDoc(doc(db, 'driver_shifts', shiftId), {
+      end_at: serverTimestamp(), distance_km: Math.round((distanceKm || 0) * 100) / 100
+    });
+  } catch (e) { console.error('end shift error', e); }
+}
+
+export function watchDriverShifts(driverId, cb) {
+  const q = query(collection(db, 'driver_shifts'), where('driver_id', '==', driverId));
+  return onSnapshot(q, snap => cb(snap.docs.map(d => ({ id: d.id, ...d.data() }))), err => console.error('shifts watch error', err));
+}
+
+// المسافة بالكيلومتر بين نقطتين (صيغة Haversine) — تُستخدم لحساب المسافة المقطوعة أثناء الوردية
+export function haversineKm(lat1, lng1, lat2, lng2) {
+  const R = 6371;
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLng = (lng2 - lng1) * Math.PI / 180;
+  const a = Math.sin(dLat / 2) ** 2 + Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.sin(dLng / 2) ** 2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
 export function setNavBadge(elId, count) {
   const el = document.getElementById(elId);
   if (!el) return;

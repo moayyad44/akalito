@@ -1,0 +1,431 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<title>أكليتو — تسديد الرصيد</title>
+<link rel="manifest" href="manifest-driver.json">
+<meta name="theme-color" content="#A23E48">
+<link rel="apple-touch-icon" href="icons/driver-180.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="سائق أكليتو">
+<meta name="mobile-web-app-capable" content="yes">
+<link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;900&family=Tajawal:wght@400;500;700;800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+
+<style>
+
+  :root {
+    --primary:  #A23E48;
+    --secondary:#F5A65B;
+    --olive:    #65743A;
+    --purple:   #8E44AD;
+    --bg:       #FDF8F3;
+    --surface:  #FFFFFE;
+    --border:   #EBE0D3;
+    --text:     #3A2A28;
+    --text30:   #9C8C82;
+  }
+  * { box-sizing: border-box; margin:0; padding:0; }
+  html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; overflow-x: hidden; }
+  body {
+    font-family: 'Cairo', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    direction: rtl;
+    padding-bottom: 20px;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+  h1,h2,h3,.font-title { font-family: 'Tajawal', sans-serif; }
+  button { font-family: inherit; cursor: pointer; }
+  .mono { font-family: 'JetBrains Mono', monospace; }
+  .hidden { display: none !important; }
+  .inline-ic { vertical-align:-3px; margin-left:5px; flex-shrink:0; }
+  .row-ic { color: var(--text30); flex-shrink:0; }
+  .spin { animation: akSpin .8s linear infinite; }
+  @keyframes akSpin { to { transform: rotate(360deg); } }
+
+  /* ═══ الهيدر العلوي ═══ */
+  .topbar {
+    display:flex; align-items:center; justify-content:space-between;
+    padding: 16px 18px 10px;
+  }
+  .topbar .greeting { font-size: 13px; color: var(--text30); }
+  .topbar .greeting b { color: var(--text); }
+  .topbar-logo-row { display:flex; align-items:center; gap:6px; }
+  .topbar-logo-icon {
+    width:24px; height:24px; border-radius:8px; background: var(--primary); color:#fff;
+    display:flex; align-items:center; justify-content:center; flex-shrink:0;
+  }
+  .topbar-logo-icon svg { width:14px; height:14px; }
+  .topbar-logo { font-family:'Tajawal',sans-serif; font-weight:900; color: var(--primary); font-size: 20px; }
+  .icon-btn {
+    width:38px; height:38px; border-radius:50%; flex-shrink:0;
+    border:1.5px solid var(--border); background: var(--surface); color: var(--primary);
+    font-size:16px; display:flex; align-items:center; justify-content:center;
+    cursor:pointer; transition: background .15s ease;
+  }
+  .icon-btn:active { background: var(--border); }
+  .bell-wrap { position:relative; display:inline-flex; }
+  .bell-dot {
+    position:absolute; top:1px; left:1px; width:11px; height:11px; border-radius:50%;
+    background: var(--primary); border:2px solid var(--bg);
+  }
+
+  .section-title { font-size: 16px; font-weight: 800; padding: 6px 18px 12px; font-family:'Tajawal',sans-serif; display:flex; align-items:center; gap:8px; }
+  .section-title .row-ic { color: var(--primary); }
+  .content-wrap { max-width: 640px; margin: 0 auto; }
+
+  /* ═══ القائمة الجانبية ═══ */
+  .cs-overlay {
+    position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(20,10,10,.5); z-index:300;
+    opacity:0; pointer-events:none; transition:opacity .2s ease;
+    backdrop-filter: blur(2px); -webkit-backdrop-filter: blur(2px);
+  }
+  .cs-overlay.open { opacity:1; pointer-events:auto; }
+  .cs-drawer {
+    position:fixed; top:0; right:0; height:100%; width:82%; max-width:310px;
+    background:var(--bg); z-index:301; transform:translateX(100%);
+    transition:transform .28s cubic-bezier(.22,.68,.35,1); box-shadow:-10px 0 32px rgba(0,0,0,.22);
+    display:flex; flex-direction:column;
+  }
+  .cs-drawer.open { transform:translateX(0); }
+  .cs-drawer-header {
+    padding:30px 20px 22px; background: linear-gradient(135deg, var(--primary), #B8535E);
+    color:#fff; position:relative; overflow:hidden;
+  }
+  .cs-drawer-header-icon {
+    position:absolute; left:-14px; bottom:-18px; opacity:.16; color:#fff;
+  }
+  .cs-drawer-header-icon svg { width:96px; height:96px; }
+  .cs-drawer-close {
+    position:absolute; top:16px; left:16px; width:30px; height:30px; border-radius:50%;
+    border:none; background:rgba(255,255,255,.18); color:#fff; font-size:14px;
+  }
+  .cs-drawer-avatar {
+    width:50px; height:50px; border-radius:50%; background:rgba(255,255,255,.22); color:#fff;
+    border: 1.5px solid rgba(255,255,255,.5);
+    display:flex; align-items:center; justify-content:center; font-size:20px; font-weight:800;
+    margin-bottom:12px; position:relative;
+  }
+  .cs-drawer-name { font-weight:800; font-size:16.5px; font-family:'Tajawal',sans-serif; position:relative; }
+  .cs-drawer-phone { font-size:12.5px; opacity:.88; margin-top:3px; position:relative; }
+  .cs-nav-section-label {
+    padding: 16px 20px 6px; font-size:11px; font-weight:800; color: var(--text30);
+    letter-spacing:.3px;
+  }
+  .cs-nav-item {
+    display:flex; align-items:center; gap:12px; padding:12px 20px; font-size:14px;
+    font-weight:700; cursor:pointer;
+  }
+  .cs-nav-item:active .ic-box { background: var(--border); }
+  .cs-nav-item .ic-box {
+    width:36px; height:36px; border-radius:11px; background: rgba(162,62,72,.08); color: var(--primary);
+    display:flex; align-items:center; justify-content:center; font-size:16px; flex-shrink:0;
+    transition: background .12s ease;
+  }
+  .cs-nav-item .ic-box svg { width:18px; height:18px; }
+  .cs-nav-item .chev { color: var(--border); font-size:13px; }
+  .drawer-badge {
+    background:var(--primary); color:#fff; font-size:11px; font-weight:800;
+    min-width:19px; height:19px; padding:0 5px; border-radius:10px;
+    display:flex; align-items:center; justify-content:center;
+  }
+  .drawer-badge.hidden { display:none; }
+  .cs-nav-item.danger { color:#D9534F; margin-top:auto; padding-top:16px; border-top:1px solid var(--border); }
+  .cs-nav-item.danger .ic-box { background: rgba(217,83,79,.09); color:#D9534F; }
+  .cs-drawer-footer { padding:14px 20px calc(16px + env(safe-area-inset-bottom)); text-align:center; font-size:11px; color: var(--text30); }
+
+  /* ═══ بطاقة طلب ═══ */
+  .order-card {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 16px;
+    padding: 14px 16px; margin: 0 18px 12px;
+    border-inline-start: 5px solid var(--st-color, var(--primary));
+  }
+  .order-card-head { display:flex; align-items:center; justify-content:space-between; margin-bottom:8px; }
+  .order-card-code { font-size: 15px; font-weight: 800; }
+  .order-card-time { font-size: 11.5px; color: var(--text30); }
+  .order-card-meta { font-size: 12.5px; color: var(--text30); display:flex; gap:12px; margin-bottom: 10px; flex-wrap: wrap; }
+  .order-card-meta span { display:inline-flex; align-items:center; gap:4px; }
+  .order-card-price { font-weight: 800; color: var(--primary); font-size: 14px; }
+  .order-card-actions { display:flex; gap: 8px; margin-top: 6px; }
+  .btn-claim {
+    flex:1; padding: 11px; border-radius: 12px; border:none; background: var(--olive);
+    color:#fff; font-weight:700; font-size: 13.5px; display:flex; align-items:center; justify-content:center; gap:6px;
+  }
+  .btn-claim:disabled { opacity:.5; }
+  .btn-secondary-sm {
+    flex:1; padding: 11px; border-radius: 12px; border: 1.5px solid var(--border); background: transparent;
+    color: var(--text); font-weight:700; font-size: 13.5px;
+  }
+  .status-pill { font-size: 11px; font-weight: 700; padding: 3px 10px; border-radius: 20px; color:#fff; background: var(--st-color, var(--primary)); display:inline-flex; align-items:center; gap:4px; }
+
+  .empty-state-c { text-align:center; padding: 60px 30px; color: var(--text30); font-size:14px; }
+  .empty-state-c .emoji { color: var(--border); margin-bottom: 12px; display:flex; justify-content:center; }
+  .empty-state-c .emoji svg { width:44px; height:44px; }
+
+  /* ═══ حسابي ═══ */
+  .account-card {
+    background: var(--surface); border:1px solid var(--border); border-radius:16px;
+    padding: 20px; margin: 0 18px 16px; text-align:center;
+  }
+  .account-avatar {
+    width:64px; height:64px; border-radius:50%; background: var(--primary); color:#fff;
+    display:flex; align-items:center; justify-content:center; font-size:26px; font-weight:800;
+    margin: 0 auto 12px;
+  }
+  .account-name { font-size:17px; font-weight:800; font-family:'Tajawal',sans-serif; }
+  .account-phone { font-size:13px; color:var(--text30); margin-top:2px; }
+  .stat-row { display:flex; gap:10px; margin: 0 18px 18px; }
+  .stat-box { flex:1; background: var(--surface); border:1px solid var(--border); border-radius:14px; padding:14px; text-align:center; }
+  .stat-box .num { font-size:20px; font-weight:800; color: var(--primary); }
+  .stat-box .lbl { font-size:11.5px; color:var(--text30); margin-top:2px; }
+  .field-group { text-align: right; margin-bottom: 14px; }
+  .field-group label { font-size: 13px; font-weight: 600; display:block; margin-bottom: 6px; }
+  .field-group input {
+    width: 100%; padding: 13px 16px; border-radius: 12px; border: 1.5px solid var(--border);
+    background: var(--surface); font-family: inherit; font-size: 15px; color: var(--text);
+  }
+  .field-group input:focus { outline: none; border-color: var(--primary); }
+  .btn-main {
+    width: 100%; padding: 15px; border-radius: 14px; border: none;
+    background: var(--primary); color: #fff; font-weight: 700; font-size: 15px;
+    display:flex; align-items:center; justify-content:center; gap:8px;
+  }
+  .btn-main:disabled { opacity: .5; }
+  .btn-outline {
+    width: 100%; padding: 13px; border-radius: 14px; border: 1.5px solid var(--primary);
+    background: transparent; color: var(--primary); font-weight: 700; font-size: 14px;
+    display:flex; align-items:center; justify-content:center; gap:8px;
+  }
+  .error-text { color: var(--primary); font-size: 12.5px; margin-top: 10px; display:none; }
+
+  /* ═══ Bottom Nav ═══ */
+  .bottom-nav {
+    position:fixed; bottom:0; right:0; left:0; background: var(--surface);
+    border-top:1px solid var(--border); display:flex; z-index: 150;
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+  .nav-btn {
+    flex:1; border:none; background:none; padding:11px 0 9px; display:flex;
+    flex-direction:column; align-items:center; gap:3px; color: var(--text30); font-size:11px; font-weight:600;
+    position:relative; text-decoration:none;
+  }
+  .nav-btn.active { color: var(--primary); }
+  .nav-btn .icon { font-size: 20px; }
+  .nav-badge {
+    position:absolute; top:2px; left:calc(50% + 6px); background:var(--primary); color:#fff;
+    font-size:10px; font-weight:800; width:16px; height:16px; border-radius:50%;
+    display:flex; align-items:center; justify-content:center;
+  }
+
+  /* ═══ ورقة تفاصيل الطلب / الإشعارات ═══ */
+  .sheet-overlay {
+    position: fixed; top:0; left:0; right:0; bottom:0; background: rgba(58,42,40,.4); z-index: 200;
+    display:none; align-items:flex-end; justify-content:center;
+  }
+  .sheet-overlay.open { display:flex; }
+  .sheet-card {
+    background: var(--bg); width:100%; max-width: 480px; max-height: 88vh; overflow-y:auto;
+    border-radius: 24px 24px 0 0; padding-bottom: 20px; position: relative;
+  }
+  .sheet-close {
+    position:absolute; top:14px; left:14px; width:34px; height:34px; border-radius:50%;
+    background: rgba(0,0,0,.06); border:none; font-size:16px; color:var(--text); z-index: 2;
+  }
+  .sheet-body { padding: 24px 20px 6px; }
+  .sheet-title { font-size: 19px; font-weight: 800; font-family:'Tajawal',sans-serif; margin-bottom:12px; }
+  .receipt-row { display:flex; justify-content:space-between; gap:10px; padding:8px 0; font-size:14px; border-bottom: 1px solid var(--border); }
+  .receipt-row:last-child { border-bottom:none; }
+  .receipt-row span:last-child { color: var(--text30); flex-shrink:0; }
+  .receipt-section-title { font-size:12px; font-weight:700; color:var(--text30); margin: 14px 0 6px; }
+  .receipt-note { font-size: 12.5px; color: var(--secondary); background: rgba(245,166,91,.12); border-radius: 8px; padding: 8px 10px; margin: 8px 0; line-height:1.6; }
+  .map-link-btn {
+    display:block; text-align:center; font-size:12.5px; font-weight:800; color: var(--primary);
+    background: rgba(162,62,72,.08); border-radius: 8px; padding: 9px 10px; margin: 8px 0; text-decoration:none;
+  }
+  .receipt-total { display:flex; justify-content:space-between; font-weight:800; font-size:16px; padding-top:14px; margin-top:10px; border-top: 2px dashed var(--border); color: var(--primary); }
+  .sheet-footer { padding: 16px 20px 4px; }
+
+  .toast {
+    position:fixed; bottom:90px; right:50%; transform:translateX(50%) translateY(20px);
+    background: var(--text); color:#fff; padding: 12px 22px; border-radius: 30px;
+    font-size:13.5px; font-weight:600; opacity:0; transition: all .25s; z-index: 300; white-space:nowrap;
+    max-width: 90vw; text-align:center;
+  }
+  .toast.show { opacity:1; transform:translateX(50%) translateY(0); }
+
+  @media (min-width: 640px) {
+    .sheet-overlay { align-items:center; }
+    .sheet-card { border-radius: 20px; max-height: 85vh; }
+  }
+
+
+  .balance-card-lg {
+    background: linear-gradient(135deg, var(--primary), #B8535E); color:#fff; border-radius:20px;
+    padding:26px 22px; margin: 8px 18px 18px; text-align:center;
+  }
+  .balance-card-lg .lbl { font-size:13px; opacity:.85; margin-bottom:6px; }
+  .balance-card-lg .val { font-size:34px; font-weight:900; font-family:'JetBrains Mono',monospace; }
+
+  .soon-banner {
+    margin: 0 18px 18px; background: rgba(245,166,91,.14); border: 1.5px dashed var(--secondary);
+    border-radius:16px; padding:16px; text-align:center;
+  }
+  .soon-banner .ic { color: var(--secondary); margin-bottom:8px; display:flex; justify-content:center; }
+  .soon-banner .ic svg { width:34px; height:34px; }
+  .soon-banner .t1 { font-weight:800; font-size:14.5px; margin-bottom:5px; }
+  .soon-banner .t2 { font-size:12.5px; color: var(--text30); line-height:1.7; }
+
+  .pay-methods { padding: 0 18px; }
+  .pay-method-row {
+    display:flex; align-items:center; gap:12px; background:var(--surface); border:1px solid var(--border);
+    border-radius:14px; padding:14px 16px; margin-bottom:10px; opacity:.55;
+  }
+  .pay-method-row .ic-box { width:40px; height:40px; border-radius:11px; background:rgba(162,62,72,.08); color:var(--primary); display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+  .pay-method-row .txt { flex:1; }
+  .pay-method-row .txt b { display:block; font-size:14px; }
+  .pay-method-row .txt span { font-size:11.5px; color:var(--text30); }
+  .pill-soon { font-size:10.5px; font-weight:800; color:#fff; background:var(--secondary); padding:3px 9px; border-radius:20px; }
+
+</style>
+<script>
+if ("serviceWorker" in navigator) {
+  window.addEventListener("load", () => { navigator.serviceWorker.register("./sw.js").catch(() => {}); });
+}
+</script>
+</head>
+<body>
+
+<div id="appShell">
+
+  <div class="topbar">
+    <div style="display:flex;align-items:center;gap:10px;">
+      <button class="icon-btn" onclick="toggleDriverMenu()" title="القائمة">☰</button>
+      <div><div class="topbar-logo-row"><span class="topbar-logo-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="17" r="2.2"/><circle cx="18" cy="17" r="2.2"/><path d="M6 17h5l3-7h4"/><path d="M9.5 10h4"/></svg></span><span class="topbar-logo">أكليتو</span></div><div class="greeting">أهلاً <b id="greet-name">—</b></div></div>
+    </div>
+    <div class="bell-wrap">
+      <button class="icon-btn" onclick="openNotifSheet()" title="الإشعارات"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9a6 6 0 0 1 12 0c0 5 2 6 2 6H4s2-1 2-6Z"/><path d="M10 19a2 2 0 0 0 4 0"/></svg></button>
+      <span class="bell-dot hidden" id="bellDotDriver"></span>
+    </div>
+  </div>
+
+  <div class="content-wrap">
+    <div class="balance-card-lg">
+      <div class="lbl"><svg class="inline-ic" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="6.5" width="18" height="12.5" rx="2.2"/><path d="M3 10h18"/><circle cx="16.3" cy="14" r="1.3"/></svg>الرصيد المستحق حالياً لأكليتو</div>
+      <div class="val" id="settle-owed">—</div>
+    </div>
+
+    <div class="soon-banner">
+      <div class="ic"><svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="6.5" width="18" height="12.5" rx="2.2"/><path d="M3 10h18"/><circle cx="16.3" cy="14" r="1.3"/></svg></div>
+      <div class="t1">التسديد الإلكتروني عن طريق فيزا — قريباً</div>
+      <div class="t2">لسا ما ربطنا بوابة دفع بالتطبيق. لحد ما تجهز، بيتم التسديد بالطريقة المعتادة (نقداً أو حسب التنسيق مع الإدارة).</div>
+    </div>
+
+    <div class="section-title"><span class="row-ic"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5.5" width="18" height="13" rx="2.2"/><path d="M3 9.3h18"/><path d="M6 14.3h4.5"/></svg></span>طرق الدفع</div>
+    <div class="pay-methods">
+      <div class="pay-method-row">
+        <span class="ic-box"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5.5" width="18" height="13" rx="2.2"/><path d="M3 9.3h18"/><path d="M6 14.3h4.5"/></svg></span>
+        <span class="txt"><b>بطاقة فيزا/ماستركارد</b><span>ادفع مباشرة من بطاقتك المحفوظة</span></span>
+        <span class="pill-soon">قريباً</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="sheet-overlay" id="notifSheet" onclick="if(event.target===this) closeNotifSheet()">
+  <div class="sheet-card" style="max-height:80vh;">
+    <button class="sheet-close" onclick="closeNotifSheet()">✕</button>
+    <div class="sheet-body">
+      <div class="sheet-title"><svg class="inline-ic" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9a6 6 0 0 1 12 0c0 5 2 6 2 6H4s2-1 2-6Z"/><path d="M10 19a2 2 0 0 0 4 0"/></svg> الإشعارات</div>
+      <div id="notifList"></div>
+    </div>
+  </div>
+</div>
+
+<div class="cs-overlay" id="csOverlayDriver" onclick="closeDriverMenu()"></div>
+<div class="cs-drawer" id="csDrawerDriver">
+  <div class="cs-drawer-header">
+    <div class="cs-drawer-header-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="17" r="2.2"/><circle cx="18" cy="17" r="2.2"/><path d="M6 17h5l3-7h4"/><path d="M9.5 10h4"/></svg></div>
+    <button class="cs-drawer-close" onclick="closeDriverMenu()">✕</button>
+    <div class="cs-drawer-avatar" id="csd-driver-avatar">؟</div>
+    <div class="cs-drawer-name" id="csd-driver-name"></div>
+    <div class="cs-drawer-phone" id="csd-driver-phone"></div>
+  </div>
+  <div class="cs-nav-section-label">التنقّل</div>
+  <div class="cs-nav-item" onclick="location.href='akleto-driver-home.html'"><span class="ic-box"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11 12 4l9 7"/><path d="M5 10v9h5v-6h4v6h5v-9"/></svg></span><span style="flex:1;">الرئيسية (الخريطة)</span><span class="chev">‹</span></div>
+  <div class="cs-nav-item" onclick="location.href='akleto-driver-orders.html'"><span class="ic-box"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3 4 7v10l8 4 8-4V7l-8-4Z"/><path d="M4 7l8 4 8-4"/><path d="M12 11v10"/></svg></span><span style="flex:1;">الطلبات المتاحة</span><span class="drawer-badge hidden" id="availBadge">0</span><span class="chev">‹</span></div>
+  <div class="cs-nav-item" onclick="location.href='akleto-driver-deliveries.html'"><span class="ic-box"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="17" r="2.2"/><circle cx="18" cy="17" r="2.2"/><path d="M6 17h5l3-7h4"/><path d="M9.5 10h4"/></svg></span><span style="flex:1;">توصيلاتي</span><span class="drawer-badge hidden" id="myBadge">0</span><span class="chev">‹</span></div>
+  <div class="cs-nav-item" onclick="location.href='akleto-driver-account.html'"><span class="ic-box"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="3.6"/><path d="M4.5 19.2c1.4-3.4 4.3-5.1 7.5-5.1s6.1 1.7 7.5 5.1"/></svg></span><span style="flex:1;">حسابي</span><span class="chev">‹</span></div>
+  <div class="cs-nav-section-label">المالية</div>
+  <div class="cs-nav-item" onclick="location.href='akleto-driver-reports.html'"><span class="ic-box"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20V11M10 20V6M16 20v-8"/><path d="M3.5 20h17"/></svg></span><span style="flex:1;">تقارير العمل</span><span class="chev">‹</span></div>
+  <div class="cs-nav-item" onclick="location.href='akleto-driver-settle.html'" style="color:var(--primary);"><span class="ic-box"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="6.5" width="18" height="12.5" rx="2.2"/><path d="M3 10h18"/><circle cx="16.3" cy="14" r="1.3"/></svg></span><span style="flex:1;">تسديد الرصيد المستحق</span><span class="chev">‹</span></div>
+  <div class="cs-nav-item" onclick="location.href='akleto-driver-cards.html'"><span class="ic-box"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5.5" width="18" height="13" rx="2.2"/><path d="M3 9.3h18"/><path d="M6 14.3h4.5"/></svg></span><span style="flex:1;">بطاقات الائتمان</span><span class="chev">‹</span></div>
+  <div class="cs-nav-section-label">الحساب</div>
+  <div class="cs-nav-item" onclick="closeDriverMenu(); openNotifSheet();"><span class="ic-box"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9a6 6 0 0 1 12 0c0 5 2 6 2 6H4s2-1 2-6Z"/><path d="M10 19a2 2 0 0 0 4 0"/></svg></span><span>الإشعارات</span><span class="chev">‹</span></div>
+  <div class="cs-nav-item danger" onclick="logoutDriverConfirm()"><span class="ic-box"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v8"/><path d="M6.3 6.3a8 8 0 1 0 11.4 0"/></svg></span><span>تسجيل الخروج</span></div>
+  <div class="cs-drawer-footer">أكليتو — السائق</div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script type="module">
+import {
+  requireDriverSession, watchDriverNotifs, updateNotifBadge, renderNotifList,
+  watchAvailableOrders, watchMyOrders, aggregateOrderFinancials, setNavBadge, logoutDriver,
+  DRIVER_NOTIF_SEEN_KEY
+} from "./driver-shared.js";
+
+const session = requireDriverSession();
+if (session) document.getElementById('greet-name').textContent = session.name;
+
+watchAvailableOrders(list => setNavBadge('availBadge', list.length));
+watchMyOrders(session.id, list => {
+  setNavBadge('myBadge', list.filter(o => o.status === 'delivering').length);
+  const totals = aggregateOrderFinancials(list.filter(o => o.status === 'done'));
+  document.getElementById('settle-owed').textContent = totals.owed.toFixed(2) + ' د.أ';
+});
+
+
+window.toggleDriverMenu = () => {
+  document.getElementById('csd-driver-avatar').textContent = (session.name || '؟').trim().charAt(0);
+  document.getElementById('csd-driver-name').textContent = session.name || 'سائق';
+  document.getElementById('csd-driver-phone').textContent = session.phone || '';
+  document.getElementById('csOverlayDriver').classList.add('open');
+  document.getElementById('csDrawerDriver').classList.add('open');
+};
+window.closeDriverMenu = () => {
+  document.getElementById('csOverlayDriver').classList.remove('open');
+  document.getElementById('csDrawerDriver').classList.remove('open');
+};
+window.logoutDriverConfirm = () => {
+  if (confirm('متأكد إنك بدك تسجل خروج؟')) logoutDriver();
+};
+
+let notifItemsCache = [];
+let unsubNotif = null;
+function startNotifWatcher() {
+  unsubNotif = watchDriverNotifs(session.id, (items) => {
+    notifItemsCache = items;
+    updateNotifBadge(items);
+    if (document.getElementById('notifSheet').classList.contains('open')) renderNotifList('notifList', items);
+  });
+}
+window.openNotifSheet = () => {
+  document.getElementById('notifSheet').classList.add('open');
+  renderNotifList('notifList', notifItemsCache);
+  const latest = notifItemsCache.reduce((max, n) => Math.max(max, n.created_at?.toMillis?.() || 0), 0);
+  localStorage.setItem(DRIVER_NOTIF_SEEN_KEY, String(latest || Date.now()));
+  updateNotifBadge(notifItemsCache);
+};
+window.closeNotifSheet = () => document.getElementById('notifSheet').classList.remove('open');
+
+
+window.addEventListener('DOMContentLoaded', () => {
+  startNotifWatcher();
+});
+</script>
+</body>
+</html>

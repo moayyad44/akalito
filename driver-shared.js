@@ -15,9 +15,30 @@ export const DRIVER_AVAIL_KEY = 'akleto_driver_available';
 export const DRIVER_SHIFT_ID_KEY = 'akleto_driver_shift_id';
 export const DRIVER_NOTIF_SEEN_KEY = 'akleto_driver_notif_seen';
 
-// ⚠️ نسبة عمولة أكليتو من أرباح الكابتن (رسوم التوصيل + الإكرامية) — قيمة افتراضية مؤقتة
-// لسا ما تحدد الرقم النهائي مع مؤيد. عدّل هالرقم بس (مثلاً 0.10 = 10%) وكل التقارير بتنعدّل تلقائياً.
-export const COMMISSION_RATE = 0.10;
+// ⚠️ قيمة عمولة افتراضية احتياطية (تُستخدم فقط لحد ما توصل إعدادات الأدمن الفعلية من Firestore،
+// أو لو الأدمن لسا ما حفظ أي إعداد). القيمة الحقيقية تُدار الآن من لوحة الأدمن
+// (akleto-admin-settings.html → مستند app_settings/commissions) وتنعكس تلقائياً هون عبر watchCommissionSettings().
+let _commissionConfig = { type: 'percentage', value: 0.10 };
+let _commissionUnsub = null;
+
+// يبدأ الاستماع الحي لإعدادات العمولة من Firestore — يُستدعى مرة وحدة بأي صفحة بتحسب أرباح/عمولة
+export function watchCommissionSettings(cb) {
+  if (_commissionUnsub) { if (cb) cb(_commissionConfig); return _commissionUnsub; }
+  const ref = doc(db, 'app_settings', 'commissions');
+  _commissionUnsub = onSnapshot(ref, snap => {
+    if (snap.exists()) {
+      const d = snap.data();
+      _commissionConfig = {
+        type: d.driver_commission_type === 'fixed' ? 'fixed' : 'percentage',
+        value: typeof d.driver_commission_value === 'number' ? d.driver_commission_value : 0.10
+      };
+    }
+    if (cb) cb(_commissionConfig);
+  }, err => { console.error('commission settings watch error', err); if (cb) cb(_commissionConfig); });
+  return _commissionUnsub;
+}
+
+export function getCommissionConfig() { return _commissionConfig; }
 
 /* ═══ الجلسة ═══ */
 export function getDriverSession() {
@@ -176,16 +197,22 @@ export function watchActiveDrivers(cb) {
 
 /* ═══ حساب أرباح/عمولة/مستحقات طلب واحد ═══ */
 // الكابتن ياخذ كامل مبلغ الطلب كاش (COD) وقت التسليم، وبيحتفظ برسوم التوصيل + الإكرامية،
-// وبيسدد الباقي لأكليتو، بعد ما تُخصم عمولة أكليتو من (رسوم التوصيل + الإكرامية).
+// وبيسدد الباقي لأكليتو، بعد ما تُخصم عمولة أكليتو (من إعدادات الأدمن) من (رسوم التوصيل + الإكرامية).
+// ⚠️ استثناء: لو الطلب مدفوع أونلاين (بطاقة) بدل الكاش، الزبون دفع لأكليتو مباشرة —
+// فالكابتن أصلاً ما استلم أي كاش بيده، فـ"المستحق منه" = صفر لهاد الطلب (العمولة والأرباح بتنحسب عادي لأنها متعلقة بشغل التوصيل نفسه).
 export function computeOrderFinancials(order) {
-  const collected = order.total_estimated_price || 0;      // الكاش اللي أخذه الكابتن من الزبون
+  const collected = order.total_estimated_price || 0;      // الكاش اللي أخذه الكابتن من الزبون (لو COD)
   const deliveryFee = order.delivery_fee || 0;
   const tip = order.driver_tip || 0;
   const grossEarning = deliveryFee + tip;                   // نصيب الكابتن قبل العمولة
-  const commission = Math.round(grossEarning * COMMISSION_RATE * 100) / 100;
+  const cfg = _commissionConfig;
+  const commission = cfg.type === 'fixed'
+    ? Math.round(Math.min(cfg.value, grossEarning) * 100) / 100   // ما تتجاوز العمولة نصيب الكابتن نفسه
+    : Math.round(grossEarning * cfg.value * 100) / 100;
   const netProfit = Math.round((grossEarning - commission) * 100) / 100; // صافي ربح الكابتن
-  const owed = Math.round((collected - netProfit) * 100) / 100;         // المستحق لأكليتو
-  return { collected, deliveryFee, tip, grossEarning, commission, netProfit, owed };
+  const isOnlinePaid = order.payment_method === 'card' || order.payment_method === 'online';
+  const owed = isOnlinePaid ? 0 : Math.round((collected - netProfit) * 100) / 100; // المستحق لأكليتو
+  return { collected, deliveryFee, tip, grossEarning, commission, netProfit, owed, isOnlinePaid };
 }
 
 // تجميع الحسابات المالية لمجموعة طلبات (لتقارير العمل)
@@ -193,7 +220,9 @@ export function aggregateOrderFinancials(orders) {
   const totals = { count: orders.length, collected: 0, commission: 0, netProfit: 0, owed: 0 };
   orders.forEach(o => {
     const f = computeOrderFinancials(o);
-    totals.collected += f.collected;
+    // "الكاش بالجيب" ما بيشمل إلا الطلبات اللي فعلاً الكابتن قبض كاشها (COD) —
+    // الطلبات المدفوعة أونلاين ما مرّ كاشها بإيد الكابتن أصلاً
+    if (!f.isOnlinePaid) totals.collected += f.collected;
     totals.commission += f.commission;
     totals.netProfit += f.netProfit;
     totals.owed += f.owed;

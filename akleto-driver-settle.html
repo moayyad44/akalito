@@ -264,31 +264,48 @@
 
 
   .balance-card-lg {
-    background: linear-gradient(135deg, var(--primary), #B8535E); color:#fff; border-radius:20px;
-    padding:26px 22px; margin: 8px 18px 18px; text-align:center;
+    border-radius:20px; padding:26px 22px; margin: 8px 18px 18px; text-align:center; color:#fff;
+    transition: background .3s ease;
   }
-  .balance-card-lg .lbl { font-size:13px; opacity:.85; margin-bottom:6px; }
-  .balance-card-lg .val { font-size:34px; font-weight:900; font-family:'JetBrains Mono',monospace; }
+  .balance-card-lg.owe-akleto { background: linear-gradient(135deg, var(--primary), #B8535E); }
+  .balance-card-lg.owe-driver { background: linear-gradient(135deg, #2E7D4F, #4CAF7D); }
+  .balance-card-lg.neutral { background: linear-gradient(135deg, #7A7A7A, #9A9A9A); }
+  .balance-card-lg .lbl { font-size:13px; opacity:.9; margin-bottom:6px; display:flex; align-items:center; justify-content:center; gap:6px; }
+  .balance-card-lg .val { font-size:32px; font-weight:900; font-family:'JetBrains Mono',monospace; }
+  .balance-card-lg .sub { font-size:12px; opacity:.85; margin-top:6px; }
+
+  .settle-action-card {
+    background: var(--surface); border:1px solid var(--border); border-radius:16px;
+    padding:18px 16px; margin: 0 18px 18px;
+  }
+  .settle-action-card .t1 { font-weight:800; font-size:14px; margin-bottom:10px; }
+  .settle-input-row { display:flex; gap:8px; margin-bottom:10px; }
+  .settle-input-row input {
+    flex:1; padding:12px 14px; border-radius:12px; border:1.5px solid var(--border);
+    background:var(--bg); font-family:'JetBrains Mono',monospace; font-size:15px; color:var(--text);
+  }
+  .settle-input-row input:focus { outline:none; border-color:var(--primary); }
 
   .soon-banner {
     margin: 0 18px 18px; background: rgba(245,166,91,.14); border: 1.5px dashed var(--secondary);
-    border-radius:16px; padding:16px; text-align:center;
+    border-radius:16px; padding:14px 16px; text-align:center;
   }
-  .soon-banner .ic { color: var(--secondary); margin-bottom:8px; display:flex; justify-content:center; }
-  .soon-banner .ic svg { width:34px; height:34px; }
-  .soon-banner .t1 { font-weight:800; font-size:14.5px; margin-bottom:5px; }
-  .soon-banner .t2 { font-size:12.5px; color: var(--text30); line-height:1.7; }
+  .soon-banner .t2 { font-size:12px; color: var(--text30); line-height:1.7; }
 
-  .pay-methods { padding: 0 18px; }
-  .pay-method-row {
-    display:flex; align-items:center; gap:12px; background:var(--surface); border:1px solid var(--border);
-    border-radius:14px; padding:14px 16px; margin-bottom:10px; opacity:.55;
+  .tx-row {
+    display:flex; align-items:center; gap:10px; background:var(--surface); border:1px solid var(--border);
+    border-radius:12px; padding:11px 14px; margin: 0 18px 8px;
   }
-  .pay-method-row .ic-box { width:40px; height:40px; border-radius:11px; background:rgba(162,62,72,.08); color:var(--primary); display:flex; align-items:center; justify-content:center; flex-shrink:0; }
-  .pay-method-row .txt { flex:1; }
-  .pay-method-row .txt b { display:block; font-size:14px; }
-  .pay-method-row .txt span { font-size:11.5px; color:var(--text30); }
-  .pill-soon { font-size:10.5px; font-weight:800; color:#fff; background:var(--secondary); padding:3px 9px; border-radius:20px; }
+  .tx-row .tx-ic { width:32px; height:32px; border-radius:9px; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+  .tx-row.settlement .tx-ic { background:rgba(162,62,72,.1); color:var(--primary); }
+  .tx-row.payout .tx-ic { background:rgba(46,125,79,.1); color:#2E7D4F; }
+  .tx-row .tx-info { flex:1; }
+  .tx-row .tx-info b { display:block; font-size:13px; }
+  .tx-row .tx-info span { font-size:11px; color:var(--text30); }
+  .tx-status { font-size:10.5px; font-weight:800; padding:3px 9px; border-radius:20px; }
+  .tx-status.pending { background:rgba(245,166,91,.18); color:#B8752E; }
+  .tx-status.completed { background:rgba(46,125,79,.15); color:#2E7D4F; }
+  .tx-status.rejected { background:rgba(217,83,79,.12); color:#D9534F; }
 
 </style>
 <script>
@@ -313,25 +330,35 @@ if ("serviceWorker" in navigator) {
   </div>
 
   <div class="content-wrap">
-    <div class="balance-card-lg">
-      <div class="lbl"><svg class="inline-ic" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="6.5" width="18" height="12.5" rx="2.2"/><path d="M3 10h18"/><circle cx="16.3" cy="14" r="1.3"/></svg>الرصيد المستحق حالياً لأكليتو</div>
-      <div class="val" id="settle-owed">—</div>
+
+    <div class="balance-card-lg neutral" id="balanceCard">
+      <div class="lbl" id="balanceLbl"><svg class="inline-ic" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="6.5" width="18" height="12.5" rx="2.2"/><path d="M3 10h18"/><circle cx="16.3" cy="14" r="1.3"/></svg>جاري حساب الرصيد...</div>
+      <div class="val" id="balanceVal">—</div>
+      <div class="sub" id="balanceSub"></div>
+    </div>
+
+    <div class="settle-action-card hidden" id="oweAkletoAction">
+      <div class="t1"><svg class="inline-ic" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="6.5" width="18" height="12.5" rx="2.2"/><path d="M3 10h18"/><circle cx="16.3" cy="14" r="1.3"/></svg>حدد المبلغ اللي بدك تحوّله لأكليتو</div>
+      <div class="settle-input-row">
+        <input type="number" step="0.05" min="0.01" id="settle-amount-input" placeholder="المبلغ (د.أ)">
+      </div>
+      <button class="btn-main" onclick="submitSettlement()">إرسال طلب التسديد</button>
+      <div class="error-text" id="settle-error"></div>
+    </div>
+
+    <div class="settle-action-card hidden" id="oweDriverAction">
+      <div class="t1"><svg class="inline-ic" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="6.5" width="18" height="12.5" rx="2.2"/><path d="M3 10h18"/><circle cx="16.3" cy="14" r="1.3"/></svg>أكليتو مدينة لك — حوّل رصيدك لحسابك البنكي</div>
+      <button class="btn-main" onclick="submitPayoutRequest()">طلب تحويل الرصيد كامل لحسابي</button>
+      <div class="error-text" id="payout-error"></div>
     </div>
 
     <div class="soon-banner">
-      <div class="ic"><svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="6.5" width="18" height="12.5" rx="2.2"/><path d="M3 10h18"/><circle cx="16.3" cy="14" r="1.3"/></svg></div>
-      <div class="t1">التسديد الإلكتروني عن طريق فيزا — قريباً</div>
-      <div class="t2">لسا ما ربطنا بوابة دفع بالتطبيق. لحد ما تجهز، بيتم التسديد بالطريقة المعتادة (نقداً أو حسب التنسيق مع الإدارة).</div>
+      <div class="t2">⚠️ لسا ما ربطنا بوابة دفع/تحويل بنكي فعلية بالتطبيق — أي طلب هون بينحفظ "قيد الانتظار" وبتراجعه الإدارة يدوياً وتأكّده بعد ما ينفّذ فعلياً (تحويل بنكي أو تسديد نقدي حسب الاتفاق). ما رح ينخصم أو يُضاف لرصيدك إلا بعد ما يتأكّد.</div>
     </div>
 
-    <div class="section-title"><span class="row-ic"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5.5" width="18" height="13" rx="2.2"/><path d="M3 9.3h18"/><path d="M6 14.3h4.5"/></svg></span>طرق الدفع</div>
-    <div class="pay-methods">
-      <div class="pay-method-row">
-        <span class="ic-box"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5.5" width="18" height="13" rx="2.2"/><path d="M3 9.3h18"/><path d="M6 14.3h4.5"/></svg></span>
-        <span class="txt"><b>بطاقة فيزا/ماستركارد</b><span>ادفع مباشرة من بطاقتك المحفوظة</span></span>
-        <span class="pill-soon">قريباً</span>
-      </div>
-    </div>
+    <div class="section-title"><span class="row-ic"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.3v5l3.3 2"/></svg></span>سجل الطلبات</div>
+    <div id="txList"><div class="empty-state-c" style="padding:24px 0;">جاري التحميل...</div></div>
+
   </div>
 </div>
 
@@ -373,27 +400,109 @@ if ("serviceWorker" in navigator) {
 
 <script type="module">
 import {
-  requireDriverSession, watchDriverNotifs, updateNotifBadge, renderNotifList,
-  watchAvailableOrders, watchMyOrders, aggregateOrderFinancials, watchCommissionSettings, setNavBadge, logoutDriver,
-  DRIVER_NOTIF_SEEN_KEY
+  requireDriverSession, watchDriverNotifs, updateNotifBadge, renderNotifList, timeAgo,
+  watchAvailableOrders, watchMyOrders, aggregateOrderFinancials, watchCommissionSettings,
+  watchDriverBalanceTransactions, createSettlementRequest, createPayoutRequest, computeNetBalance,
+  setNavBadge, logoutDriver, showToast, DRIVER_NOTIF_SEEN_KEY
 } from "./driver-shared.js";
 
 const session = requireDriverSession();
 if (session) document.getElementById('greet-name').textContent = session.name;
 
 let latestDoneOrders = [];
-watchCommissionSettings(() => {
-  const totals = aggregateOrderFinancials(latestDoneOrders);
-  document.getElementById('settle-owed').textContent = totals.owed.toFixed(2) + ' د.أ';
-});
+let latestTransactions = [];
+let latestBalance = { owedByDriver: 0, owedToDriver: 0, net: 0 };
 
+function recomputeBalance() {
+  const totals = aggregateOrderFinancials(latestDoneOrders);
+  latestBalance = computeNetBalance(totals, latestTransactions);
+  renderBalanceCard();
+  renderTxList();
+}
+
+watchCommissionSettings(() => recomputeBalance());
 watchAvailableOrders(list => setNavBadge('availBadge', list.length));
 watchMyOrders(session.id, list => {
   setNavBadge('myBadge', list.filter(o => o.status === 'delivering').length);
   latestDoneOrders = list.filter(o => o.status === 'done');
-  const totals = aggregateOrderFinancials(latestDoneOrders);
-  document.getElementById('settle-owed').textContent = totals.owed.toFixed(2) + ' د.أ';
+  recomputeBalance();
 });
+watchDriverBalanceTransactions(session.id, list => { latestTransactions = list; recomputeBalance(); });
+
+function renderBalanceCard() {
+  const card = document.getElementById('balanceCard');
+  const lbl = document.getElementById('balanceLbl');
+  const val = document.getElementById('balanceVal');
+  const sub = document.getElementById('balanceSub');
+  const oweAkletoBox = document.getElementById('oweAkletoAction');
+  const oweDriverBox = document.getElementById('oweDriverAction');
+
+  card.classList.remove('owe-akleto', 'owe-driver', 'neutral');
+  oweAkletoBox.classList.add('hidden');
+  oweDriverBox.classList.add('hidden');
+
+  if (latestBalance.net > 0.009) {
+    card.classList.add('owe-akleto');
+    lbl.textContent = 'الرصيد المستحق منك لأكليتو';
+    val.textContent = latestBalance.net.toFixed(2) + ' د.أ';
+    sub.textContent = 'لازم تسدّده لأكليتو';
+    oweAkletoBox.classList.remove('hidden');
+    document.getElementById('settle-amount-input').value = latestBalance.net.toFixed(2);
+    document.getElementById('settle-amount-input').max = latestBalance.net;
+  } else if (latestBalance.net < -0.009) {
+    card.classList.add('owe-driver');
+    lbl.textContent = 'أكليتو مدينة لك بـ';
+    val.textContent = Math.abs(latestBalance.net).toFixed(2) + ' د.أ';
+    sub.textContent = 'رسوم توصيل + إكرامية طلبات مدفوعة أونلاين';
+    oweDriverBox.classList.remove('hidden');
+  } else {
+    card.classList.add('neutral');
+    lbl.textContent = 'رصيدك متوازن';
+    val.textContent = '0.00 د.أ';
+    sub.textContent = 'ما في شي مستحق بأي اتجاه 🎉';
+  }
+}
+
+window.submitSettlement = async () => {
+  const errBox = document.getElementById('settle-error');
+  errBox.style.display = 'none';
+  const amount = parseFloat(document.getElementById('settle-amount-input').value);
+  if (isNaN(amount) || amount <= 0) { errBox.textContent = 'لازم تكتب مبلغ صحيح أكبر من صفر'; errBox.style.display = 'block'; return; }
+  if (amount > latestBalance.owedByDriver + 0.01) { errBox.textContent = `أكبر مبلغ ممكن تسدده حالياً هو ${latestBalance.owedByDriver.toFixed(2)} د.أ`; errBox.style.display = 'block'; return; }
+  try {
+    await createSettlementRequest(session.id, session.name, amount);
+    showToast('✅ تم إرسال طلب التسديد — بينتظر تأكيد الإدارة');
+  } catch (e) { console.error('settlement request error', e); errBox.textContent = 'صار خطأ — جرب مرة ثانية'; errBox.style.display = 'block'; }
+};
+
+window.submitPayoutRequest = async () => {
+  const errBox = document.getElementById('payout-error');
+  errBox.style.display = 'none';
+  if (latestBalance.owedToDriver <= 0.009) return;
+  try {
+    await createPayoutRequest(session.id, session.name, latestBalance.owedToDriver);
+    showToast('✅ تم إرسال طلب التحويل — بينتظر تنفيذ الإدارة');
+  } catch (e) { console.error('payout request error', e); errBox.textContent = 'صار خطأ — جرب مرة ثانية'; errBox.style.display = 'block'; }
+};
+
+function renderTxList() {
+  const wrap = document.getElementById('txList');
+  if (!latestTransactions.length) {
+    wrap.innerHTML = `<div class="empty-state-c" style="padding:24px 0;">ما في طلبات تسديد/تحويل بعد</div>`;
+    return;
+  }
+  const sorted = [...latestTransactions].sort((a, b) => (b.created_at?.toMillis?.() || 0) - (a.created_at?.toMillis?.() || 0));
+  const statusLabel = { pending: 'قيد الانتظار', completed: 'تم', rejected: 'مرفوض' };
+  wrap.innerHTML = sorted.map(t => `
+    <div class="tx-row ${t.type}">
+      <span class="tx-ic">${t.type === 'settlement' ? '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="6.5" width="18" height="12.5" rx="2.2"/><path d="M3 10h18"/><circle cx="16.3" cy="14" r="1.3"/></svg>' : '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5.5" width="18" height="13" rx="2.2"/><path d="M3 9.3h18"/><path d="M6 14.3h4.5"/></svg>'}</span>
+      <span class="tx-info">
+        <b>${t.type === 'settlement' ? 'طلب تسديد لأكليتو' : 'طلب تحويل من أكليتو'}</b>
+        <span>${(t.amount || 0).toFixed(2)} د.أ · ${timeAgo(t.created_at)}</span>
+      </span>
+      <span class="tx-status ${t.status}">${statusLabel[t.status] || t.status}</span>
+    </div>`).join('');
+}
 
 
 window.toggleDriverMenu = () => {

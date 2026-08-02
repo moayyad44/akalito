@@ -171,6 +171,13 @@
     box-shadow: 0 0 10px var(--red-glow);
   }
 
+  .sidebar-scroll {
+    flex: 1;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    min-height: 0;
+  }
+
   .sidebar-footer {
     margin-top: auto;
     padding: 20px 20px 0;

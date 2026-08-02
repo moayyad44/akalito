@@ -42,6 +42,10 @@
   button { font-family: inherit; cursor: pointer; }
   .mono { font-family: 'JetBrains Mono', monospace; }
   .hidden { display: none !important; }
+  .inline-ic { vertical-align:-3px; margin-left:5px; flex-shrink:0; }
+  .row-ic { color: var(--text30); flex-shrink:0; }
+  .spin { animation: akSpin .8s linear infinite; }
+  @keyframes akSpin { to { transform: rotate(360deg); } }
 
   /* ═══ الهيدر العلوي ═══ */
   .topbar {
@@ -50,6 +54,12 @@
   }
   .topbar .greeting { font-size: 13px; color: var(--text30); }
   .topbar .greeting b { color: var(--text); }
+  .topbar-logo-row { display:flex; align-items:center; gap:6px; }
+  .topbar-logo-icon {
+    width:24px; height:24px; border-radius:8px; background: var(--primary); color:#fff;
+    display:flex; align-items:center; justify-content:center; flex-shrink:0;
+  }
+  .topbar-logo-icon svg { width:14px; height:14px; }
   .topbar-logo { font-family:'Tajawal',sans-serif; font-weight:900; color: var(--primary); font-size: 20px; }
   .icon-btn {
     width:38px; height:38px; border-radius:50%; flex-shrink:0;
@@ -64,7 +74,8 @@
     background: var(--primary); border:2px solid var(--bg);
   }
 
-  .section-title { font-size: 16px; font-weight: 800; padding: 6px 18px 12px; font-family:'Tajawal',sans-serif; }
+  .section-title { font-size: 16px; font-weight: 800; padding: 6px 18px 12px; font-family:'Tajawal',sans-serif; display:flex; align-items:center; gap:8px; }
+  .section-title .row-ic { color: var(--primary); }
   .content-wrap { max-width: 640px; margin: 0 auto; }
 
   /* ═══ القائمة الجانبية ═══ */
@@ -85,9 +96,10 @@
     padding:30px 20px 22px; background: linear-gradient(135deg, var(--primary), #B8535E);
     color:#fff; position:relative; overflow:hidden;
   }
-  .cs-drawer-header::after {
-    content:"🛵"; position:absolute; font-size:70px; opacity:.14; left:-10px; bottom:-16px;
+  .cs-drawer-header-icon {
+    position:absolute; left:-14px; bottom:-18px; opacity:.16; color:#fff;
   }
+  .cs-drawer-header-icon svg { width:96px; height:96px; }
   .cs-drawer-close {
     position:absolute; top:16px; left:16px; width:30px; height:30px; border-radius:50%;
     border:none; background:rgba(255,255,255,.18); color:#fff; font-size:14px;
@@ -135,22 +147,24 @@
   .order-card-head { display:flex; align-items:center; justify-content:space-between; margin-bottom:8px; }
   .order-card-code { font-size: 15px; font-weight: 800; }
   .order-card-time { font-size: 11.5px; color: var(--text30); }
-  .order-card-meta { font-size: 12.5px; color: var(--text30); display:flex; gap:10px; margin-bottom: 10px; flex-wrap: wrap; }
+  .order-card-meta { font-size: 12.5px; color: var(--text30); display:flex; gap:12px; margin-bottom: 10px; flex-wrap: wrap; }
+  .order-card-meta span { display:inline-flex; align-items:center; gap:4px; }
   .order-card-price { font-weight: 800; color: var(--primary); font-size: 14px; }
   .order-card-actions { display:flex; gap: 8px; margin-top: 6px; }
   .btn-claim {
     flex:1; padding: 11px; border-radius: 12px; border:none; background: var(--olive);
-    color:#fff; font-weight:700; font-size: 13.5px;
+    color:#fff; font-weight:700; font-size: 13.5px; display:flex; align-items:center; justify-content:center; gap:6px;
   }
   .btn-claim:disabled { opacity:.5; }
   .btn-secondary-sm {
     flex:1; padding: 11px; border-radius: 12px; border: 1.5px solid var(--border); background: transparent;
     color: var(--text); font-weight:700; font-size: 13.5px;
   }
-  .status-pill { font-size: 11px; font-weight: 700; padding: 3px 10px; border-radius: 20px; color:#fff; background: var(--st-color, var(--primary)); }
+  .status-pill { font-size: 11px; font-weight: 700; padding: 3px 10px; border-radius: 20px; color:#fff; background: var(--st-color, var(--primary)); display:inline-flex; align-items:center; gap:4px; }
 
   .empty-state-c { text-align:center; padding: 60px 30px; color: var(--text30); font-size:14px; }
-  .empty-state-c .emoji { font-size: 44px; margin-bottom: 12px; }
+  .empty-state-c .emoji { color: var(--border); margin-bottom: 12px; display:flex; justify-content:center; }
+  .empty-state-c .emoji svg { width:44px; height:44px; }
 
   /* ═══ حسابي ═══ */
   .account-card {
@@ -184,6 +198,7 @@
   .btn-outline {
     width: 100%; padding: 13px; border-radius: 14px; border: 1.5px solid var(--primary);
     background: transparent; color: var(--primary); font-weight: 700; font-size: 14px;
+    display:flex; align-items:center; justify-content:center; gap:8px;
   }
   .error-text { color: var(--primary); font-size: 12.5px; margin-top: 10px; display:none; }
 
@@ -262,7 +277,7 @@ if ("serviceWorker" in navigator) {
   <div class="topbar">
     <div style="display:flex;align-items:center;gap:10px;">
       <button class="icon-btn" onclick="toggleDriverMenu()" title="القائمة">☰</button>
-      <div><div class="topbar-logo">أكليتو 🛵</div><div class="greeting">أهلاً <b id="greet-name">—</b></div></div>
+      <div><div class="topbar-logo-row"><span class="topbar-logo-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="17" r="2.2"/><circle cx="18" cy="17" r="2.2"/><path d="M6 17h5l3-7h4"/><path d="M9.5 10h4"/></svg></span><span class="topbar-logo">أكليتو</span></div><div class="greeting">أهلاً <b id="greet-name">—</b></div></div>
     </div>
     <div class="bell-wrap">
       <button class="icon-btn" onclick="openNotifSheet()" title="الإشعارات"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9a6 6 0 0 1 12 0c0 5 2 6 2 6H4s2-1 2-6Z"/><path d="M10 19a2 2 0 0 0 4 0"/></svg></button>
@@ -271,9 +286,9 @@ if ("serviceWorker" in navigator) {
   </div>
 
   <div id="myScreen" class="content-wrap">
-    <div class="section-title">🛵 قيد التوصيل الآن</div>
+    <div class="section-title"><span class="row-ic"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="17" r="2.2"/><circle cx="18" cy="17" r="2.2"/><path d="M6 17h5l3-7h4"/><path d="M9.5 10h4"/></svg></span>قيد التوصيل الآن</div>
     <div id="activeDeliveries"><div class="empty-state-c" style="padding:30px 0;">جاري التحميل...</div></div>
-    <div class="section-title">📜 توصيلات سابقة</div>
+    <div class="section-title"><span class="row-ic"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.3v5l3.3 2"/></svg></span>توصيلات سابقة</div>
     <div id="deliveryHistory"><div class="empty-state-c" style="padding:30px 0;">جاري التحميل...</div></div>
   </div>
 </div>
@@ -282,7 +297,7 @@ if ("serviceWorker" in navigator) {
   <div class="sheet-card" style="max-height:80vh;">
     <button class="sheet-close" onclick="closeNotifSheet()">✕</button>
     <div class="sheet-body">
-      <div class="sheet-title"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;"><path d="M6 9a6 6 0 0 1 12 0c0 5 2 6 2 6H4s2-1 2-6Z"/><path d="M10 19a2 2 0 0 0 4 0"/></svg> الإشعارات</div>
+      <div class="sheet-title"><svg class="inline-ic" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9a6 6 0 0 1 12 0c0 5 2 6 2 6H4s2-1 2-6Z"/><path d="M10 19a2 2 0 0 0 4 0"/></svg> الإشعارات</div>
       <div id="notifList"></div>
     </div>
   </div>
@@ -291,20 +306,21 @@ if ("serviceWorker" in navigator) {
 <div class="cs-overlay" id="csOverlayDriver" onclick="closeDriverMenu()"></div>
 <div class="cs-drawer" id="csDrawerDriver">
   <div class="cs-drawer-header">
+    <div class="cs-drawer-header-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="17" r="2.2"/><circle cx="18" cy="17" r="2.2"/><path d="M6 17h5l3-7h4"/><path d="M9.5 10h4"/></svg></div>
     <button class="cs-drawer-close" onclick="closeDriverMenu()">✕</button>
     <div class="cs-drawer-avatar" id="csd-driver-avatar">؟</div>
     <div class="cs-drawer-name" id="csd-driver-name"></div>
     <div class="cs-drawer-phone" id="csd-driver-phone"></div>
   </div>
   <div class="cs-nav-section-label">التنقّل</div>
-  <div class="cs-nav-item" onclick="location.href='akleto-driver-home.html'"><span class="ic-box"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11 12 4l9 7"/><path d="M5 10v9h5v-6h4v6h5v-9"/></svg></span><span style="flex:1;">الرئيسية (الخريطة)</span><span class="chev">‹</span></div>
-  <div class="cs-nav-item" onclick="location.href='akleto-driver-orders.html'"><span class="ic-box"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3 4 7v10l8 4 8-4V7l-8-4Z"/><path d="M4 7l8 4 8-4"/><path d="M12 11v10"/></svg></span><span style="flex:1;">الطلبات المتاحة</span><span class="drawer-badge hidden" id="availBadge">0</span><span class="chev">‹</span></div>
-  <div class="cs-nav-item" onclick="location.href='akleto-driver-deliveries.html'" style="color:var(--primary);"><span class="ic-box"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="17" r="2.2"/><circle cx="18" cy="17" r="2.2"/><path d="M6 17h5l3-7h4"/><path d="M9.5 10h4"/></svg></span><span style="flex:1;">توصيلاتي</span><span class="drawer-badge hidden" id="myBadge">0</span><span class="chev">‹</span></div>
-  <div class="cs-nav-item" onclick="location.href='akleto-driver-account.html'"><span class="ic-box"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="3.6"/><path d="M4.5 19.2c1.4-3.4 4.3-5.1 7.5-5.1s6.1 1.7 7.5 5.1"/></svg></span><span style="flex:1;">حسابي</span><span class="chev">‹</span></div>
+  <div class="cs-nav-item" onclick="location.href='akleto-driver-home.html'"><span class="ic-box"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11 12 4l9 7"/><path d="M5 10v9h5v-6h4v6h5v-9"/></svg></span><span style="flex:1;">الرئيسية (الخريطة)</span><span class="chev">‹</span></div>
+  <div class="cs-nav-item" onclick="location.href='akleto-driver-orders.html'"><span class="ic-box"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3 4 7v10l8 4 8-4V7l-8-4Z"/><path d="M4 7l8 4 8-4"/><path d="M12 11v10"/></svg></span><span style="flex:1;">الطلبات المتاحة</span><span class="drawer-badge hidden" id="availBadge">0</span><span class="chev">‹</span></div>
+  <div class="cs-nav-item" onclick="location.href='akleto-driver-deliveries.html'" style="color:var(--primary);"><span class="ic-box"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="17" r="2.2"/><circle cx="18" cy="17" r="2.2"/><path d="M6 17h5l3-7h4"/><path d="M9.5 10h4"/></svg></span><span style="flex:1;">توصيلاتي</span><span class="drawer-badge hidden" id="myBadge">0</span><span class="chev">‹</span></div>
+  <div class="cs-nav-item" onclick="location.href='akleto-driver-account.html'"><span class="ic-box"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="3.6"/><path d="M4.5 19.2c1.4-3.4 4.3-5.1 7.5-5.1s6.1 1.7 7.5 5.1"/></svg></span><span style="flex:1;">حسابي</span><span class="chev">‹</span></div>
   <div class="cs-nav-section-label">الحساب</div>
-  <div class="cs-nav-item" onclick="closeDriverMenu(); openNotifSheet();"><span class="ic-box"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9a6 6 0 0 1 12 0c0 5 2 6 2 6H4s2-1 2-6Z"/><path d="M10 19a2 2 0 0 0 4 0"/></svg></span><span>الإشعارات</span><span class="chev">‹</span></div>
-  <div class="cs-nav-item danger" onclick="logoutDriverConfirm()"><span class="ic-box"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v8"/><path d="M6.3 6.3a8 8 0 1 0 11.4 0"/></svg></span><span>تسجيل الخروج</span></div>
-  <div class="cs-drawer-footer">أكليتو 🛵 — السائق</div>
+  <div class="cs-nav-item" onclick="closeDriverMenu(); openNotifSheet();"><span class="ic-box"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9a6 6 0 0 1 12 0c0 5 2 6 2 6H4s2-1 2-6Z"/><path d="M10 19a2 2 0 0 0 4 0"/></svg></span><span>الإشعارات</span><span class="chev">‹</span></div>
+  <div class="cs-nav-item danger" onclick="logoutDriverConfirm()"><span class="ic-box"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v8"/><path d="M6.3 6.3a8 8 0 1 0 11.4 0"/></svg></span><span>تسجيل الخروج</span></div>
+  <div class="cs-drawer-footer">أكليتو — السائق</div>
 </div>
 
 <div class="sheet-overlay" id="orderSheet" onclick="if(event.target===this) closeOrderSheet()">
@@ -312,14 +328,14 @@ if ("serviceWorker" in navigator) {
     <button class="sheet-close" onclick="closeOrderSheet()">✕</button>
     <div class="sheet-body">
       <div class="sheet-title">طلب <span id="sheet-code" class="mono"></span></div>
-      <div class="receipt-row"><span>🏪 الاستلام من</span><span id="sheet-store-name">—</span></div>
-      <div class="receipt-row"><span>👤 الزبون</span><span id="sheet-cust-name">—</span></div>
-      <div class="receipt-row"><span>📞 الهاتف</span><span id="sheet-cust-phone" class="mono">—</span></div>
-      <div class="receipt-row" id="sheet-address-row" style="align-items:flex-start;"><span>📍 عنوان التوصيل</span><span id="sheet-address" style="text-align:left;max-width:65%;">—</span></div>
+      <div class="receipt-row"><span><svg class="inline-ic row-ic" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9.5 5 4h14l1 5.5"/><path d="M4 9.5a2 2 0 0 0 4 0 2 2 0 0 0 4 0 2 2 0 0 0 4 0 2 2 0 0 0 4 0"/><path d="M5.5 9.8V20h13V9.8"/><path d="M10 20v-5.5h4V20"/></svg>الاستلام من</span><span id="sheet-store-name">—</span></div>
+      <div class="receipt-row"><span><svg class="inline-ic row-ic" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="3.6"/><path d="M4.5 19.2c1.4-3.4 4.3-5.1 7.5-5.1s6.1 1.7 7.5 5.1"/></svg>الزبون</span><span id="sheet-cust-name">—</span></div>
+      <div class="receipt-row"><span><svg class="inline-ic row-ic" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6.3 3h3l1.4 3.8-2 1.7a12.5 12.5 0 0 0 5.8 5.8l1.7-2 3.8 1.4v3a2 2 0 0 1-2.1 2C11.4 18.3 5.7 12.6 4.3 6.1A2 2 0 0 1 6.3 3Z"/></svg>الهاتف</span><span id="sheet-cust-phone" class="mono">—</span></div>
+      <div class="receipt-row" id="sheet-address-row" style="align-items:flex-start;"><span><svg class="inline-ic row-ic" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s-7-6.3-7-11.2a7 7 0 1 1 14 0C19 14.7 12 21 12 21Z"/><circle cx="12" cy="9.8" r="2.4"/></svg>عنوان التوصيل</span><span id="sheet-address" style="text-align:left;max-width:65%;">—</span></div>
       <div id="sheet-map-link-wrap"></div>
       <div id="sheet-notes-wrap"></div>
 
-      <div class="receipt-section-title">🍽️ الوجبات</div>
+      <div class="receipt-section-title"><svg class="inline-ic row-ic" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12h16a8 8 0 0 1-16 0Z"/><path d="M9 8c0-1 .6-1.5.1-2.4M12.5 8c0-1 .6-1.5.1-2.4M16 8c0-1 .6-1.5.1-2.4"/></svg>الوجبات</div>
       <div id="sheet-meals"></div>
 
       <div id="sheet-tip-wrap"></div>
@@ -371,13 +387,13 @@ function renderMyOrders() {
         <span class="order-card-time">${timeAgo(o.picked_up_at)}</span>
       </div>
       <div class="order-card-meta">
-        <span>🏪 ${o.store_name || 'غير محدد'}</span>
-        <span>👤 ${o.customer_name || 'زبون'}</span>
+        <span><svg class="row-ic" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9.5 5 4h14l1 5.5"/><path d="M4 9.5a2 2 0 0 0 4 0 2 2 0 0 0 4 0 2 2 0 0 0 4 0 2 2 0 0 0 4 0"/><path d="M5.5 9.8V20h13V9.8"/><path d="M10 20v-5.5h4V20"/></svg>${o.store_name || 'غير محدد'}</span>
+        <span><svg class="row-ic" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="3.6"/><path d="M4.5 19.2c1.4-3.4 4.3-5.1 7.5-5.1s6.1 1.7 7.5 5.1"/></svg>${o.customer_name || 'زبون'}</span>
         <span class="order-card-price">${(o.total_estimated_price || 0).toFixed(2)} د.أ</span>
       </div>
       <div class="order-card-actions">
         <button class="btn-secondary-sm" onclick="openOrderSheet('${o.id}')">التفاصيل</button>
-        <button class="btn-claim" onclick="markDelivered('${o.id}')">تم التوصيل ✅</button>
+        <button class="btn-claim" onclick="markDelivered('${o.id}')"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4.5 12.8 9 17.3 19.5 6.7"/></svg>تم التوصيل</button>
       </div>
     </div>`).join('') : `<div class="empty-state-c" style="padding:30px 0;">ما عندك توصيلات حالياً</div>`;
 
@@ -385,10 +401,10 @@ function renderMyOrders() {
     <div class="order-card" style="--st-color:var(--text30)">
       <div class="order-card-head">
         <span class="order-card-code mono">${ticketCode(o.id)}</span>
-        <span class="status-pill" style="--st-color:var(--olive)">✅ تم التوصيل</span>
+        <span class="status-pill" style="--st-color:var(--olive)"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4.5 12.8 9 17.3 19.5 6.7"/></svg>تم التوصيل</span>
       </div>
       <div class="order-card-meta">
-        <span>👤 ${o.customer_name || 'زبون'}</span>
+        <span><svg class="row-ic" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="3.6"/><path d="M4.5 19.2c1.4-3.4 4.3-5.1 7.5-5.1s6.1 1.7 7.5 5.1"/></svg>${o.customer_name || 'زبون'}</span>
         <span class="order-card-price">${(o.total_estimated_price || 0).toFixed(2)} د.أ</span>
       </div>
     </div>`).join('') : `<div class="empty-state-c" style="padding:30px 0;">ما في توصيلات مكتملة بعد</div>`;
@@ -428,19 +444,19 @@ window.openOrderSheet = (orderId) => {
   document.getElementById('sheet-address').textContent = o.delivery_address || 'ما في عنوان محفوظ — تواصل مع الزبون';
   const mapLinkWrap = document.getElementById('sheet-map-link-wrap');
   mapLinkWrap.innerHTML = (o.delivery_lat != null && o.delivery_lng != null)
-    ? `<a href="https://www.google.com/maps/search/?api=1&query=${o.delivery_lat},${o.delivery_lng}" target="_blank" class="map-link-btn">🗺️ فتح الموقع بخرائط جوجل</a>` : '';
-  document.getElementById('sheet-notes-wrap').innerHTML = o.customer_notes ? `<div class="receipt-note">📝 ${o.customer_notes}</div>` : '';
+    ? `<a href="https://www.google.com/maps/search/?api=1&query=${o.delivery_lat},${o.delivery_lng}" target="_blank" class="map-link-btn"><svg class="inline-ic" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 4 3.5 6v14L9 18l6 2 5.5-2V4L15 6 9 4Z"/><path d="M9 4v14M15 6v14"/></svg>فتح الموقع بخرائط جوجل</a>` : '';
+  document.getElementById('sheet-notes-wrap').innerHTML = o.customer_notes ? `<div class="receipt-note"><svg class="inline-ic" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="5.5" y="3" width="13" height="18" rx="2"/><path d="M8.5 8h7M8.5 12h7M8.5 16h4.5"/></svg>${o.customer_notes}</div>` : '';
   const mealsHtml = (o.items || []).map(it =>
-    `<div class="receipt-row"><span>🍽️ ${mealsCache[it.meal_id] || 'وجبة'}</span><span class="mono">× ${it.servings || 1}</span></div>`
+    `<div class="receipt-row"><span><svg class="inline-ic row-ic" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12h16a8 8 0 0 1-16 0Z"/><path d="M9 8c0-1 .6-1.5.1-2.4M12.5 8c0-1 .6-1.5.1-2.4M16 8c0-1 .6-1.5.1-2.4"/></svg>${mealsCache[it.meal_id] || 'وجبة'}</span><span class="mono">× ${it.servings || 1}</span></div>`
   ).join('') || `<div class="empty-state-c" style="padding:8px 0;">لا توجد عناصر</div>`;
   document.getElementById('sheet-meals').innerHTML = mealsHtml;
   const tipWrap = document.getElementById('sheet-tip-wrap');
   tipWrap.innerHTML = o.driver_tip
-    ? `<div class="receipt-note" style="color:#2ED573;background:rgba(46,213,115,.12);">🎁 منها إكرامية لك: ${o.driver_tip.toFixed(2)} د.أ</div>` : '';
+    ? `<div class="receipt-note" style="color:#2ED573;background:rgba(46,213,115,.12);"><svg class="inline-ic" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="9.5" width="16" height="10" rx="1.4"/><path d="M4 9.5h16M12 9.5V20"/><path d="M12 9.5c-1.6-3-6-2.7-6-.7 0 1.4 2.6 1 6 .7Zm0 0c1.6-3 6-2.7 6-.7 0 1.4-2.6 1-6 .7Z"/></svg>منها إكرامية لك: ${o.driver_tip.toFixed(2)} د.أ</div>` : '';
   document.getElementById('sheet-price-label').textContent = o.status === 'done' ? 'الإجمالي' : 'المبلغ المطلوب تحصيله';
   document.getElementById('sheet-price').textContent = (o.total_estimated_price || 0).toFixed(2) + ' د.أ';
   document.getElementById('sheet-actions').innerHTML = o.status === 'delivering'
-    ? `<button class="btn-main" onclick="markDelivered('${o.id}')">تم التوصيل ✅</button>` : '';
+    ? `<button class="btn-main" onclick="markDelivered('${o.id}')"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4.5 12.8 9 17.3 19.5 6.7"/></svg>تم التوصيل</button>` : '';
   document.getElementById('orderSheet').classList.add('open');
 };
 window.closeOrderSheet = () => document.getElementById('orderSheet').classList.remove('open');

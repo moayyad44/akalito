@@ -355,12 +355,12 @@ if ("serviceWorker" in navigator) {
 <div class="map-fabs">
   <button class="map-fab" id="fabMyLoc" onclick="centerOnMyLocation()" title="موقعي الحالي"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="7.2"/><circle cx="12" cy="12" r="2.4"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/></svg></button>
   <button class="map-fab" id="fabHotspots" onclick="toggleHotspots()" title="مواقع تكاثر الطلبات"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9.5 5 4h14l1 5.5"/><path d="M4 9.5a2 2 0 0 0 4 0 2 2 0 0 0 4 0 2 2 0 0 0 4 0 2 2 0 0 0 4 0"/><path d="M5.5 9.8V20h13V9.8"/><path d="M10 20v-5.5h4V20"/></svg></button>
-  <button class="map-fab" id="fabDrivers" onclick="toggleLiveDrivers()" title="حركة السائقين لايف"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="17" r="2.2"/><circle cx="18" cy="17" r="2.2"/><path d="M6 17h5l3-7h4"/><path d="M9.5 10h4"/></svg></button>
+  <button class="map-fab" id="fabDrivers" onclick="toggleLiveDrivers()" title="السائقين القريبين مني (500 م)"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="17" r="2.2"/><circle cx="18" cy="17" r="2.2"/><path d="M6 17h5l3-7h4"/><path d="M9.5 10h4"/></svg></button>
 </div>
 
 <div class="legend-box" id="legendBox">
   <div class="legend-row"><span class="legend-dot" style="background:#8E44AD;"></span>متجر فيه طلبات بانتظار الاستلام</div>
-  <div class="legend-row"><span class="legend-dot" style="background:#F5A65B;"></span>سائق متاح حالياً</div>
+  <div class="legend-row"><span class="legend-dot" style="background:#F5A65B;"></span>🛵 سائق ضمن 500 م منك</div>
 </div>
 
 
@@ -459,6 +459,9 @@ let hotspotsOn = false, driversOn = false;
 let unsubHotspots = null, unsubDrivers = null;
 let hotspotMarkers = [], driverMarkers = [];
 let storesCache = null; // {id: {name,lat,lng}}
+let myCurrentPosition = null;
+let lastDriversList = [];
+const NEARBY_DRIVERS_RADIUS_KM = 0.5;
 
 function motoIcon(color, scale) {
   return {
@@ -538,11 +541,14 @@ window.centerOnMyLocation = (silent) => {
 };
 
 function placeMyMarker(coords) {
+  myCurrentPosition = coords;
   if (!myMarker) {
     myMarker = new google.maps.Marker({ position: coords, map, icon: motoIcon('#A23E48', 1.7), zIndex: 999 });
   } else {
     myMarker.setPosition(coords);
   }
+  // موقعي تحرّك — لو طبقة "السائقين اللايف" مفعّلة، منعيد فلترة نصف القطر (0.5 كم) على آخر بيانات وصلتنا
+  if (driversOn) renderLiveDrivers(lastDriversList);
 }
 
 /* ═══ متاح / غير متاح ═══ */
@@ -645,22 +651,19 @@ function clearHotspotMarkers() { hotspotMarkers.forEach(m => m.setMap(null)); ho
 async function renderHotspots(orders) {
   clearHotspotMarkers();
   const stores = await ensureStoresCache();
-  const counts = {};
-  orders.forEach(o => { if (o.store_id) counts[o.store_id] = (counts[o.store_id] || 0) + 1; });
-  Object.keys(counts).forEach(storeId => {
+  const storeIdsWithOrders = new Set();
+  orders.forEach(o => { if (o.store_id) storeIdsWithOrders.add(o.store_id); });
+  storeIdsWithOrders.forEach(storeId => {
     const s = stores[storeId];
     if (!s) return;
-    const count = counts[storeId];
-    const size = Math.min(22, 10 + count * 2.2);
     const marker = new google.maps.Marker({
       position: { lat: s.lat, lng: s.lng }, map,
-      icon: dotIcon('#8E44AD', size),
-      label: { text: String(count), color: '#fff', fontSize: '11px', fontWeight: '800' },
-      title: `${s.name || 'متجر'} — ${count} طلب بانتظار الاستلام`
+      icon: dotIcon('#8E44AD', 13),
+      title: `${s.name || 'متجر'} — عنده طلبات بانتظار الاستلام`
     });
     hotspotMarkers.push(marker);
   });
-  document.getElementById('fabHotspots').innerHTML = ICON_STORE_SVG + (orders.length ? `<span class="fab-count">${Object.keys(counts).length}</span>` : '');
+  document.getElementById('fabHotspots').innerHTML = ICON_STORE_SVG + (storeIdsWithOrders.size ? `<span class="fab-count">${storeIdsWithOrders.size}</span>` : '');
 }
 
 window.toggleHotspots = async () => {
@@ -677,16 +680,26 @@ window.toggleHotspots = async () => {
   }
 };
 
-/* ═══ حركة السائقين لايف ═══ */
+/* ═══ حركة السائقين لايف — بس اللي بنطاق 0.5 كم عني، بإيموجي دراجة حقيقي ═══ */
 function clearDriverMarkers() { driverMarkers.forEach(m => m.setMap(null)); driverMarkers = []; }
+
+function emojiMarkerIcon() {
+  // أيقونة شفافة تماماً — بس تحدد نقطة الإرساء، والإيموجي نفسه هو اللي بيظهر فعلياً عبر label
+  return { path: google.maps.SymbolPath.CIRCLE, scale: 14, fillOpacity: 0, strokeOpacity: 0 };
+}
 
 function renderLiveDrivers(drivers) {
   clearDriverMarkers();
-  const others = drivers.filter(d => d.id !== session.id && d.lat != null && d.lng != null);
+  let others = drivers.filter(d => d.id !== session.id && d.lat != null && d.lng != null);
+  // بس السائقين ضمن نصف قطر 0.5 كم عن موقعي الحالي (لو موقعي معروف أصلاً)
+  if (myCurrentPosition) {
+    others = others.filter(d => haversineKm(myCurrentPosition.lat, myCurrentPosition.lng, d.lat, d.lng) <= NEARBY_DRIVERS_RADIUS_KM);
+  }
   others.forEach(d => {
     const marker = new google.maps.Marker({
       position: { lat: d.lat, lng: d.lng }, map,
-      icon: motoIcon('#F5A65B', 1.3),
+      icon: emojiMarkerIcon(),
+      label: { text: '🛵', fontSize: '24px', className: 'driver-emoji-label' },
       title: d.name || 'سائق'
     });
     driverMarkers.push(marker);
@@ -700,7 +713,7 @@ window.toggleLiveDrivers = async () => {
   refreshLegend();
   if (driversOn) {
     if (!map) await initMap();
-    unsubDrivers = watchActiveDrivers(drivers => renderLiveDrivers(drivers));
+    unsubDrivers = watchActiveDrivers(drivers => { lastDriversList = drivers; renderLiveDrivers(drivers); });
   } else {
     if (unsubDrivers) { unsubDrivers(); unsubDrivers = null; }
     clearDriverMarkers();

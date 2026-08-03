@@ -360,7 +360,7 @@ if ("serviceWorker" in navigator) {
 
 <div class="legend-box" id="legendBox">
   <div class="legend-row"><span class="legend-dot" style="background:#8E44AD;"></span>متجر فيه طلبات بانتظار الاستلام</div>
-  <div class="legend-row"><span class="legend-dot" style="background:#F5A65B;"></span>🛵 سائق ضمن 500 م منك</div>
+  <div class="legend-row"><span class="legend-dot" style="background:#F5A65B;"></span>🛵 كابتن ضمن 500 م منك</div>
 </div>
 
 
@@ -543,7 +543,11 @@ window.centerOnMyLocation = (silent) => {
 function placeMyMarker(coords) {
   myCurrentPosition = coords;
   if (!myMarker) {
-    myMarker = new google.maps.Marker({ position: coords, map, icon: motoIcon('#A23E48', 1.7), zIndex: 999 });
+    myMarker = new google.maps.Marker({
+      position: coords, map, zIndex: 999,
+      icon: emojiMarkerIcon(),
+      label: { text: '🛵', fontSize: '26px', className: 'driver-emoji-label' }
+    });
   } else {
     myMarker.setPosition(coords);
   }
@@ -663,7 +667,7 @@ async function renderHotspots(orders) {
     });
     hotspotMarkers.push(marker);
   });
-  document.getElementById('fabHotspots').innerHTML = ICON_STORE_SVG + (storeIdsWithOrders.size ? `<span class="fab-count">${storeIdsWithOrders.size}</span>` : '');
+  document.getElementById('fabHotspots').innerHTML = ICON_STORE_SVG;
 }
 
 window.toggleHotspots = async () => {

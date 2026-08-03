@@ -5,7 +5,7 @@
 // ══════════════════════════════════════════════════════════
 import {
   db, doc, updateDoc, deleteDoc, collection, query, where, onSnapshot,
-  serverTimestamp, withTimeout, addDoc
+  serverTimestamp, withTimeout, addDoc, getDoc, getDocs
 } from "./firebase-init.js";
 
 export const DRIVER_STORAGE_KEY = 'akleto_driver_id';
@@ -316,4 +316,356 @@ export function setNavBadge(elId, count) {
   if (!el) return;
   if (count > 0) { el.textContent = count; el.classList.remove('hidden'); }
   else { el.classList.add('hidden'); }
+}
+
+/* ══════════════════════════════════════════════════════════
+   شاشة الطلب النشط الكاملة (Active Order Guard)
+   تُركّب بكل صفحات السائق بعد الدخول (mountActiveOrderGuard(session))
+   وتظهر تلقائياً وتغطي كل الشاشة لما يكون عند السائق طلب "delivering"
+   أو طلب "done" لسا ما قيّمه — وتضل موجودة لحد ما يخلص كل المراحل،
+   حتى لو سكّر التطبيق وفتحه من جديد (الحالة محفوظة بـ Firestore مش بذاكرة الجهاز).
+   المراحل: 1) توجه للمتجر 2) استلام من المتجر 3) توجه للعميل
+            4) تسليم الطلب 5) إيصال/ملخص مالي 6) تقييم التجربة
+   ══════════════════════════════════════════════════════════ */
+
+// ⚠️ رقم دعم مؤقت للتواصل عند "الإبلاغ عن مشكلة" — لازم يتحدث برقم دعم أكليتو الحقيقي
+export const SUPPORT_PHONE = '+962790000000';
+
+const AOG_PROBLEMS = [
+  'المتجر لسا ما جهز الطلب',
+  'العميل مش راضي يرد على الاتصال',
+  'العنوان غير صحيح أو ما قدرت ألاقيه',
+  'صار عندي عطل بالمركبة',
+  'مشكلة ثانية'
+];
+
+let _aogMounted = false;
+let _aogStoreCache = {};
+let _aogMealsCache = null;
+let _aogCurrentOrderId = null;
+let _aogLastOrder = null;
+let _aogPrevOrderId = null;
+let _aogShowRatingFor = null;
+let _aogSelectedRating = 0;
+
+function aogInjectStyles() {
+  if (document.getElementById('aogStyles')) return;
+  const style = document.createElement('style');
+  style.id = 'aogStyles';
+  style.textContent = `
+    #activeOrderGuard { position:fixed; inset:0; z-index:999999; background:var(--bg,#FDF8F3);
+      display:flex; flex-direction:column; direction:rtl; font-family:'Cairo',sans-serif; color:var(--text,#3A2A28); }
+    #activeOrderGuard.hidden { display:none !important; }
+    #activeOrderGuard .mono { font-family:'JetBrains Mono',monospace; }
+    .aog-header { padding:calc(env(safe-area-inset-top) + 14px) 20px 12px; display:flex; align-items:center;
+      justify-content:space-between; border-bottom:1px solid var(--border,#EBE0D3); background:var(--surface,#FFFFFE); flex-shrink:0; }
+    .aog-stage-badge { background:var(--primary,#A23E48); color:#fff; font-weight:800; font-size:12px; padding:5px 13px; border-radius:20px; }
+    .aog-code { font-size:13px; color:var(--text30,#9C8C82); }
+    .aog-body { flex:1; overflow-y:auto; padding:20px; -webkit-overflow-scrolling:touch; }
+    .aog-title { font-family:'Tajawal',sans-serif; font-weight:800; font-size:20px; margin-bottom:6px; }
+    .aog-sub { color:var(--text30,#9C8C82); font-size:13px; margin-bottom:18px; }
+    .aog-card { background:var(--surface,#FFFFFE); border:1px solid var(--border,#EBE0D3); border-radius:16px; padding:6px 18px; margin-bottom:14px; }
+    .aog-row { display:flex; align-items:center; justify-content:space-between; gap:14px; padding:10px 0; border-bottom:1px solid var(--border,#EBE0D3); font-size:14px; }
+    .aog-row:last-child { border-bottom:none; }
+    .aog-row span:first-child { color:var(--text30,#9C8C82); flex-shrink:0; }
+    .aog-item-row { display:flex; justify-content:space-between; padding:9px 0; font-size:14px; border-bottom:1px solid var(--border,#EBE0D3); }
+    .aog-item-row:last-child { border-bottom:none; }
+    a.aog-btn-secondary, button.aog-btn-secondary { width:100%; padding:13px; background:var(--surface,#FFFFFE);
+      color:var(--text,#3A2A28); border:1.5px solid var(--border,#EBE0D3); border-radius:14px; font-weight:700;
+      font-size:14px; margin-bottom:10px; display:flex; align-items:center; justify-content:center; gap:8px;
+      text-decoration:none; box-sizing:border-box; font-family:inherit; cursor:pointer; }
+    .aog-btn-map { background:#4285F4 !important; color:#fff !important; border-color:#4285F4 !important; }
+    .aog-btn-call { background:var(--olive,#65743A) !important; color:#fff !important; border-color:var(--olive,#65743A) !important; }
+    .aog-footer { padding:14px 20px calc(env(safe-area-inset-bottom) + 16px); background:var(--surface,#FFFFFE);
+      border-top:1px solid var(--border,#EBE0D3); flex-shrink:0; }
+    .aog-btn-main { width:100%; padding:16px; background:var(--primary,#A23E48); color:#fff; border:none;
+      border-radius:14px; font-weight:800; font-size:15.5px; display:flex; align-items:center; justify-content:center;
+      gap:8px; font-family:inherit; cursor:pointer; }
+    .aog-amount-label { text-align:center; color:var(--text30,#9C8C82); font-size:13px; margin-bottom:6px; }
+    .aog-amount { font-size:36px; font-weight:900; font-family:'JetBrains Mono',monospace; color:var(--primary,#A23E48); text-align:center; margin:0 0 8px; }
+    .aog-amount.paid-online { font-size:20px; color:var(--olive,#65743A); font-family:'Tajawal',sans-serif; }
+    .aog-breakdown { font-size:12px; color:var(--text30,#9C8C82); margin-top:20px; border-top:1px dashed var(--border,#EBE0D3); padding-top:14px; }
+    .aog-breakdown div { display:flex; justify-content:space-between; padding:4px 0; }
+    .aog-stars { display:flex; justify-content:center; gap:12px; margin:36px 0; }
+    .aog-star { font-size:40px; color:var(--border,#EBE0D3); cursor:pointer; transition:color .15s; }
+    .aog-star.active { color:#F5A65B; }
+    #aogProblemList.hidden { display:none !important; }
+  `;
+  document.head.appendChild(style);
+}
+
+function aogEnsureContainer() {
+  let el = document.getElementById('activeOrderGuard');
+  if (!el) {
+    el = document.createElement('div');
+    el.id = 'activeOrderGuard';
+    el.className = 'aog-overlay hidden';
+    el.innerHTML = `
+      <div class="aog-header">
+        <span class="aog-stage-badge" id="aogStageBadge">—</span>
+        <span class="aog-code mono" id="aogCode"></span>
+      </div>
+      <div class="aog-body" id="aogBody"></div>
+      <div class="aog-footer" id="aogFooter"></div>
+    `;
+    document.body.appendChild(el);
+  }
+  return el;
+}
+
+function aogShow() {
+  aogEnsureContainer().classList.remove('hidden');
+  document.body.style.overflow = 'hidden';
+}
+function aogHide() {
+  const el = document.getElementById('activeOrderGuard');
+  if (el) el.classList.add('hidden');
+  document.body.style.overflow = '';
+}
+
+async function aogGetStore(storeId) {
+  if (!storeId) return null;
+  if (_aogStoreCache[storeId]) return _aogStoreCache[storeId];
+  try {
+    const snap = await getDoc(doc(db, 'stores', storeId));
+    const data = snap.exists() ? { id: snap.id, ...snap.data() } : null;
+    _aogStoreCache[storeId] = data;
+    return data;
+  } catch (e) { console.error('aog store fetch error', e); return null; }
+}
+
+async function aogGetMealsCache() {
+  if (_aogMealsCache) return _aogMealsCache;
+  try {
+    const snap = await getDocs(collection(db, 'meals'));
+    _aogMealsCache = {};
+    snap.docs.forEach(d => { _aogMealsCache[d.id] = d.data().name_ar || 'وجبة'; });
+  } catch (e) { console.error('aog meals fetch error', e); _aogMealsCache = {}; }
+  return _aogMealsCache;
+}
+
+function aogMapLink(lat, lng, fallbackQuery) {
+  if (lat != null && lng != null) return `https://www.google.com/maps/search/?api=1&query=${lat},${lng}`;
+  if (fallbackQuery) return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(fallbackQuery)}`;
+  return null;
+}
+
+function aogSetStage(n) {
+  const b = document.getElementById('aogStageBadge');
+  if (b) b.textContent = `المرحلة ${n} من 6`;
+}
+
+async function aogRenderStage1(order) {
+  aogSetStage(1);
+  const store = await aogGetStore(order.store_id);
+  if (_aogCurrentOrderId !== order.id) return; // تغيّر الطلب أثناء الجلب
+  const mapUrl = aogMapLink(store?.lat, store?.lng, store?.address || order.store_name);
+  document.getElementById('aogBody').innerHTML = `
+    <div class="aog-title">📦 طلب جديد — توجه للمتجر</div>
+    <div class="aog-sub">روح على المتجر عشان تستلم الطلب</div>
+    <div class="aog-card">
+      <div class="aog-row"><span>المتجر</span><span>${order.store_name || 'غير محدد'}</span></div>
+      ${store?.address ? `<div class="aog-row"><span>العنوان</span><span style="text-align:left;max-width:60%;">${store.address}</span></div>` : ''}
+      ${store?.phone ? `<div class="aog-row"><span>هاتف المتجر</span><span class="mono">${store.phone}</span></div>` : ''}
+    </div>
+    ${mapUrl ? `<a href="${mapUrl}" target="_blank" class="aog-btn-secondary aog-btn-map">🧭 فتح الموقع بخرائط جوجل</a>` : ''}
+  `;
+  document.getElementById('aogFooter').innerHTML = `
+    <button class="aog-btn-main" onclick="window.__aogArrivedStore()">✅ وصلت للمتجر</button>
+  `;
+}
+
+async function aogRenderStage2(order) {
+  aogSetStage(2);
+  const meals = await aogGetMealsCache();
+  if (_aogCurrentOrderId !== order.id) return;
+  const itemsHtml = (order.items || []).map(it =>
+    `<div class="aog-item-row"><span>${meals[it.meal_id] || 'وجبة'}</span><span class="mono">× ${it.servings || 1}</span></div>`
+  ).join('') || `<div class="aog-item-row">لا توجد عناصر</div>`;
+  document.getElementById('aogBody').innerHTML = `
+    <div class="aog-title">🏪 استلم الطلب من المتجر</div>
+    <div class="aog-sub">تأكد من كل العناصر قبل ما تتحرك</div>
+    <div class="aog-card"><div class="aog-row"><span>المتجر</span><span>${order.store_name || 'غير محدد'}</span></div></div>
+    <div class="aog-card">${itemsHtml}</div>
+  `;
+  document.getElementById('aogFooter').innerHTML = `
+    <button class="aog-btn-main" onclick="window.__aogPickedUp()">📦 استلمت الطلب. توجه للعميل</button>
+  `;
+}
+
+function aogRenderStage3(order) {
+  aogSetStage(3);
+  const isOnline = order.payment_method === 'card' || order.payment_method === 'online';
+  const payLabel = isOnline ? '💳 بطاقة ائتمانية (مدفوع مسبقاً)' : '💵 نقداً عند الاستلام';
+  const mapUrl = aogMapLink(order.delivery_lat, order.delivery_lng, order.delivery_address);
+  document.getElementById('aogBody').innerHTML = `
+    <div class="aog-title">🧭 توجه للعميل</div>
+    <div class="aog-sub">الطلب معك — روح عالعنوان</div>
+    <div class="aog-card">
+      <div class="aog-row"><span>الزبون</span><span>${order.customer_name || 'زبون'}</span></div>
+      <div class="aog-row"><span>الهاتف</span><span class="mono">${order.customer_phone || '—'}</span></div>
+      <div class="aog-row"><span>طريقة الدفع</span><span>${payLabel}</span></div>
+      <div class="aog-row" style="align-items:flex-start;"><span>العنوان</span><span style="text-align:left;max-width:60%;">${order.delivery_address || '—'}</span></div>
+      ${order.customer_notes ? `<div class="aog-row" style="align-items:flex-start;"><span>ملاحظات</span><span style="text-align:left;max-width:60%;">${order.customer_notes}</span></div>` : ''}
+    </div>
+    ${order.customer_phone ? `<a href="tel:${order.customer_phone}" class="aog-btn-secondary aog-btn-call">📞 اتصال بالزبون</a>` : ''}
+    ${mapUrl ? `<a href="${mapUrl}" target="_blank" class="aog-btn-secondary aog-btn-map">🧭 فتح الموقع بخرائط جوجل</a>` : ''}
+  `;
+  document.getElementById('aogFooter').innerHTML = `
+    <button class="aog-btn-main" onclick="window.__aogArrivedCustomer()">✅ لقد وصلت</button>
+  `;
+}
+
+async function aogRenderStage4(order) {
+  aogSetStage(4);
+  const store = await aogGetStore(order.store_id);
+  if (_aogCurrentOrderId !== order.id) return;
+  const isOnline = order.payment_method === 'card' || order.payment_method === 'online';
+  const itemsCount = (order.items || []).length;
+  document.getElementById('aogBody').innerHTML = `
+    <div class="aog-title">🤝 تسليم الطلب</div>
+    <div class="aog-card">
+      <div class="aog-row"><span>المتجر</span><span>${order.store_name || 'غير محدد'}${store?.address ? ' — ' + store.address : ''}</span></div>
+      <div class="aog-row"><span>الزبون</span><span>${order.customer_name || 'زبون'}</span></div>
+      <div class="aog-row"><span>عدد الوجبات</span><span class="mono">${itemsCount}</span></div>
+    </div>
+    ${order.customer_phone ? `<a href="tel:${order.customer_phone}" class="aog-btn-secondary aog-btn-call">📞 اتصال بالزبون</a>` : ''}
+    <button class="aog-btn-secondary" onclick="window.__aogToggleProblem()">⚠️ الإبلاغ عن مشكلة</button>
+    <div id="aogProblemList" class="hidden aog-card">
+      ${AOG_PROBLEMS.map(p => `<button class="aog-btn-secondary" style="margin-bottom:8px;" onclick="window.__aogReportProblem('${p.replace(/'/g, "\\'")}')">${p}</button>`).join('')}
+    </div>
+    <div style="margin-top:22px;">
+      ${isOnline
+        ? `<div class="aog-amount paid-online">✅ تم الدفع إلكترونياً</div>`
+        : `<div class="aog-amount-label">المبلغ اللي بتستلمه من الزبون</div><div class="aog-amount">${(order.total_estimated_price || 0).toFixed(2)} د.أ</div>`
+      }
+    </div>
+  `;
+  document.getElementById('aogFooter').innerHTML = `
+    <button class="aog-btn-main" onclick="window.__aogMarkDelivered()">✅ تم التسليم بنجاح</button>
+  `;
+}
+
+function aogRenderStage5(order) {
+  aogSetStage(5);
+  const isOnline = order.payment_method === 'card' || order.payment_method === 'online';
+  const f = computeOrderFinancials(order);
+  document.getElementById('aogBody').innerHTML = `
+    <div class="aog-title" style="text-align:center;">🎉 تم التسليم بنجاح</div>
+    <div style="margin-top:26px;">
+      ${isOnline
+        ? `<div class="aog-amount paid-online">✅ تم الدفع إلكترونياً</div>`
+        : `<div class="aog-amount-label">استلمت من الزبون</div><div class="aog-amount">${f.collected.toFixed(2)} د.أ</div>`
+      }
+    </div>
+    <div class="aog-breakdown">
+      <div><span>رسوم التوصيل + الإكرامية</span><span class="mono">${f.grossEarning.toFixed(2)} د.أ</span></div>
+      <div><span>عمولة أكليتو</span><span class="mono">${f.commission.toFixed(2)} د.أ</span></div>
+      <div><span>صافي ربحك من الطلب</span><span class="mono">${f.netProfit.toFixed(2)} د.أ</span></div>
+      <div><span>${f.owed > 0 ? 'المستحق منك لأكليتو' : 'ما في مستحق عليك من هاد الطلب'}</span><span class="mono">${f.owed.toFixed(2)} د.أ</span></div>
+    </div>
+  `;
+  document.getElementById('aogFooter').innerHTML = `
+    <button class="aog-btn-main" onclick="window.__aogGoToRating()">متابعة</button>
+  `;
+}
+
+function aogRenderStage6(order) {
+  aogSetStage(6);
+  _aogSelectedRating = 0;
+  document.getElementById('aogBody').innerHTML = `
+    <div class="aog-title" style="text-align:center;">قيّم تجربة التوصيل</div>
+    <div class="aog-sub" style="text-align:center;">شو رأيك بتجربة توصيل هاد الطلب؟</div>
+    <div class="aog-stars" id="aogStars">
+      ${[1,2,3,4,5].map(n => `<span class="aog-star" data-n="${n}" onclick="window.__aogSetRating(${n})">★</span>`).join('')}
+    </div>
+  `;
+  document.getElementById('aogFooter').innerHTML = `
+    <button class="aog-btn-main" onclick="window.__aogSubmitRating('${order.id}')">شكراً لك</button>
+  `;
+}
+
+function aogRenderOrder(order) {
+  _aogCurrentOrderId = order.id;
+  document.getElementById('aogCode').textContent = ticketCode(order.id);
+  if (order.status === 'done') {
+    if (_aogShowRatingFor === order.id) aogRenderStage6(order);
+    else aogRenderStage5(order);
+    return;
+  }
+  const stage = order.driver_flow_stage || 'to_store';
+  if (stage === 'to_store') aogRenderStage1(order);
+  else if (stage === 'at_store') aogRenderStage2(order);
+  else if (stage === 'to_customer') aogRenderStage3(order);
+  else aogRenderStage4(order);
+}
+
+window.__aogArrivedStore = async () => {
+  if (!_aogCurrentOrderId) return;
+  try { await updateDoc(doc(db, 'orders', _aogCurrentOrderId), { driver_flow_stage: 'at_store' }); }
+  catch (e) { console.error('aog arrived store error', e); showToast('صار خطأ — جرب مرة ثانية'); }
+};
+window.__aogPickedUp = async () => {
+  if (!_aogCurrentOrderId) return;
+  try { await updateDoc(doc(db, 'orders', _aogCurrentOrderId), { driver_flow_stage: 'to_customer' }); }
+  catch (e) { console.error('aog picked up error', e); showToast('صار خطأ — جرب مرة ثانية'); }
+};
+window.__aogArrivedCustomer = async () => {
+  if (!_aogCurrentOrderId) return;
+  try { await updateDoc(doc(db, 'orders', _aogCurrentOrderId), { driver_flow_stage: 'at_customer' }); }
+  catch (e) { console.error('aog arrived customer error', e); showToast('صار خطأ — جرب مرة ثانية'); }
+};
+window.__aogMarkDelivered = async () => {
+  if (!_aogCurrentOrderId) return;
+  try { await updateDoc(doc(db, 'orders', _aogCurrentOrderId), { status: 'done', delivered_at: serverTimestamp() }); }
+  catch (e) { console.error('aog mark delivered error', e); showToast('صار خطأ — جرب مرة ثانية'); }
+};
+window.__aogToggleProblem = () => { document.getElementById('aogProblemList')?.classList.toggle('hidden'); };
+window.__aogReportProblem = (problemText) => {
+  if (_aogCurrentOrderId) {
+    addDoc(collection(db, 'admin_notifications'), {
+      type: 'driver_issue_report',
+      title: `مشكلة أثناء التوصيل — ${ticketCode(_aogCurrentOrderId)}`,
+      message: problemText,
+      related_id: _aogCurrentOrderId, created_at: serverTimestamp(), read: false
+    }).catch(e => console.error('report problem log error', e));
+  }
+  window.location.href = `tel:${SUPPORT_PHONE}`;
+};
+window.__aogGoToRating = () => {
+  _aogShowRatingFor = _aogCurrentOrderId;
+  if (_aogLastOrder) aogRenderOrder(_aogLastOrder);
+};
+window.__aogSetRating = (n) => {
+  _aogSelectedRating = n;
+  document.querySelectorAll('#aogStars .aog-star').forEach(s => {
+    s.classList.toggle('active', parseInt(s.dataset.n, 10) <= n);
+  });
+};
+window.__aogSubmitRating = async (orderId) => {
+  try {
+    await updateDoc(doc(db, 'orders', orderId), {
+      driver_rating: _aogSelectedRating || null, driver_rating_at: serverTimestamp()
+    });
+    aogHide();
+  } catch (e) { console.error('aog submit rating error', e); showToast('صار خطأ — جرب مرة ثانية'); }
+};
+
+// نقطة الدخول — تُستدعى مرة وحدة بكل صفحة سائق بعد التأكد من وجود جلسة
+export function mountActiveOrderGuard(session) {
+  if (!session || _aogMounted) return;
+  _aogMounted = true;
+  aogInjectStyles();
+  aogEnsureContainer();
+  watchCommissionSettings(); // نضمن توفر إعدادات العمولة لحساب ملخص المرحلة الخامسة
+  watchMyOrders(session.id, list => {
+    const active = (list || [])
+      .filter(o => o.status === 'delivering' || (o.status === 'done' && !o.driver_rating))
+      .sort((a, b) => (a.created_at?.toMillis?.() || 0) - (b.created_at?.toMillis?.() || 0))[0];
+    if (!active) { aogHide(); _aogLastOrder = null; _aogPrevOrderId = null; return; }
+    if (active.id !== _aogPrevOrderId) { _aogShowRatingFor = null; _aogPrevOrderId = active.id; }
+    _aogLastOrder = active;
+    aogShow();
+    aogRenderOrder(active);
+  });
 }

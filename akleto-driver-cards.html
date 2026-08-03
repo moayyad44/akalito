@@ -371,10 +371,12 @@ if ("serviceWorker" in navigator) {
 <script type="module">
 import {
   requireDriverSession, watchDriverNotifs, updateNotifBadge, renderNotifList,
-  watchAvailableOrders, watchMyOrders, setNavBadge, logoutDriver, DRIVER_NOTIF_SEEN_KEY
+  watchAvailableOrders, watchMyOrders, setNavBadge, logoutDriver, mountActiveOrderGuard,
+  DRIVER_NOTIF_SEEN_KEY
 } from "./driver-shared.js";
 
 const session = requireDriverSession();
+if (session) mountActiveOrderGuard(session);
 if (session) document.getElementById('greet-name').textContent = session.name;
 
 watchAvailableOrders(list => setNavBadge('availBadge', list.length));

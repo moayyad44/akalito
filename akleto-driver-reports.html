@@ -391,10 +391,11 @@ import {
   requireDriverSession, ticketCode, timeAgo, showToast, watchDriverNotifs, updateNotifBadge,
   renderNotifList, watchAvailableOrders, watchMyOrders, watchDriverShifts, setNavBadge, logoutDriver,
   computeOrderFinancials, aggregateOrderFinancials, watchCommissionSettings, getCommissionConfig,
-  watchDriverBalanceTransactions, computeNetBalance, DRIVER_NOTIF_SEEN_KEY
+  watchDriverBalanceTransactions, computeNetBalance, mountActiveOrderGuard, DRIVER_NOTIF_SEEN_KEY
 } from "./driver-shared.js";
 
 const session = requireDriverSession();
+if (session) mountActiveOrderGuard(session);
 if (session) document.getElementById('greet-name').textContent = session.name;
 
 let allDoneOrders = [];

@@ -357,7 +357,8 @@ function aogInjectStyles() {
     #activeOrderGuard.hidden { display:none !important; }
     #activeOrderGuard .mono { font-family:'JetBrains Mono',monospace; }
     .aog-header { padding:calc(env(safe-area-inset-top) + 14px) 20px 12px; display:flex; align-items:center;
-      justify-content:flex-start; gap:10px; border-bottom:1px solid var(--border,#EBE0D3); background:var(--surface,#FFFFFE); flex-shrink:0; }
+      justify-content:space-between; gap:10px; border-bottom:1px solid var(--border,#EBE0D3); background:var(--surface,#FFFFFE); flex-shrink:0; }
+    .aog-header-code-group { display:flex; align-items:center; gap:10px; }
     .aog-code { font-size:13px; color:var(--text30,#9C8C82); }
     .aog-body { flex:1; overflow-y:auto; padding:20px; -webkit-overflow-scrolling:touch; }
     .aog-title { font-family:'Tajawal',sans-serif; font-weight:800; font-size:20px; margin-bottom:6px; }
@@ -413,8 +414,10 @@ function aogEnsureContainer() {
     el.innerHTML = `
       <div class="aog-header">
         <button class="aog-problem-inline" onclick="window.__aogToggleProblem()" title="الإبلاغ عن مشكلة">⚠️</button>
-        <span class="aog-code mono" id="aogCode"></span>
-        <span class="aog-stage-badge" id="aogStageBadge"></span>
+        <div class="aog-header-code-group">
+          <span class="aog-code mono" id="aogCode"></span>
+          <span class="aog-stage-badge" id="aogStageBadge"></span>
+        </div>
       </div>
       <div class="aog-body" id="aogBody"></div>
       <div class="aog-footer" id="aogFooter"></div>

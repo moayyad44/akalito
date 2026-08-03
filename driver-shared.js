@@ -5,7 +5,7 @@
 // ══════════════════════════════════════════════════════════
 import {
   db, doc, updateDoc, deleteDoc, collection, query, where, onSnapshot,
-  serverTimestamp, withTimeout, addDoc, getDoc, getDocs
+  serverTimestamp, withTimeout, addDoc, getDoc
 } from "./firebase-init.js";
 
 export const DRIVER_STORAGE_KEY = 'akleto_driver_id';
@@ -341,7 +341,6 @@ const AOG_PROBLEMS = [
 
 let _aogMounted = false;
 let _aogStoreCache = {};
-let _aogMealsCache = null;
 let _aogCurrentOrderId = null;
 let _aogLastOrder = null;
 let _aogPrevOrderId = null;
@@ -434,16 +433,6 @@ async function aogGetStore(storeId) {
   } catch (e) { console.error('aog store fetch error', e); return null; }
 }
 
-async function aogGetMealsCache() {
-  if (_aogMealsCache) return _aogMealsCache;
-  try {
-    const snap = await getDocs(collection(db, 'meals'));
-    _aogMealsCache = {};
-    snap.docs.forEach(d => { _aogMealsCache[d.id] = d.data().name_ar || 'وجبة'; });
-  } catch (e) { console.error('aog meals fetch error', e); _aogMealsCache = {}; }
-  return _aogMealsCache;
-}
-
 function aogMapLink(lat, lng, fallbackQuery) {
   if (lat != null && lng != null) return `https://www.google.com/maps/search/?api=1&query=${lat},${lng}`;
   if (fallbackQuery) return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(fallbackQuery)}`;
@@ -477,19 +466,20 @@ async function aogRenderStage1(order) {
 
 async function aogRenderStage2(order) {
   aogSetStage(2);
-  const meals = await aogGetMealsCache();
-  if (_aogCurrentOrderId !== order.id) return;
-  const itemsHtml = (order.items || []).map(it =>
-    `<div class="aog-item-row"><span>${meals[it.meal_id] || 'وجبة'}</span><span class="mono">× ${it.servings || 1}</span></div>`
-  ).join('') || `<div class="aog-item-row">لا توجد عناصر</div>`;
+  const itemsHtml = (order.merged_ingredients || []).map(ing => {
+    const note = (ing.base_qty_needed != null)
+      ? `<div style="font-size:11px;color:var(--text30,#9C8C82);padding-bottom:6px;">(الوصفة تحتاج تقريباً ${ing.base_qty_needed} ${ing.base_unit_label || ''})</div>`
+      : '';
+    return `<div class="aog-item-row"><span>${ing.name}</span><span class="mono">${ing.purchase_quantity} ${ing.package_label || ''}</span></div>${note}`;
+  }).join('') || `<div class="aog-item-row">لا توجد مكونات</div>`;
   document.getElementById('aogBody').innerHTML = `
-    <div class="aog-title">🏪 استلم الطلب من المتجر</div>
-    <div class="aog-sub">تأكد من كل العناصر قبل ما تتحرك</div>
+    <div class="aog-title">🏪 استلم المكونات من المتجر</div>
+    <div class="aog-sub">تأكد من كل المكونات قبل ما تتحرك</div>
     <div class="aog-card"><div class="aog-row"><span>المتجر</span><span>${order.store_name || 'غير محدد'}</span></div></div>
     <div class="aog-card">${itemsHtml}</div>
   `;
   document.getElementById('aogFooter').innerHTML = `
-    <button class="aog-btn-main" onclick="window.__aogPickedUp()">📦 استلمت الطلب. توجه للعميل</button>
+    <button class="aog-btn-main" onclick="window.__aogPickedUp()">📦 استلمت المكونات. توجه للعميل</button>
   `;
 }
 
@@ -521,13 +511,13 @@ async function aogRenderStage4(order) {
   const store = await aogGetStore(order.store_id);
   if (_aogCurrentOrderId !== order.id) return;
   const isOnline = order.payment_method === 'card' || order.payment_method === 'online';
-  const itemsCount = (order.items || []).length;
+  const ingredientsCount = (order.merged_ingredients || []).length;
   document.getElementById('aogBody').innerHTML = `
     <div class="aog-title">🤝 تسليم الطلب</div>
     <div class="aog-card">
       <div class="aog-row"><span>المتجر</span><span>${order.store_name || 'غير محدد'}${store?.address ? ' — ' + store.address : ''}</span></div>
       <div class="aog-row"><span>الزبون</span><span>${order.customer_name || 'زبون'}</span></div>
-      <div class="aog-row"><span>عدد الوجبات</span><span class="mono">${itemsCount}</span></div>
+      <div class="aog-row"><span>عدد المكونات</span><span class="mono">${ingredientsCount}</span></div>
     </div>
     ${order.customer_phone ? `<a href="tel:${order.customer_phone}" class="aog-btn-secondary aog-btn-call">📞 اتصال بالزبون</a>` : ''}
     <button class="aog-btn-secondary" onclick="window.__aogToggleProblem()">⚠️ الإبلاغ عن مشكلة</button>

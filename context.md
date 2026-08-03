@@ -999,3 +999,31 @@
    - يحتاج غالباً `@capacitor/local-notifications` (مع صوت مخصص) أو ربطها مع نظام الـPush Notifications الأصلي (`@capacitor/push-notifications`) المستخدم أصلاً بتطبيق الزبون — بما إنه تطبيق السائق APK لسا ما اتبنى أصلاً (لسا PWA فقط بدون Capacitor project منفصل خاص فيه)، هاي الميزة الثلاث كلها بشكل عملي بتنتظر إنشاء مشروع Capacitor لتطبيق السائق (نفس اللي صار للزبون بـ`mobile-customer/`) قبل ما تصير قابلة للتنفيذ الفعلي.
 
 **الخلاصة:** الميزات الثلاث مرتبطة ببعض ومصيرها التنفيذ الفعلي مرتبط بخطوة أوسع لسا ما صارت: **بناء مشروع Capacitor لتطبيق السائق** (مثل ما صار للزبون)، لأنه بدونها ما في وصول لـForeground Services ولا صلاحيات Overlay ولا صوت إشعارات أصلي على أندرويد. بانتظار تأكيد مؤيد للبدء بهاي الخطوة بجلسة قادمة.
+
+## 3 أغسطس 2026 — إنشاء مشروع Capacitor لتطبيق السائق (`mobile-driver/`)
+
+**بطلب مؤيد** — أول خطوة أساسية قبل تنفيذ الميزات المستقبلية المسجّلة أعلاه (إشعار ثابت أثناء التوفر، رجوع تلقائي للمقدمة، رنة طلب جديد)، تم إنشاء مشروع Capacitor حقيقي لتطبيق السائق، بنفس نمط `mobile-customer/` الموجود مسبقاً لتطبيق الزبون.
+
+**كيف تم الإنشاء:** استُخدم فعلياً `npx cap add android` (مو تصميم يدوي للملفات) داخل بيئة الجلسة، فالمشروع مبني بنفس أدوات Capacitor الرسمية تماماً مثل الزبون — مش تقليد يدوي.
+
+**الإعدادات:**
+- **App ID:** `com.akalito.driver`
+- **اسم التطبيق:** أكليتو كابتن
+- **`server.url`:** `https://moayyad44.github.io/akalito/akleto-driver.html` — يعني نفس أسلوب الزبون تماماً (تحميل حي من GitHub Pages، فأي تحديث لاحق على أي صفحة سائق ينعكس تلقائياً بدون بناء APK جديد).
+- **الأيقونة:** استُخدمت `icons/driver-512.png` الموجودة أصلاً بالمشروع (نفس أيقونة PWA manifest) لتوليد كل أحجام أيقونات أندرويد (mipmap) وشاشات splash (`npx capacitor-assets generate --android`).
+- **الحزم المثبّتة:** نفس حزم الزبون (`@capacitor/core`, `@capacitor/android`, `@capacitor/push-notifications`, بالإضافة لـ`@capacitor/assets` و`@capacitor/cli` كـdevDependencies).
+- **صلاحية `POST_NOTIFICATIONS`** أُضيفت بـ`AndroidManifest.xml` (لأندرويد 13+)، تحضيراً لإشعارات الدفع لاحقاً.
+
+**الملفات المرفوعة على GitHub (`mobile-driver/`):** 84 ملف — كامل هيكل مشروع Android (Gradle wrapper، `MainActivity.java` بالحزمة `com.akalito.driver`، كل موارد الأيقونات وشاشات splash، `AndroidManifest.xml`، إلخ) + `README.md` مخصص بنفس أسلوب README الزبون، يشرح لمؤيد خطوات فتحه ببناء الـ APK بـAndroid Studio.
+
+**⚠️ ملفات مستثناة عمداً من الرفع (مطابقة لسلوك `.gitignore` بمشروع الزبون):**
+- `android/app/build/` (مخرجات بناء مؤقتة)
+- `android/app/src/main/assets/public/` + ملفات config المولّدة تلقائياً (`capacitor.config.json`, `capacitor.plugins.json`, `res/xml/config.xml`) — تُعاد توليدها تلقائياً بأمر `npx cap sync android`
+- `android/capacitor-cordova-android-plugins/` — مولّد تلقائياً، غير موجود أصلاً بمستودع الزبون
+
+**⚠️ ناقص لسا (بانتظار مؤيد، نفس حالة الزبون بالضبط):**
+- ملف **`google-services.json`** — لازم يُنشئ مؤيد تطبيق أندرويد جديد بمشروع Firebase `akleto-prod` بـpackage name **`com.akalito.driver`** بالضبط، ويحمّل الملف، ويحطه بـ`mobile-driver/android/app/google-services.json`. بدونه التطبيق يبنى ويشتغل عادي، بس إشعارات الدفع فقط ما رح تشتغل.
+- ربط استقبال FCM token وحفظه بمستند الكابتن بـFirestore (`drivers/{driverId}`) — لسا ما تم، نفس الحالة الناقصة بتطبيق الزبون (الجزء المتبقي "الإرسال الفعلي" عبر Cloud Function).
+- الكود الأصلي (Java/Kotlin) للميزات الثلاث المستقبلية (Foreground Service، Full-Screen Intent، رنة مخصصة) — لسا ما بدأ، بانتظار تأكيد مؤيد إن هذا المشروع يبني ويشتغل عنده أول مرة بـAndroid Studio قبل ما نضيف كود أعقد فوقه.
+
+**الخطوة التالية المقترحة:** مؤيد يجرب يفتح `mobile-driver/android` بـAndroid Studio عنده ويبني أول APK تجريبي (debug) للتأكد إن كل شي يشتغل قبل ما نكمل بإضافة ميزات الإشعارات الأصلية.

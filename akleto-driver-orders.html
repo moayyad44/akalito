@@ -363,10 +363,11 @@ import {
 import {
   requireDriverSession, ticketCode, timeAgo, showToast, watchDriverNotifs, updateNotifBadge,
   renderNotifList, watchAvailableOrders, watchMyOrders, setNavBadge, logoutDriver,
-  DRIVER_NOTIF_SEEN_KEY
+  mountActiveOrderGuard, DRIVER_NOTIF_SEEN_KEY
 } from "./driver-shared.js";
 
 const session = requireDriverSession();
+if (session) mountActiveOrderGuard(session);
 if (session) {
   document.getElementById('greet-name').textContent = session.name;
 }
@@ -427,7 +428,8 @@ window.claimOrder = async (orderId) => {
       if (!snap.exists() || snap.data().status !== 'ready') throw new Error('TAKEN');
       tx.update(orderRef, {
         status: 'delivering', driver_id: session.id, driver_name: session.name,
-        driver_phone: session.phone, picked_up_at: serverTimestamp()
+        driver_phone: session.phone, picked_up_at: serverTimestamp(),
+        driver_flow_stage: 'to_store'
       });
     });
     const o = availableOrders.find(x => x.id === orderId);

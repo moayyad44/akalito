@@ -388,7 +388,19 @@ function aogInjectStyles() {
     .aog-stars { display:flex; justify-content:center; gap:12px; margin:36px 0; }
     .aog-star { font-size:40px; color:var(--border,#EBE0D3); cursor:pointer; transition:color .15s; }
     .aog-star.active { color:#F5A65B; }
-    #aogProblemList.hidden { display:none !important; }
+    #aogProblemPanel.hidden { display:none !important; }
+    .aog-problem-fab { position:absolute; left:16px; bottom:calc(env(safe-area-inset-bottom) + 92px);
+      width:50px; height:50px; border-radius:50%; background:#D9534F; color:#fff; border:none;
+      font-size:21px; box-shadow:0 4px 14px rgba(0,0,0,.28); z-index:20; cursor:pointer;
+      display:flex; align-items:center; justify-content:center; padding:0; }
+    .aog-problem-panel { position:absolute; left:16px; bottom:calc(env(safe-area-inset-bottom) + 150px);
+      width:250px; max-width:calc(100vw - 32px); background:var(--surface,#FFFFFE); border:1px solid var(--border,#EBE0D3);
+      border-radius:14px; padding:12px; box-shadow:0 6px 20px rgba(0,0,0,.2); z-index:21; }
+    .aog-problem-panel-title { font-weight:800; font-size:13px; margin-bottom:8px; color:var(--text,#3A2A28); }
+    .aog-problem-panel button { width:100%; padding:11px; margin-bottom:8px; background:var(--bg,#FDF8F3);
+      border:1px solid var(--border,#EBE0D3); border-radius:10px; font-size:13px; font-family:inherit;
+      cursor:pointer; color:var(--text,#3A2A28); text-align:center; }
+    .aog-problem-panel button:last-child { margin-bottom:0; }
   `;
   document.head.appendChild(style);
 }
@@ -406,6 +418,11 @@ function aogEnsureContainer() {
       </div>
       <div class="aog-body" id="aogBody"></div>
       <div class="aog-footer" id="aogFooter"></div>
+      <button class="aog-problem-fab" onclick="window.__aogToggleProblem()" title="الإبلاغ عن مشكلة">⚠️</button>
+      <div id="aogProblemPanel" class="aog-problem-panel hidden">
+        <div class="aog-problem-panel-title">الإبلاغ عن مشكلة</div>
+        ${AOG_PROBLEMS.map(p => `<button onclick="window.__aogReportProblem('${p.replace(/'/g, "\\'")}')">${p}</button>`).join('')}
+      </div>
     `;
     document.body.appendChild(el);
   }
@@ -464,14 +481,18 @@ async function aogRenderStage1(order) {
   `;
 }
 
-async function aogRenderStage2(order) {
-  aogSetStage(2);
-  const itemsHtml = (order.merged_ingredients || []).map(ing => {
+function aogIngredientsHtml(order) {
+  return (order.merged_ingredients || []).map(ing => {
     const note = (ing.base_qty_needed != null)
       ? `<div style="font-size:11px;color:var(--text30,#9C8C82);padding-bottom:6px;">(الوصفة تحتاج تقريباً ${ing.base_qty_needed} ${ing.base_unit_label || ''})</div>`
       : '';
     return `<div class="aog-item-row"><span>${ing.name}</span><span class="mono">${ing.purchase_quantity} ${ing.package_label || ''}</span></div>${note}`;
   }).join('') || `<div class="aog-item-row">لا توجد مكونات</div>`;
+}
+
+async function aogRenderStage2(order) {
+  aogSetStage(2);
+  const itemsHtml = aogIngredientsHtml(order);
   document.getElementById('aogBody').innerHTML = `
     <div class="aog-title">🏪 استلم المكونات من المتجر</div>
     <div class="aog-sub">تأكد من كل المكونات قبل ما تتحرك</div>
@@ -517,13 +538,10 @@ async function aogRenderStage4(order) {
     <div class="aog-card">
       <div class="aog-row"><span>المتجر</span><span>${order.store_name || 'غير محدد'}${store?.address ? ' — ' + store.address : ''}</span></div>
       <div class="aog-row"><span>الزبون</span><span>${order.customer_name || 'زبون'}</span></div>
-      <div class="aog-row"><span>عدد المكونات</span><span class="mono">${ingredientsCount}</span></div>
+      <div class="aog-row" style="cursor:pointer;" onclick="window.__aogToggleIngredients()"><span>عدد المكونات ▾</span><span class="mono">${ingredientsCount}</span></div>
     </div>
+    <div id="aogIngredientsList" class="hidden aog-card">${aogIngredientsHtml(order)}</div>
     ${order.customer_phone ? `<a href="tel:${order.customer_phone}" class="aog-btn-secondary aog-btn-call">📞 اتصال بالزبون</a>` : ''}
-    <button class="aog-btn-secondary" onclick="window.__aogToggleProblem()">⚠️ الإبلاغ عن مشكلة</button>
-    <div id="aogProblemList" class="hidden aog-card">
-      ${AOG_PROBLEMS.map(p => `<button class="aog-btn-secondary" style="margin-bottom:8px;" onclick="window.__aogReportProblem('${p.replace(/'/g, "\\'")}')">${p}</button>`).join('')}
-    </div>
     <div style="margin-top:22px;">
       ${isOnline
         ? `<div class="aog-amount paid-online">✅ تم الدفع إلكترونياً</div>`
@@ -610,7 +628,8 @@ window.__aogMarkDelivered = async () => {
   try { await updateDoc(doc(db, 'orders', _aogCurrentOrderId), { status: 'done', delivered_at: serverTimestamp() }); }
   catch (e) { console.error('aog mark delivered error', e); showToast('صار خطأ — جرب مرة ثانية'); }
 };
-window.__aogToggleProblem = () => { document.getElementById('aogProblemList')?.classList.toggle('hidden'); };
+window.__aogToggleIngredients = () => { document.getElementById('aogIngredientsList')?.classList.toggle('hidden'); };
+window.__aogToggleProblem = () => { document.getElementById('aogProblemPanel')?.classList.toggle('hidden'); };
 window.__aogReportProblem = (problemText) => {
   if (_aogCurrentOrderId) {
     addDoc(collection(db, 'admin_notifications'), {

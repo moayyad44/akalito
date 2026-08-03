@@ -460,7 +460,7 @@ function aogMapLink(lat, lng, fallbackQuery) {
 
 function aogSetStage(n) {
   const b = document.getElementById('aogStageBadge');
-  if (b) b.textContent = `المرحلة ${n} من 6`;
+  if (b) b.textContent = `${n} من 6`;
 }
 
 async function aogRenderStage1(order) {

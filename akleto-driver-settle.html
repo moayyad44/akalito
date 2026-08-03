@@ -406,10 +406,11 @@ import {
   requireDriverSession, watchDriverNotifs, updateNotifBadge, renderNotifList, timeAgo,
   watchAvailableOrders, watchMyOrders, aggregateOrderFinancials, watchCommissionSettings,
   watchDriverBalanceTransactions, createSettlementRequest, createPayoutRequest, computeNetBalance,
-  setNavBadge, logoutDriver, showToast, DRIVER_NOTIF_SEEN_KEY
+  setNavBadge, logoutDriver, showToast, mountActiveOrderGuard, DRIVER_NOTIF_SEEN_KEY
 } from "./driver-shared.js";
 
 const session = requireDriverSession();
+if (session) mountActiveOrderGuard(session);
 if (session) document.getElementById('greet-name').textContent = session.name;
 
 let latestDoneOrders = [];

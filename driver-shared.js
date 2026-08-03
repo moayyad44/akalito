@@ -389,11 +389,11 @@ function aogInjectStyles() {
     .aog-star { font-size:40px; color:var(--border,#EBE0D3); cursor:pointer; transition:color .15s; }
     .aog-star.active { color:#F5A65B; }
     #aogProblemPanel.hidden { display:none !important; }
-    .aog-problem-fab { position:absolute; left:16px; bottom:calc(env(safe-area-inset-bottom) + 92px);
-      width:50px; height:50px; border-radius:50%; background:#D9534F; color:#fff; border:none;
-      font-size:21px; box-shadow:0 4px 14px rgba(0,0,0,.28); z-index:20; cursor:pointer;
+    .aog-problem-fab { position:absolute; left:14px; top:calc(env(safe-area-inset-top) + 78px);
+      width:38px; height:38px; border-radius:50%; background:#D9534F; color:#fff; border:none;
+      font-size:16px; box-shadow:0 4px 12px rgba(0,0,0,.28); z-index:20; cursor:pointer;
       display:flex; align-items:center; justify-content:center; padding:0; }
-    .aog-problem-panel { position:absolute; left:16px; bottom:calc(env(safe-area-inset-bottom) + 150px);
+    .aog-problem-panel { position:absolute; left:14px; top:calc(env(safe-area-inset-top) + 122px);
       width:250px; max-width:calc(100vw - 32px); background:var(--surface,#FFFFFE); border:1px solid var(--border,#EBE0D3);
       border-radius:14px; padding:12px; box-shadow:0 6px 20px rgba(0,0,0,.2); z-index:21; }
     .aog-problem-panel-title { font-weight:800; font-size:13px; margin-bottom:8px; color:var(--text,#3A2A28); }
@@ -508,6 +508,9 @@ function aogRenderStage3(order) {
   aogSetStage(3);
   const isOnline = order.payment_method === 'card' || order.payment_method === 'online';
   const payLabel = isOnline ? '💳 بطاقة ائتمانية (مدفوع مسبقاً)' : '💵 نقداً عند الاستلام';
+  const amountRow = isOnline
+    ? `<div class="aog-row"><span>المبلغ</span><span>مدفوع إلكترونياً ✅</span></div>`
+    : `<div class="aog-row"><span>المبلغ المطلوب تحصيله</span><span class="mono">${(order.total_estimated_price || 0).toFixed(2)} د.أ</span></div>`;
   const mapUrl = aogMapLink(order.delivery_lat, order.delivery_lng, order.delivery_address);
   document.getElementById('aogBody').innerHTML = `
     <div class="aog-title">🧭 توجه للعميل</div>
@@ -516,6 +519,7 @@ function aogRenderStage3(order) {
       <div class="aog-row"><span>الزبون</span><span>${order.customer_name || 'زبون'}</span></div>
       <div class="aog-row"><span>الهاتف</span><span class="mono">${order.customer_phone || '—'}</span></div>
       <div class="aog-row"><span>طريقة الدفع</span><span>${payLabel}</span></div>
+      ${amountRow}
       <div class="aog-row" style="align-items:flex-start;"><span>العنوان</span><span style="text-align:left;max-width:60%;">${order.delivery_address || '—'}</span></div>
       ${order.customer_notes ? `<div class="aog-row" style="align-items:flex-start;"><span>ملاحظات</span><span style="text-align:left;max-width:60%;">${order.customer_notes}</span></div>` : ''}
     </div>

@@ -360,7 +360,7 @@ if ("serviceWorker" in navigator) {
 
 <div class="legend-box" id="legendBox">
   <div class="legend-row"><span class="legend-dot" style="background:#8E44AD;"></span>متجر فيه طلبات بانتظار الاستلام</div>
-  <div class="legend-row"><span class="legend-dot" style="background:#F5A65B;"></span>🛵 كابتن ضمن 500 م منك</div>
+  <div class="legend-row"><span class="legend-dot" style="background:#F5A65B;"></span>🛵 كابتن</div>
 </div>
 
 
@@ -708,7 +708,7 @@ function renderLiveDrivers(drivers) {
     });
     driverMarkers.push(marker);
   });
-  document.getElementById('fabDrivers').innerHTML = ICON_BIKE_SVG + (others.length ? `<span class="fab-count">${others.length}</span>` : '');
+  document.getElementById('fabDrivers').innerHTML = ICON_BIKE_SVG;
 }
 
 window.toggleLiveDrivers = async () => {

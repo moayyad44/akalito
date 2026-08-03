@@ -1,0 +1,13 @@
+{
+  "appId": "com.akalito.driver",
+  "appName": "أكليتو كابتن",
+  "webDir": "www",
+  "server": {
+    "url": "https://moayyad44.github.io/akalito/akleto-driver.html",
+    "androidScheme": "https",
+    "cleartext": false
+  },
+  "android": {
+    "allowMixedContent": false
+  }
+}

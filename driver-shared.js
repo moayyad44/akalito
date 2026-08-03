@@ -398,6 +398,8 @@ function aogInjectStyles() {
       border:1px solid var(--border,#EBE0D3); border-radius:10px; font-size:13px; font-family:inherit;
       cursor:pointer; color:var(--text,#3A2A28); text-align:center; }
     .aog-problem-panel button:last-child { margin-bottom:0; }
+    .aog-stage-badge { background:#F5A65B; color:#fff; font-weight:800; font-size:12px;
+      padding:5px 12px; border-radius:20px; flex-shrink:0; font-family:'Tajawal',sans-serif; }
   `;
   document.head.appendChild(style);
 }
@@ -412,6 +414,7 @@ function aogEnsureContainer() {
       <div class="aog-header">
         <button class="aog-problem-inline" onclick="window.__aogToggleProblem()" title="الإبلاغ عن مشكلة">⚠️</button>
         <span class="aog-code mono" id="aogCode"></span>
+        <span class="aog-stage-badge" id="aogStageBadge"></span>
       </div>
       <div class="aog-body" id="aogBody"></div>
       <div class="aog-footer" id="aogFooter"></div>

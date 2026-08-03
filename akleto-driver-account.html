@@ -346,10 +346,11 @@ if ("serviceWorker" in navigator) {
 import {
   requireDriverSession, ticketCode, timeAgo, showToast, watchDriverNotifs, updateNotifBadge,
   renderNotifList, watchAvailableOrders, watchMyOrders, setNavBadge, logoutDriver,
-  deleteDriverAccountById, DRIVER_NOTIF_SEEN_KEY
+  deleteDriverAccountById, mountActiveOrderGuard, DRIVER_NOTIF_SEEN_KEY
 } from "./driver-shared.js";
 
 const session = requireDriverSession();
+if (session) mountActiveOrderGuard(session);
 if (session) {
   document.getElementById('greet-name').textContent = session.name;
   document.getElementById('acc-name').textContent = session.name;

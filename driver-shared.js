@@ -357,8 +357,7 @@ function aogInjectStyles() {
     #activeOrderGuard.hidden { display:none !important; }
     #activeOrderGuard .mono { font-family:'JetBrains Mono',monospace; }
     .aog-header { padding:calc(env(safe-area-inset-top) + 14px) 20px 12px; display:flex; align-items:center;
-      justify-content:space-between; border-bottom:1px solid var(--border,#EBE0D3); background:var(--surface,#FFFFFE); flex-shrink:0; }
-    .aog-stage-badge { background:var(--primary,#A23E48); color:#fff; font-weight:800; font-size:12px; padding:5px 13px; border-radius:20px; }
+      justify-content:flex-start; gap:10px; border-bottom:1px solid var(--border,#EBE0D3); background:var(--surface,#FFFFFE); flex-shrink:0; }
     .aog-code { font-size:13px; color:var(--text30,#9C8C82); }
     .aog-body { flex:1; overflow-y:auto; padding:20px; -webkit-overflow-scrolling:touch; }
     .aog-title { font-family:'Tajawal',sans-serif; font-weight:800; font-size:20px; margin-bottom:6px; }
@@ -389,11 +388,9 @@ function aogInjectStyles() {
     .aog-star { font-size:40px; color:var(--border,#EBE0D3); cursor:pointer; transition:color .15s; }
     .aog-star.active { color:#F5A65B; }
     #aogProblemPanel.hidden { display:none !important; }
-    .aog-problem-fab { position:absolute; left:14px; top:calc(env(safe-area-inset-top) + 78px);
-      width:38px; height:38px; border-radius:50%; background:#D9534F; color:#fff; border:none;
-      font-size:16px; box-shadow:0 4px 12px rgba(0,0,0,.28); z-index:20; cursor:pointer;
-      display:flex; align-items:center; justify-content:center; padding:0; }
-    .aog-problem-panel { position:absolute; left:14px; top:calc(env(safe-area-inset-top) + 122px);
+    .aog-problem-inline { background:none; border:none; padding:2px; margin:0; font-size:19px;
+      line-height:1; cursor:pointer; color:#D9534F; flex-shrink:0; }
+    .aog-problem-panel { position:absolute; left:14px; top:calc(env(safe-area-inset-top) + 56px);
       width:250px; max-width:calc(100vw - 32px); background:var(--surface,#FFFFFE); border:1px solid var(--border,#EBE0D3);
       border-radius:14px; padding:12px; box-shadow:0 6px 20px rgba(0,0,0,.2); z-index:21; }
     .aog-problem-panel-title { font-weight:800; font-size:13px; margin-bottom:8px; color:var(--text,#3A2A28); }
@@ -413,12 +410,11 @@ function aogEnsureContainer() {
     el.className = 'aog-overlay hidden';
     el.innerHTML = `
       <div class="aog-header">
-        <span class="aog-stage-badge" id="aogStageBadge">—</span>
+        <button class="aog-problem-inline" onclick="window.__aogToggleProblem()" title="الإبلاغ عن مشكلة">⚠️</button>
         <span class="aog-code mono" id="aogCode"></span>
       </div>
       <div class="aog-body" id="aogBody"></div>
       <div class="aog-footer" id="aogFooter"></div>
-      <button class="aog-problem-fab" onclick="window.__aogToggleProblem()" title="الإبلاغ عن مشكلة">⚠️</button>
       <div id="aogProblemPanel" class="aog-problem-panel hidden">
         <div class="aog-problem-panel-title">الإبلاغ عن مشكلة</div>
         ${AOG_PROBLEMS.map(p => `<button onclick="window.__aogReportProblem('${p.replace(/'/g, "\\'")}')">${p}</button>`).join('')}

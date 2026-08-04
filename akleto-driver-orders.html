@@ -361,7 +361,7 @@ import {
   db, collection, getDocs, addDoc, doc, serverTimestamp, runTransaction, withTimeout
 } from "./firebase-init.js";
 import {
-  requireDriverSession, ticketCode, timeAgo, showToast, watchDriverNotifs, updateNotifBadge,
+  requireDriverSession, ticketCode, orderDisplayCode, timeAgo, showToast, watchDriverNotifs, updateNotifBadge,
   renderNotifList, watchAvailableOrders, watchMyOrders, setNavBadge, logoutDriver,
   mountActiveOrderGuard, DRIVER_NOTIF_SEEN_KEY
 } from "./driver-shared.js";
@@ -393,7 +393,7 @@ function renderAvailableOrders() {
     return `
     <div class="order-card" style="--st-color:var(--purple)">
       <div class="order-card-head">
-        <span class="order-card-code mono">${ticketCode(o.id)}</span>
+        <span class="order-card-code mono">${orderDisplayCode(o)}</span>
         <span class="order-card-time">${timeAgo(o.created_at)}</span>
       </div>
       <div class="order-card-meta">
@@ -435,7 +435,7 @@ window.claimOrder = async (orderId) => {
     const o = availableOrders.find(x => x.id === orderId);
     addDoc(collection(db, 'admin_notifications'), {
       type: 'order_claimed',
-      title: `طلب استلمه سائق ${ticketCode(orderId)}`,
+      title: `طلب استلمه سائق ${orderDisplayCode(o || { id: orderId })}`,
       message: `${session.name || 'سائق'} استلم طلب ${o ? (o.customer_name || 'زبون') : ''} وبده يوصّله`,
       related_id: orderId, created_at: serverTimestamp(), read: false
     }).catch(e => console.error('admin_notifications write error', e));
@@ -451,7 +451,7 @@ window.claimOrder = async (orderId) => {
 window.openOrderSheet = (orderId) => {
   const o = availableOrders.find(x => x.id === orderId);
   if (!o) return;
-  document.getElementById('sheet-code').textContent = ticketCode(o.id);
+  document.getElementById('sheet-code').textContent = orderDisplayCode(o);
   document.getElementById('sheet-store-name').textContent = o.store_name || 'غير محدد';
   document.getElementById('sheet-cust-name').textContent = o.customer_name || 'زبون';
   document.getElementById('sheet-cust-phone').textContent = o.customer_phone || '—';

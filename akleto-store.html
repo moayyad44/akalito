@@ -571,40 +571,6 @@ if ("serviceWorker" in navigator) {
 <!-- ══════ تطبيق المتجر ══════ -->
 <div id="appShell" class="hidden">
 
-  <!-- ═══ الشاشة الرئيسية للمتجر ═══ -->
-  <!-- ═══ شاشة المتجر ═══ -->
-  <div id="storeScreen" class="hidden">
-    <div class="topbar">
-      <div style="display:flex;align-items:center;gap:10px;">
-        <button class="icon-btn" onclick="toggleStoreMenu()" title="القائمة">☰</button>
-        <div>
-          <div class="greeting">🏪 <b id="store-greeting-name"></b></div>
-          <div style="color:var(--text30);font-size:12px;" id="store-employee-name"></div>
-        </div>
-      </div>
-      <div class="bell-wrap">
-        <button class="icon-btn" onclick="openNotifSheet()" title="الإشعارات"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9a6 6 0 0 1 12 0c0 5 2 6 2 6H4s2-1 2-6Z"/><path d="M10 19a2 2 0 0 0 4 0"/></svg></button>
-        <span class="bell-dot hidden" id="bellDotStore"></span>
-      </div>
-    </div>
-    <div style="padding: 0 18px;">
-      <div style="background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:18px;margin-bottom:14px;cursor:pointer;position:relative;" onclick="openStoreOrders()">
-        <div style="font-weight:700;margin-bottom:6px;">📦 طلبات المتجر</div>
-        <div style="color:var(--text30);font-size:13px;">شوف الطلبات الجديدة وأشّر إنك جهّزت المكونات عشان السائق ياخذها ›</div>
-        <div class="store-orders-badge hidden" id="storeOrdersBadge">0</div>
-      </div>
-      <div style="background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:18px;margin-bottom:14px;cursor:pointer;" onclick="openStoreProducts()">
-        <div style="font-weight:700;margin-bottom:6px;">🧺 منتجاتي</div>
-        <div style="color:var(--text30);font-size:13px;">حدد شو المكونات المتوفرة عندك بالمحل، وعدّل أسعارها ›</div>
-      </div>
-      <div style="background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:18px;margin-bottom:14px;">
-        <div style="font-weight:700;margin-bottom:6px;">📊 بوابة المتجر</div>
-        <div style="color:var(--text30);font-size:13px;">قريباً — تقارير المبيعات والأرباح</div>
-      </div>
-      <button class="btn-outline" onclick="logoutStore()">خروج من حساب المتجر</button>
-    </div>
-  </div>
-
   <!-- ═══ شاشة منتجاتي (المتجر) ═══ -->
   <div id="storeProductsScreen" class="hidden">
     <div class="store-sub-topbar">
@@ -635,12 +601,22 @@ if ("serviceWorker" in navigator) {
     </div>
   </div>
 
-  <!-- ═══ شاشة طلبات المتجر ═══ -->
+  <!-- ═══ الشاشة الرئيسية للمتجر — طلبات المتجر ═══ -->
   <div id="storeOrdersScreen" class="hidden">
-    <div class="store-sub-topbar">
-      <button class="store-back-btn" onclick="closeStoreOrders()">←</button>
-      <div class="section-title" style="padding:0;">📦 طلبات المتجر</div>
+    <div class="topbar">
+      <div style="display:flex;align-items:center;gap:10px;">
+        <button class="icon-btn" onclick="toggleStoreMenu()" title="القائمة">☰</button>
+        <div>
+          <div class="greeting">🏪 <b id="store-greeting-name"></b></div>
+          <div style="color:var(--text30);font-size:12px;" id="store-employee-name"></div>
+        </div>
+      </div>
+      <div class="bell-wrap">
+        <button class="icon-btn" onclick="openNotifSheet()" title="الإشعارات"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9a6 6 0 0 1 12 0c0 5 2 6 2 6H4s2-1 2-6Z"/><path d="M10 19a2 2 0 0 0 4 0"/></svg></button>
+        <span class="bell-dot hidden" id="bellDotStore"></span>
+      </div>
     </div>
+    <div class="section-title">📦 طلبات المتجر</div>
     <div class="store-tabs" id="storeOrdersTabs"></div>
     <div id="storeOrdersList" style="padding:0 18px 24px;"></div>
   </div>
@@ -834,20 +810,21 @@ window.closeStoreMenu = () => {
 
 window.goStoreHome = () => {
   document.getElementById('storeProductsScreen').classList.add('hidden');
-  document.getElementById('storeOrdersScreen').classList.add('hidden');
-  document.getElementById('storeScreen').classList.remove('hidden');
+  document.getElementById('storeOrdersScreen').classList.remove('hidden');
 };
 
 window.menuStoreGoHome = () => { closeStoreMenu(); goStoreHome(); };
-window.menuStoreGoOrders = () => { closeStoreMenu(); goStoreHome(); openStoreOrders(); };
+window.menuStoreGoOrders = () => { closeStoreMenu(); goStoreHome(); };
 window.menuStoreGoProducts = () => { closeStoreMenu(); goStoreHome(); openStoreProducts(); };
 
 function enterStoreMode() {
   document.getElementById('store-greeting-name').textContent = storeName;
   document.getElementById('store-employee-name').textContent = 'مسجل دخول: ' + storeEmpName;
-  document.getElementById('storeScreen').classList.remove('hidden');
+  document.getElementById('storeOrdersScreen').classList.remove('hidden');
   startStoreOrdersListener();
   startNotifListeners();
+  renderStoreOrdersTabs();
+  renderStoreOrdersList();
 }
 
 window.logoutStore = () => {
@@ -859,13 +836,14 @@ window.logoutStore = () => {
   localStorage.removeItem(STORE_EMP_PHONE_KEY);
   storeId = null; storeName = ''; storeEmpName = ''; storeEmpPhone = '';
   document.getElementById('appShell').classList.add('hidden');
-  document.getElementById('storeScreen').classList.add('hidden');
+  document.getElementById('storeOrdersScreen').classList.add('hidden');
+  document.getElementById('storeProductsScreen').classList.add('hidden');
   document.getElementById('storeLoginScreen').classList.remove('hidden');
 };
 
 /* ═══════════ منتجاتي (المتجر) — إدارة توفر المكونات وأسعارها ═══════════ */
 window.openStoreProducts = async () => {
-  document.getElementById('storeScreen').classList.add('hidden');
+  document.getElementById('storeOrdersScreen').classList.add('hidden');
   document.getElementById('storeProductsScreen').classList.remove('hidden');
   await loadStoreProductsData();
   renderStoreProductsTabs();
@@ -874,7 +852,7 @@ window.openStoreProducts = async () => {
 
 window.closeStoreProducts = () => {
   document.getElementById('storeProductsScreen').classList.add('hidden');
-  document.getElementById('storeScreen').classList.remove('hidden');
+  document.getElementById('storeOrdersScreen').classList.remove('hidden');
 };
 
 async function loadStoreProductsData() {
@@ -1091,15 +1069,13 @@ function updateStoreOrdersBadge() {
 }
 
 window.openStoreOrders = () => {
-  document.getElementById('storeScreen').classList.add('hidden');
-  document.getElementById('storeOrdersScreen').classList.remove('hidden');
+  goStoreHome();
   renderStoreOrdersTabs();
   renderStoreOrdersList();
 };
 
 window.closeStoreOrders = () => {
-  document.getElementById('storeOrdersScreen').classList.add('hidden');
-  document.getElementById('storeScreen').classList.remove('hidden');
+  goStoreHome();
 };
 
 function bucketStoreOrders() {

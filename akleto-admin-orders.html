@@ -46,6 +46,13 @@ function ticketCode(id) {
   return (id || '----').slice(-4).toUpperCase();
 }
 
+/* رقم الطلب المعروض — يفضّل الرقم التسلسلي الحقيقي order_number (5 خانات) لو موجود بالطلب،
+   وإلا يرجع للطريقة القديمة (مشتقة من معرّف الطلب) للطلبات القديمة قبل إضافة العداد التسلسلي. */
+function orderDisplayCode(order) {
+  if (order && order.order_number) return String(order.order_number).padStart(5, '0');
+  return ticketCode(order && order.id);
+}
+
 function showToast(message, isError) {
   let toast = document.getElementById('akleto-toast');
   if (!toast) {
@@ -156,7 +163,7 @@ window.addEventListener('DOMContentLoaded', () => {
            onclick="openOrderSheet('${o.id}')"
            onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openOrderSheet('${o.id}')}">
         <div class="tix-stub">
-          <span class="tix-number mono">#${ticketCode(o.id)}</span>
+          <span class="tix-number mono">#${orderDisplayCode(o)}</span>
           <span class="tix-time mono">${timeAgo(o.created_at)}</span>
         </div>
         <div class="tix-perf"></div>
@@ -187,7 +194,7 @@ window.addEventListener('DOMContentLoaded', () => {
     sheet.style.setProperty('--st-color', st.color);
     sheet.style.setProperty('--st-glow', st.glow);
 
-    document.getElementById('sheetTicketNumber').textContent = '#' + ticketCode(o.id);
+    document.getElementById('sheetTicketNumber').textContent = '#' + orderDisplayCode(o);
     document.getElementById('sheetCustomerName').textContent = o.customer_name || 'زبون';
     document.getElementById('sheetCustomerPhone').textContent = o.customer_phone || '—';
     document.getElementById('sheetTime').textContent = timeAgo(o.created_at);

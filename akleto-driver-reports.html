@@ -388,7 +388,7 @@ if ("serviceWorker" in navigator) {
 
 <script type="module">
 import {
-  requireDriverSession, ticketCode, timeAgo, showToast, watchDriverNotifs, updateNotifBadge,
+  requireDriverSession, ticketCode, orderDisplayCode, timeAgo, showToast, watchDriverNotifs, updateNotifBadge,
   renderNotifList, watchAvailableOrders, watchMyOrders, watchDriverShifts, setNavBadge, logoutDriver,
   computeOrderFinancials, aggregateOrderFinancials, watchCommissionSettings, getCommissionConfig,
   watchDriverBalanceTransactions, computeNetBalance, mountActiveOrderGuard, DRIVER_NOTIF_SEEN_KEY
@@ -499,7 +499,7 @@ function renderOrdersList(orders) {
     return `
     <div class="order-card" style="--st-color:var(--olive)">
       <div class="order-card-head">
-        <span class="order-card-code mono">${ticketCode(o.id)}</span>
+        <span class="order-card-code mono">${orderDisplayCode(o)}</span>
         <span class="order-card-time">${timeAgo(o.delivered_at)}</span>
       </div>
       <div class="order-card-meta">

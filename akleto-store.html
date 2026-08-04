@@ -1024,7 +1024,12 @@ window.saveStoreProductUnavailable = async () => {
 };
 
 /* ═══════════ طلبات المتجر — استقبال الطلبات وتجهيزها للسائق ═══════════ */
-function ticketCode(id) { return '#' + (id || '----').slice(-4).toUpperCase(); }
+function ticketCode(id) {
+  const s = id || '00000';
+  let hash = 0;
+  for (let i = 0; i < s.length; i++) hash = (hash * 31 + s.charCodeAt(i)) >>> 0;
+  return '#' + String(hash % 100000).padStart(5, '0');
+}
 
 function timeAgo(ts) {
   if (!ts || !ts.toDate) return '—';
@@ -1109,7 +1114,6 @@ function renderStoreOrdersList() {
     return;
   }
   wrap.innerHTML = list.map(o => {
-    const mealsCount = (o.items || []).length;
     const pillColor = o.status === 'pending' ? '#F5A65B' : o.status === 'preparing' ? '#5B9BD5' : o.status === 'ready' ? '#8E6BAF' : o.status === 'delivering' ? '#5B9BD5' : o.status === 'done' ? '#4CAF50' : '#D9534F';
     return `
       <div class="store-order-card" onclick="openStoreOrderSheet('${o.id}')">
@@ -1117,7 +1121,8 @@ function renderStoreOrdersList() {
           <span class="store-order-code">${ticketCode(o.id)}</span>
           <span class="store-order-time">${timeAgo(o.created_at)}</span>
         </div>
-        <div class="store-order-meals">🍽️ ${mealsCount} وجبة · ${(o.merged_ingredients || []).length} مكوّن</div>
+        <div class="store-order-meals">👤 ${o.customer_name || 'زبون'} · ${(o.merged_ingredients || []).length} مكوّن</div>
+        <div class="store-order-meals">💰 ${(o.total_estimated_price || 0).toFixed(2)} د.أ</div>
         <span class="store-order-status-pill" style="background:${pillColor}22;color:${pillColor};">${storeOrderStatusLabel[o.status] || o.status}</span>
       </div>`;
   }).join('');

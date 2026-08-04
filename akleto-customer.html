@@ -2962,8 +2962,10 @@ async function executeOrderSubmit() {
 
     const mergedArray = Object.entries(merged).map(([ingredientId, v]) => {
       const storePrice = freshMap.has(ingredientId) ? freshMap.get(ingredientId) : v.pricePerPackage;
+      const ingRef = ingredientsCache.find(i => i.id === ingredientId);
       return {
         ingredient_id: ingredientId, name: v.name,
+        image_url: (ingRef && ingRef.image_url) || '',
         package_label: v.packageLabel, purchase_quantity: v.purchaseQty,
         price_per_package: storePrice,
         base_qty_needed: Math.round(v.baseQty * 100) / 100,

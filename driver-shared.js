@@ -84,6 +84,13 @@ export async function deleteDriverAccountById(driverId) {
 /* ═══ عرض ═══ */
 export function ticketCode(id) { return '#' + (id || '----').slice(-4).toUpperCase(); }
 
+/* رقم الطلب المعروض — يفضّل الرقم التسلسلي الحقيقي order_number (5 خانات، #00014) لو موجود بالطلب،
+   وإلا يرجع للطريقة القديمة (مشتقة من معرّف الطلب) للطلبات القديمة اللي اتسجلت قبل إضافة العداد التسلسلي. */
+export function orderDisplayCode(order) {
+  if (order && order.order_number) return '#' + String(order.order_number).padStart(5, '0');
+  return ticketCode(order && order.id);
+}
+
 export function timeAgo(ts) {
   if (!ts || !ts.toDate) return '—';
   const diffMs = Date.now() - ts.toDate().getTime();
@@ -601,7 +608,7 @@ function aogRenderStage6(order) {
 
 function aogRenderOrder(order) {
   _aogCurrentOrderId = order.id;
-  document.getElementById('aogCode').textContent = ticketCode(order.id);
+  document.getElementById('aogCode').textContent = orderDisplayCode(order);
   if (order.status === 'done') {
     if (_aogShowRatingFor === order.id) aogRenderStage6(order);
     else aogRenderStage5(order);
@@ -640,7 +647,7 @@ window.__aogReportProblem = (problemText) => {
   if (_aogCurrentOrderId) {
     addDoc(collection(db, 'admin_notifications'), {
       type: 'driver_issue_report',
-      title: `مشكلة أثناء التوصيل — ${ticketCode(_aogCurrentOrderId)}`,
+      title: `مشكلة أثناء التوصيل — ${orderDisplayCode(_aogLastOrder)}`,
       message: problemText,
       related_id: _aogCurrentOrderId, created_at: serverTimestamp(), read: false
     }).catch(e => console.error('report problem log error', e));

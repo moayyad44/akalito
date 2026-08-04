@@ -1057,6 +1057,12 @@ import {
 
 function ticketCode(id) { return '#' + (id || '----').slice(-4).toUpperCase(); }
 
+/* رقم الطلب المعروض — يفضّل الرقم التسلسلي الحقيقي order_number لو موجود، وإلا يرجع للرقم المشتق (fallback). */
+function orderDisplayCode(order) {
+  if (order && order.order_number) return '#' + String(order.order_number).padStart(5, '0');
+  return ticketCode(order && order.id);
+}
+
 let notifItems = [];
 let notifBuckets = { all: [], mine: [] };
 let notifUnsubs = [];
@@ -2993,38 +2999,51 @@ async function executeOrderSubmit() {
       }
     }
 
-    const newOrderRef = await withTimeout(
-      addDoc(collection(db, 'orders'), {
-        customer_id: customerId,
-        customer_name: customerName,
-        customer_phone: customerPhone,
-        delivery_address: deliveryAddress,
-        delivery_lat: a.lat != null ? a.lat : null,
-        delivery_lng: a.lng != null ? a.lng : null,
-        customer_notes: customerNotes,
-        items: selectedMeals.map(s => ({ meal_id: s.mealId, servings: s.servings })),
-        merged_ingredients: mergedArray,
-        subtotal_price: Math.round(subtotal * 100) / 100,
-        delivery_fee: DELIVERY_FEE,
-        service_fee: serviceFee,
-        coupon_code: appliedCoupon ? appliedCoupon.id : null,
-        coupon_discount: discount,
-        driver_tip: tip,
-        total_estimated_price: Math.round(totalPrice * 100) / 100,
-        estimated_delivery_min: ocEtaRange ? ocEtaRange.min : null,
-        estimated_delivery_max: ocEtaRange ? ocEtaRange.max : null,
-        payment_method: 'cash_on_delivery',
-        store_id: routingStoreId,
-        store_name: routingStoreName,
-        status: 'pending',
-        created_at: serverTimestamp()
+    // نولّد معرّف الطلب مسبقاً (بدون انتظار)، ونستخدم معاملة (transaction) آمنة عشان
+    // نضمن رقم طلب تسلسلي حقيقي بدون تكرار حتى لو صار طلبين بنفس اللحظة تماماً.
+    const newOrderRef = doc(collection(db, 'orders'));
+    const orderCounterRef = doc(db, 'counters', 'orders');
+    let assignedOrderNumber = null;
+
+    await withTimeout(
+      runTransaction(db, async (tx) => {
+        const counterSnap = await tx.get(orderCounterRef);
+        const nextNumber = (counterSnap.exists() ? (counterSnap.data().last_number || 0) : 0) + 1;
+        assignedOrderNumber = nextNumber;
+        tx.set(orderCounterRef, { last_number: nextNumber }, { merge: true });
+        tx.set(newOrderRef, {
+          customer_id: customerId,
+          customer_name: customerName,
+          customer_phone: customerPhone,
+          delivery_address: deliveryAddress,
+          delivery_lat: a.lat != null ? a.lat : null,
+          delivery_lng: a.lng != null ? a.lng : null,
+          customer_notes: customerNotes,
+          items: selectedMeals.map(s => ({ meal_id: s.mealId, servings: s.servings })),
+          merged_ingredients: mergedArray,
+          subtotal_price: Math.round(subtotal * 100) / 100,
+          delivery_fee: DELIVERY_FEE,
+          service_fee: serviceFee,
+          coupon_code: appliedCoupon ? appliedCoupon.id : null,
+          coupon_discount: discount,
+          driver_tip: tip,
+          total_estimated_price: Math.round(totalPrice * 100) / 100,
+          estimated_delivery_min: ocEtaRange ? ocEtaRange.min : null,
+          estimated_delivery_max: ocEtaRange ? ocEtaRange.max : null,
+          payment_method: 'cash_on_delivery',
+          store_id: routingStoreId,
+          store_name: routingStoreName,
+          status: 'pending',
+          order_number: nextNumber,
+          created_at: serverTimestamp()
+        });
       }),
       20000, 'انتهت مهلة إرسال الطلب — تأكد من الإنترنت'
     );
 
     addDoc(collection(db, 'admin_notifications'), {
       type: 'new_order',
-      title: `طلب جديد ${ticketCode(newOrderRef.id)}`,
+      title: `طلب جديد ${orderDisplayCode({ id: newOrderRef.id, order_number: assignedOrderNumber })}`,
       message: `${customerName || 'زبون'} طلب من متجر "${routingStoreName}" بقيمة ${Math.round(totalPrice * 100) / 100} د.أ تقريباً`,
       related_id: newOrderRef.id,
       created_at: serverTimestamp(),

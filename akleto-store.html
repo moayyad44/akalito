@@ -749,6 +749,41 @@ let currentStoreOrderId = null;
 let storeLoadCheckedItems = {};   // ingredient_id -> true لو تم تحميله بالسلة
 let storeLoadTimerInterval = null;
 let storeLoadStartedAt = null;    // Date.now() وقت فتح الطلب
+
+/* حفظ تقدّم التحميل بـlocalStorage عشان لو المتصفح تسكّر أو الصفحة تعمل reload بالغلط
+   نص التحميل، الموظف يرجع يفتح نفس الطلب ولاقيه محتفظ بحالته (منتجات معلّمة + وقت البداية). */
+const STORE_LOAD_KEY_PREFIX = 'akalito_store_load_';
+function storeLoadStorageKey(orderId) { return STORE_LOAD_KEY_PREFIX + orderId; }
+function saveStoreLoadProgress() {
+  if (!currentStoreOrderId) return;
+  try {
+    localStorage.setItem(storeLoadStorageKey(currentStoreOrderId), JSON.stringify({
+      checkedItems: storeLoadCheckedItems,
+      startedAt: storeLoadStartedAt
+    }));
+  } catch (e) { /* تجاهل — localStorage ممكن يكون معطّل بمتصفحات نادرة */ }
+}
+function loadStoreLoadProgress(orderId) {
+  try {
+    const raw = localStorage.getItem(storeLoadStorageKey(orderId));
+    return raw ? JSON.parse(raw) : null;
+  } catch (e) { return null; }
+}
+function clearStoreLoadProgress(orderId) {
+  try { localStorage.removeItem(storeLoadStorageKey(orderId)); } catch (e) {}
+}
+/* تنظيف تلقائي: أي تقدّم محفوظ لطلب ما عاد "وارد" (خلص/اتلغى) يُحذف عشان ما يتراكم بـlocalStorage. */
+function cleanupStaleStoreLoadProgress() {
+  try {
+    const incomingIds = new Set(storeOrdersCache.filter(o => STORE_INCOMING_STATUSES.includes(o.status)).map(o => o.id));
+    for (let i = localStorage.length - 1; i >= 0; i--) {
+      const key = localStorage.key(i);
+      if (!key || !key.startsWith(STORE_LOAD_KEY_PREFIX)) continue;
+      const orderId = key.slice(STORE_LOAD_KEY_PREFIX.length);
+      if (!incomingIds.has(orderId)) localStorage.removeItem(key);
+    }
+  } catch (e) {}
+}
 const STORE_ID_KEY = 'akleto_store_id';
 const STORE_NAME_KEY = 'akleto_store_name';
 const STORE_EMP_NAME_KEY = 'akleto_store_emp_name';
@@ -1109,6 +1144,7 @@ function startStoreOrdersListener() {
     (snap) => {
       storeOrdersCache = snap.docs.map(d => ({ id: d.id, ...d.data() }));
       updateStoreOrdersBadge();
+      cleanupStaleStoreLoadProgress();
       if (!document.getElementById('storeOrdersScreen').classList.contains('hidden')) {
         renderStoreOrdersTabs();
         renderStoreOrdersList();
@@ -1186,8 +1222,16 @@ window.openStoreOrderSheet = (orderId) => {
   const o = storeOrdersCache.find(x => x.id === orderId);
   if (!o) return;
   currentStoreOrderId = orderId;
-  storeLoadCheckedItems = {};
-  storeLoadStartedAt = Date.now();
+
+  const saved = loadStoreLoadProgress(orderId);
+  if (saved && saved.startedAt) {
+    storeLoadCheckedItems = saved.checkedItems || {};
+    storeLoadStartedAt = saved.startedAt;
+  } else {
+    storeLoadCheckedItems = {};
+    storeLoadStartedAt = Date.now();
+    saveStoreLoadProgress();
+  }
 
   document.getElementById('so-code').textContent = `طلب ${orderDisplayCode(o)}`;
   document.getElementById('so-time').textContent = `${storeOrderStatusLabel[o.status] || o.status} · ${timeAgo(o.created_at)}`;
@@ -1243,6 +1287,7 @@ function renderStoreLoadChecklist(o) {
 
 window.toggleStoreLoadItem = (ingredientId) => {
   storeLoadCheckedItems[ingredientId] = !storeLoadCheckedItems[ingredientId];
+  saveStoreLoadProgress();
   const o = storeOrdersCache.find(x => x.id === currentStoreOrderId);
   if (!o) return;
   renderStoreLoadChecklist(o);
@@ -1286,6 +1331,7 @@ window.closeStoreOrderSheet = () => {
 
 window.markStoreOrderReady = async () => {
   if (!currentStoreOrderId) return;
+  const orderIdBeingClosed = currentStoreOrderId;
   const btn = document.getElementById('so-action-btn');
   btn.disabled = true;
   btn.textContent = 'جاري التحديث...';
@@ -1306,6 +1352,7 @@ window.markStoreOrderReady = async () => {
       created_at: serverTimestamp(),
       read: false
     }).catch(e => console.error('admin_notifications write error', e));
+    clearStoreLoadProgress(orderIdBeingClosed);
     closeStoreOrderSheet();
     showToast('تم! الطلب صار جاهز للسائق ✅');
   } catch(e) {

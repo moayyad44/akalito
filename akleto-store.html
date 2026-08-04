@@ -297,9 +297,41 @@
     display:flex; align-items:center; justify-content:space-between; font-weight:800;
     font-size:15px; margin-top:14px; padding-top:12px; border-top:1px solid var(--border);
   }
-  .store-ing-row {
-    display:flex; align-items:center; justify-content:space-between; padding: 7px 0;
-    border-bottom: 1px solid var(--border); font-size: 13.5px;
+
+  /* ═══ نظام تحميل الأوردر (شيت تفاصيل طلب المتجر) ═══ */
+  .store-load-progress-wrap { margin: 2px 0 16px; }
+  .store-load-progress-text {
+    display:flex; justify-content:space-between; align-items:center;
+    font-size:12.5px; color:var(--text30); margin-bottom:6px; font-weight:700;
+  }
+  .store-load-progress-text b { color: var(--olive); }
+  .store-load-progress-bar-bg { background: var(--border); border-radius:20px; height:8px; overflow:hidden; }
+  .store-load-progress-bar-fill { background: var(--olive); height:100%; border-radius:20px; transition: width .25s ease; }
+  .store-load-timer {
+    display:inline-flex; align-items:center; gap:4px; font-family:monospace; font-weight:800;
+    font-size:12.5px; color:var(--primary); background:rgba(74,124,89,.1); padding:3px 10px; border-radius:20px;
+  }
+  .store-load-row {
+    display:flex; align-items:center; gap:10px; padding:9px 0;
+    border-bottom:1px solid var(--border); cursor:pointer; -webkit-tap-highlight-color: transparent;
+  }
+  .store-load-row:last-child { border-bottom:none; }
+  .store-load-row .ing-thumb-sm { width:42px; height:42px; cursor:default; }
+  .store-load-row-info { flex:1; min-width:0; }
+  .store-load-row-name { font-size:13.5px; font-weight:700; transition: color .15s ease; }
+  .store-load-row-qty { font-size:12px; color:var(--text30); margin-top:1px; }
+  .store-load-check {
+    width:26px; height:26px; border-radius:50%; border:2px solid var(--border); flex-shrink:0;
+    display:flex; align-items:center; justify-content:center; font-size:14px; color:transparent;
+    transition: all .15s ease;
+  }
+  .store-load-row.loaded { opacity:.65; }
+  .store-load-row.loaded .store-load-row-name { text-decoration: line-through; color: var(--text30); }
+  .store-load-row.loaded .store-load-check { background: var(--olive); border-color: var(--olive); color:#fff; }
+  .so-customer-phone-link {
+    display:inline-flex; align-items:center; gap:6px; font-size:12px; font-weight:700;
+    color: var(--primary); background: rgba(74,124,89,.1); border-radius:8px; padding:5px 10px;
+    margin-top:8px; text-decoration:none;
   }
 
   /* ═══ شاشة تفاصيل الوجبة ═══ */
@@ -629,11 +661,22 @@ if ("serviceWorker" in navigator) {
       </div>
       <div class="sheet-body" style="padding-top:0;">
         <div class="sheet-title" id="so-code"></div>
-        <div style="font-size:12.5px;color:var(--text30);margin-bottom:14px;" id="so-time"></div>
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
+          <div style="font-size:12.5px;color:var(--text30);" id="so-time"></div>
+          <div class="store-load-timer" id="so-load-timer">⏱ 00:00</div>
+        </div>
 
         <div id="so-notes-wrap" class="hidden"></div>
 
-        <div class="merged-header">🧾 المكونات المطلوبة</div>
+        <div class="store-load-progress-wrap" id="so-progress-wrap">
+          <div class="store-load-progress-text">
+            <span>تحميل السلة: <b id="so-progress-text">0 من 0</b></span>
+            <span id="so-progress-pct">0%</span>
+          </div>
+          <div class="store-load-progress-bar-bg"><div class="store-load-progress-bar-fill" id="so-progress-fill" style="width:0%;"></div></div>
+        </div>
+
+        <div class="merged-header">🧾 المكونات المطلوبة — اضغط كل منتج لما تحمّله بالسلة</div>
         <div id="so-ingredients"></div>
 
         <div class="store-order-total" id="so-total"></div>
@@ -702,6 +745,10 @@ let storeOrdersCache = [];
 let storeOrdersTab = 'incoming'; // incoming (pending/preparing) | history (ready/delivering/done/cancelled)
 let storeOrdersUnsub = null;
 let currentStoreOrderId = null;
+/* ═══ نظام تحميل الأوردر ═══ */
+let storeLoadCheckedItems = {};   // ingredient_id -> true لو تم تحميله بالسلة
+let storeLoadTimerInterval = null;
+let storeLoadStartedAt = null;    // Date.now() وقت فتح الطلب
 const STORE_ID_KEY = 'akleto_store_id';
 const STORE_NAME_KEY = 'akleto_store_name';
 const STORE_EMP_NAME_KEY = 'akleto_store_emp_name';
@@ -1139,43 +1186,102 @@ window.openStoreOrderSheet = (orderId) => {
   const o = storeOrdersCache.find(x => x.id === orderId);
   if (!o) return;
   currentStoreOrderId = orderId;
+  storeLoadCheckedItems = {};
+  storeLoadStartedAt = Date.now();
 
   document.getElementById('so-code').textContent = `طلب ${orderDisplayCode(o)}`;
   document.getElementById('so-time').textContent = `${storeOrderStatusLabel[o.status] || o.status} · ${timeAgo(o.created_at)}`;
 
   const notesWrap = document.getElementById('so-notes-wrap');
   if (o.customer_notes) {
-    notesWrap.innerHTML = `<div class="ing-preview-note" style="margin-top:0;">📝 ملاحظة الزبون: ${o.customer_notes}</div>`;
+    notesWrap.innerHTML = `
+      <div class="ing-preview-note" style="margin-top:0;">📝 ملاحظة الزبون: ${o.customer_notes}</div>
+      ${o.customer_phone ? `<a class="so-customer-phone-link" href="tel:${o.customer_phone}">📞 اتصل بالزبون — ${o.customer_phone}</a>` : ''}`;
     notesWrap.classList.remove('hidden');
   } else {
     notesWrap.classList.add('hidden');
     notesWrap.innerHTML = '';
   }
 
-  const ings = o.merged_ingredients || [];
-  document.getElementById('so-ingredients').innerHTML = ings.map(ing => `
-    <div class="store-ing-row">
-      <span>${ing.name || ''}</span>
-      <span><b>${ing.purchase_quantity}</b> × ${ing.package_label || ''}</span>
-    </div>`).join('') || '<div class="empty-state-c" style="padding:14px 0;">ما في مكونات</div>';
+  renderStoreLoadChecklist(o);
 
   document.getElementById('so-total').innerHTML = `<span>الإجمالي التقديري</span><span>${(o.total_estimated_price || 0).toFixed(2)} د.أ</span>`;
 
   const actionBtn = document.getElementById('so-action-btn');
   if (STORE_INCOMING_STATUSES.includes(o.status)) {
     actionBtn.classList.remove('hidden');
-    actionBtn.disabled = false;
-    actionBtn.textContent = '✅ جهّزنا المكونات — جاهز للسائق';
   } else {
     actionBtn.classList.add('hidden');
   }
+  updateStoreLoadProgress();
 
   document.getElementById('storeOrderSheet').classList.add('open');
+
+  if (storeLoadTimerInterval) clearInterval(storeLoadTimerInterval);
+  updateStoreLoadTimerDisplay();
+  storeLoadTimerInterval = setInterval(updateStoreLoadTimerDisplay, 1000);
 };
+
+function renderStoreLoadChecklist(o) {
+  const ings = o.merged_ingredients || [];
+  document.getElementById('so-ingredients').innerHTML = ings.map(ing => {
+    const checked = !!storeLoadCheckedItems[ing.ingredient_id];
+    const thumb = ing.image_url
+      ? `<img class="ing-thumb-sm" src="${ing.image_url}" />`
+      : `<div class="ing-thumb-sm">📦</div>`;
+    return `
+      <div class="store-load-row ${checked ? 'loaded' : ''}" onclick="toggleStoreLoadItem('${ing.ingredient_id}')">
+        ${thumb}
+        <div class="store-load-row-info">
+          <div class="store-load-row-name">${ing.name || ''}</div>
+          <div class="store-load-row-qty"><b>${ing.purchase_quantity}</b> × ${ing.package_label || ''}</div>
+        </div>
+        <div class="store-load-check">✓</div>
+      </div>`;
+  }).join('') || '<div class="empty-state-c" style="padding:14px 0;">ما في مكونات</div>';
+}
+
+window.toggleStoreLoadItem = (ingredientId) => {
+  storeLoadCheckedItems[ingredientId] = !storeLoadCheckedItems[ingredientId];
+  const o = storeOrdersCache.find(x => x.id === currentStoreOrderId);
+  if (!o) return;
+  renderStoreLoadChecklist(o);
+  updateStoreLoadProgress();
+};
+
+function updateStoreLoadProgress() {
+  const o = storeOrdersCache.find(x => x.id === currentStoreOrderId);
+  const total = (o && o.merged_ingredients || []).length;
+  const done = Object.values(storeLoadCheckedItems).filter(Boolean).length;
+  const pct = total > 0 ? Math.round((done / total) * 100) : 0;
+  document.getElementById('so-progress-text').textContent = `${done} من ${total}`;
+  document.getElementById('so-progress-pct').textContent = `${pct}%`;
+  document.getElementById('so-progress-fill').style.width = `${pct}%`;
+
+  const actionBtn = document.getElementById('so-action-btn');
+  if (!actionBtn.classList.contains('hidden')) {
+    const ready = total === 0 || done === total;
+    actionBtn.disabled = !ready;
+    actionBtn.style.opacity = ready ? '1' : '.5';
+    actionBtn.textContent = ready ? '✅ جهّزنا المكونات — جاهز للسائق' : `حمّل باقي المنتجات (${total - done}) أولاً`;
+  }
+}
+
+function updateStoreLoadTimerDisplay() {
+  if (!storeLoadStartedAt) return;
+  const elapsedSec = Math.floor((Date.now() - storeLoadStartedAt) / 1000);
+  const m = Math.floor(elapsedSec / 60).toString().padStart(2, '0');
+  const s = (elapsedSec % 60).toString().padStart(2, '0');
+  const el = document.getElementById('so-load-timer');
+  if (el) el.textContent = `⏱ ${m}:${s}`;
+}
 
 window.closeStoreOrderSheet = () => {
   document.getElementById('storeOrderSheet').classList.remove('open');
   currentStoreOrderId = null;
+  if (storeLoadTimerInterval) { clearInterval(storeLoadTimerInterval); storeLoadTimerInterval = null; }
+  storeLoadCheckedItems = {};
+  storeLoadStartedAt = null;
 };
 
 window.markStoreOrderReady = async () => {
@@ -1183,10 +1289,13 @@ window.markStoreOrderReady = async () => {
   const btn = document.getElementById('so-action-btn');
   btn.disabled = true;
   btn.textContent = 'جاري التحديث...';
+  const loadingDurationSeconds = storeLoadStartedAt ? Math.round((Date.now() - storeLoadStartedAt) / 1000) : null;
   try {
     const o = storeOrdersCache.find(x => x.id === currentStoreOrderId);
+    const updatePayload = { status: 'ready' };
+    if (loadingDurationSeconds != null) updatePayload.loading_duration_seconds = loadingDurationSeconds;
     await withTimeout(
-      updateDoc(doc(db, 'orders', currentStoreOrderId), { status: 'ready' }),
+      updateDoc(doc(db, 'orders', currentStoreOrderId), updatePayload),
       15000, 'انتهت مهلة التحديث — تأكد من الإنترنت'
     );
     addDoc(collection(db, 'admin_notifications'), {
@@ -1203,7 +1312,7 @@ window.markStoreOrderReady = async () => {
     console.error('mark order ready error', e);
     showToast('صار خطأ — جرب مرة ثانية ❌');
     btn.disabled = false;
-    btn.textContent = '✅ جهّزنا المكونات — جاهز للسائق';
+    updateStoreLoadProgress();
   }
 };
 

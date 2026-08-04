@@ -1031,6 +1031,13 @@ function ticketCode(id) {
   return '#' + String(hash % 100000).padStart(5, '0');
 }
 
+/* رقم الطلب المعروض — يفضّل الرقم التسلسلي الحقيقي order_number (5 خانات، بدون تصادم) لو موجود بالطلب،
+   وإلا يرجع للرقم المشتق أعلاه (fallback للطلبات القديمة قبل إضافة العداد التسلسلي). */
+function orderDisplayCode(order) {
+  if (order && order.order_number) return '#' + String(order.order_number).padStart(5, '0');
+  return ticketCode(order && order.id);
+}
+
 function timeAgo(ts) {
   if (!ts || !ts.toDate) return '—';
   const diffMs = Date.now() - ts.toDate().getTime();
@@ -1118,7 +1125,7 @@ function renderStoreOrdersList() {
     return `
       <div class="store-order-card" onclick="openStoreOrderSheet('${o.id}')">
         <div class="store-order-card-head">
-          <span class="store-order-code">${ticketCode(o.id)}</span>
+          <span class="store-order-code">${orderDisplayCode(o)}</span>
           <span class="store-order-time">${timeAgo(o.created_at)}</span>
         </div>
         <div class="store-order-meals">👤 ${o.customer_name || 'زبون'} · ${(o.merged_ingredients || []).length} مكوّن</div>
@@ -1133,7 +1140,7 @@ window.openStoreOrderSheet = (orderId) => {
   if (!o) return;
   currentStoreOrderId = orderId;
 
-  document.getElementById('so-code').textContent = `طلب ${ticketCode(o.id)}`;
+  document.getElementById('so-code').textContent = `طلب ${orderDisplayCode(o)}`;
   document.getElementById('so-time').textContent = `${storeOrderStatusLabel[o.status] || o.status} · ${timeAgo(o.created_at)}`;
 
   const notesWrap = document.getElementById('so-notes-wrap');
@@ -1184,7 +1191,7 @@ window.markStoreOrderReady = async () => {
     );
     addDoc(collection(db, 'admin_notifications'), {
       type: 'order_ready',
-      title: `طلب جاهز ${ticketCode(currentStoreOrderId)}`,
+      title: `طلب جاهز ${orderDisplayCode(o || { id: currentStoreOrderId })}`,
       message: `متجر "${storeName}" جهّز طلب ${o ? (o.customer_name || 'زبون') : ''} — بانتظار سائق`,
       related_id: currentStoreOrderId,
       created_at: serverTimestamp(),

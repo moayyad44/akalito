@@ -83,7 +83,7 @@
   /* ═══════════════ SIDEBAR ═══════════════ */
   .sidebar {
     width: 240px;
-    min-height: 100vh;
+    height: 100vh;
     background: var(--surface);
     border-left: 1px solid var(--border);
     display: flex;

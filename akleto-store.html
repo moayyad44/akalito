@@ -333,6 +333,14 @@
     color: var(--primary); background: rgba(74,124,89,.1); border-radius:8px; padding:5px 10px;
     margin-top:8px; text-decoration:none;
   }
+  .img-lightbox {
+    position: fixed; inset: 0; background: rgba(20,15,14,.92); z-index: 500;
+    display:flex; align-items:center; justify-content:center; padding: 24px;
+  }
+  .img-lightbox img {
+    max-width: 100%; max-height: 100%; border-radius: 14px;
+    box-shadow: 0 10px 40px rgba(0,0,0,.5);
+  }
 
   /* ═══ شاشة تفاصيل الوجبة ═══ */
   .sheet-overlay {
@@ -686,6 +694,11 @@ if ("serviceWorker" in navigator) {
     </div>
   </div>
 
+  <!-- ═══ معاينة صورة مكبّرة (Lightbox) ═══ -->
+  <div class="img-lightbox hidden" id="imgLightbox" onclick="closeImgLightbox()">
+    <img id="imgLightboxImg" src="" />
+  </div>
+
   <!-- ═══ شيت: الإشعارات ═══ -->
   <div class="sheet-overlay" id="notifSheet" onclick="if(event.target===this) closeNotifSheet()">
     <div class="sheet-card" style="max-height:80vh;">
@@ -906,6 +919,7 @@ function enterStoreMode() {
   startNotifListeners();
   renderStoreOrdersTabs();
   renderStoreOrdersList();
+  ensureIngredientsCacheLoaded(); // تحميل صور المنتجات بالخلفية عشان تكون جاهزة بشيت تحميل الأوردر
 }
 
 window.logoutStore = () => {
@@ -936,12 +950,22 @@ window.closeStoreProducts = () => {
   document.getElementById('storeOrdersScreen').classList.remove('hidden');
 };
 
+let ingredientsCacheLoadingPromise = null;
+/* يضمن إنه ingredientsCache (كل صور/بيانات المكونات الأساسية) محمّل مرة وحدة، ويُعاد استخدامه
+   من أي مكان محتاجه (شيت تحميل الأوردر، شاشة منتجاتي) بدون تكرار الطلب. */
+function ensureIngredientsCacheLoaded() {
+  if (ingredientsCache.length) return Promise.resolve();
+  if (ingredientsCacheLoadingPromise) return ingredientsCacheLoadingPromise;
+  ingredientsCacheLoadingPromise = withTimeout(getDocs(collection(db, 'ingredients')), 15000, 'انتهت مهلة تحميل المكونات')
+    .then(ingSnap => { ingredientsCache = ingSnap.docs.map(d => ({ id: d.id, ...d.data() })); })
+    .catch(e => { console.error('ensureIngredientsCacheLoaded error', e); })
+    .finally(() => { ingredientsCacheLoadingPromise = null; });
+  return ingredientsCacheLoadingPromise;
+}
+
 async function loadStoreProductsData() {
   try {
-    if (!ingredientsCache.length) {
-      const ingSnap = await withTimeout(getDocs(collection(db, 'ingredients')), 15000, 'انتهت مهلة تحميل المكونات');
-      ingredientsCache = ingSnap.docs.map(d => ({ id: d.id, ...d.data() }));
-    }
+    await ensureIngredientsCacheLoaded();
     const siSnap = await withTimeout(
       getDocs(query(collection(db, 'store_ingredients'), where('store_id', '==', storeId))),
       15000, 'انتهت مهلة تحميل منتجاتك'
@@ -1248,6 +1272,11 @@ window.openStoreOrderSheet = (orderId) => {
   }
 
   renderStoreLoadChecklist(o);
+  // لو ingredientsCache لسا ما تحمّل (أول فتح للتطبيق)، حمّله وبعدين أعد رسم القائمة عشان تبيّن صور المكونات
+  // اللي ما كانت محفوظة مباشرة بالطلب (طلبات قديمة قبل تحديث حفظ الصورة، أو صورة انعدّلت لاحقاً).
+  ensureIngredientsCacheLoaded().then(() => {
+    if (currentStoreOrderId === orderId) renderStoreLoadChecklist(o);
+  });
 
   document.getElementById('so-total').innerHTML = `<span>الإجمالي التقديري</span><span>${(o.total_estimated_price || 0).toFixed(2)} د.أ</span>`;
 
@@ -1266,12 +1295,21 @@ window.openStoreOrderSheet = (orderId) => {
   storeLoadTimerInterval = setInterval(updateStoreLoadTimerDisplay, 1000);
 };
 
+/* يرجع رابط صورة المكوّن: الأولوية للصورة المحفوظة بالطلب نفسه، وإلا يرجع لبيانات المكوّن الأساسية بـingredientsCache
+   (fallback للطلبات القديمة اللي ما كان فيها حفظ للصورة، أو لو الصورة تغيّرت بعد إنشاء الطلب). */
+function resolveIngredientImage(ing) {
+  if (ing.image_url) return ing.image_url;
+  const cached = ingredientsCache.find(i => i.id === ing.ingredient_id);
+  return (cached && cached.image_url) || '';
+}
+
 function renderStoreLoadChecklist(o) {
   const ings = o.merged_ingredients || [];
   document.getElementById('so-ingredients').innerHTML = ings.map(ing => {
     const checked = !!storeLoadCheckedItems[ing.ingredient_id];
-    const thumb = ing.image_url
-      ? `<img class="ing-thumb-sm" src="${ing.image_url}" />`
+    const imgUrl = resolveIngredientImage(ing);
+    const thumb = imgUrl
+      ? `<img class="ing-thumb-sm" src="${imgUrl}" onclick="openImgLightbox('${imgUrl.replace(/'/g, "\\'")}', event)" />`
       : `<div class="ing-thumb-sm">📦</div>`;
     return `
       <div class="store-load-row ${checked ? 'loaded' : ''}" onclick="toggleStoreLoadItem('${ing.ingredient_id}')">
@@ -1284,6 +1322,17 @@ function renderStoreLoadChecklist(o) {
       </div>`;
   }).join('') || '<div class="empty-state-c" style="padding:14px 0;">ما في مكونات</div>';
 }
+
+window.openImgLightbox = (url, event) => {
+  if (event) event.stopPropagation();
+  if (!url) return;
+  document.getElementById('imgLightboxImg').src = url;
+  document.getElementById('imgLightbox').classList.remove('hidden');
+};
+window.closeImgLightbox = () => {
+  document.getElementById('imgLightbox').classList.add('hidden');
+  document.getElementById('imgLightboxImg').src = '';
+};
 
 window.toggleStoreLoadItem = (ingredientId) => {
   storeLoadCheckedItems[ingredientId] = !storeLoadCheckedItems[ingredientId];

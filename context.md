@@ -1133,3 +1133,11 @@
 - استُخدم `event.stopPropagation()` عشان الضغط على الصورة ما "يسرّب" الحدث لصف الـcheckbox ويعلّم/يلغي تعليم المنتج بالغلط بنفس الضغطة.
 
 تم التحقق من صحة الكود (كلا الـ`<script>`) بـ`node --check` قبل الرفع.
+
+## 4 أغسطس 2026 — تصليح scrolling القائمة الجانبية بلوحة الأدمن
+
+**المشكلة:** القائمة الجانبية (`.sidebar`) بلوحة الأدمن ما كانت تعمل scroll لما تكبر عناصر التنقّل عن ارتفاع الشاشة.
+
+**السبب:** `.sidebar` بـ`admin-style.css` كانت `min-height: 100vh` بدل `height: 100vh`. بما إنها `position: fixed` و`display:flex` وجواها `.sidebar-scroll` (اللي المفروض هو يعمل `overflow-y:auto` ويتحمّل السكرول لحاله)، استخدام `min-height` بدل `height` كان بخلّي الـ`.sidebar` نفسها تكبر وتطول عن الشاشة بدل ما تتقيّد بارتفاع الشاشة — فبالتالي الفليكس تشايلد (`.sidebar-scroll`) ما كان يضطر يعمل scroll أبداً، والمحتوى الزايد كان يطلع برا حدود الشاشة وما فيه طريقة توصله (لأنه العنصر position:fixed أصلاً).
+
+**الحل:** تغيير سطر وحيد: `min-height: 100vh` → `height: 100vh` بكلاس `.sidebar`. بما إنه `admin-style.css` ملف مشترك بين كل صفحات الأدمن (orders, meals, ingredients, drivers, stores, customers, coupons, settlements, notifications, settings, units)، هالتصليح انطبق عليهم كلهم بتعديل واحد بدون الحاجة نعدّل كل صفحة لحالها.

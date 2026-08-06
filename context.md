@@ -1287,3 +1287,15 @@
 2. `npm install` جوا مجلد `functions/` (أول مرة بس).
 3. `firebase login` ثم `firebase deploy --only functions` من جذر الريبو.
 4. بعد أول نشر ناجح، أي تحديث لـ `functions/index.js` بالمستقبل يحتاج نفس أمر النشر بس (بدون أي تعديل بتطبيقات الويب).
+
+
+## 6 أغسطس 2026 — ✅ Cloud Function منشورة فعلياً وشغّالة (Deploy complete)
+
+مؤيد نفّذ خطوات النشر من جهازه (تثبيت Node.js + Git + firebase-tools، تفعيل خطة Blaze، `firebase login`، `git clone`، `npm install`، `firebase deploy --only functions`). أول محاولة فشلت برسالة متوقعة لأول استخدام لـ Cloud Functions Gen 2 على المشروع ("Permission denied while using the Eventarc Service Agent... retry in a few minutes") — بعد إعادة المحاولة بعد كم دقيقة نجح النشر بالكامل.
+
+**الحالة الآن:**
+- `onOrderUpdated` و`onOrderReady` منشورتين وشغّالتين فعلياً بمنطقة `europe-west1` على مشروع `akleto-prod`.
+- **تطبيق الزبون (APK الحالي على Google Play/المُوزَّع)**: رح يستقبل الإشعارات **فوراً بدون أي تحديث أو إعادة بناء** — لأن كود `initPushNotifications` كان أصلاً موجود بالتطبيق من قبل.
+- **تطبيق السائق**: الكود جاهز (`initDriverPushNotifications`)، بس **لسا ما تم بناء APK له أبداً** — الإشعارات رح توصل للسائق بس بعد ما يُبنى ويُثبّت APK إله (نفس النقطة المعلّقة سابقاً بخانة "على الأفق").
+- ملاحظة مهمة موثّقة: الإشعارات **ما بتوصل إطلاقاً** لو المستخدم فاتح الصفحة من متصفح عادي (PWA) بدل تطبيق APK مثبّت — هذا مقصود بالكود (`Capacitor.isNativePlatform()` check).
+- تم قبول سياسة تنظيف تلقائي لصور الحاويات المؤقتة (container images) بـ Artifact Registry (تُحذف الصور الأقدم من يوم واحد تلقائياً، لتفادي أي فوترة صغيرة متراكمة).

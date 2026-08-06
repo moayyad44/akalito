@@ -14,6 +14,7 @@
 // ══════════════════════════════════════════════════════════
 
 const { onDocumentUpdated } = require("firebase-functions/v2/firestore");
+const { onDocumentCreated } = require("firebase-functions/v2/firestore");
 const { setGlobalOptions } = require("firebase-functions/v2");
 const admin = require("firebase-admin");
 
@@ -91,7 +92,27 @@ exports.onOrderUpdated = onDocumentUpdated("orders/{orderId}", async (event) => 
 });
 
 /* ══════════════════════════════════════════════════════════
-   2) طلب جديد صار "جاهز" (ready) بدون سائق بعد → إشعار جماعي
+   3) طلب جديد اتسجّل (الزبون أنهى الطلب) → إشعار فوري للمتجر
+   ══════════════════════════════════════════════════════════ */
+exports.onOrderCreated = onDocumentCreated("orders/{orderId}", async (event) => {
+  const order = event.data.data();
+  if (!order.store_id) return;
+  try {
+    const storeSnap = await db.collection("stores").doc(order.store_id).get();
+    const token = storeSnap.exists ? storeSnap.data().fcm_token : null;
+    await sendPush(
+      token,
+      "طلب جديد 🛎️",
+      "وصلك طلب جديد — افتح التطبيق لتجهيزه.",
+      { type: "new_order", order_id: event.params.orderId }
+    );
+  } catch (e) {
+    console.error("خطأ إرسال إشعار الطلب الجديد للمتجر:", e.message || e);
+  }
+});
+
+/* ══════════════════════════════════════════════════════════
+   4) طلب صار "جاهز" (ready) بدون سائق بعد → إشعار جماعي
       لكل السائقين المتاحين (is_available == true) بمنطقة عامة،
       عشان يشوفوا فيه طلب متاح بأسرع وقت (بدل ما يعتمدوا بس على
       فتح التطبيق والتحديث اللحظي بصفحة "الطلبات المتاحة").

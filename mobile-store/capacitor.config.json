@@ -1,0 +1,13 @@
+{
+  "appId": "com.akalito.store",
+  "appName": "أكليتو المتجر",
+  "webDir": "www",
+  "server": {
+    "url": "https://moayyad44.github.io/akalito/akleto-store.html",
+    "androidScheme": "https",
+    "cleartext": false
+  },
+  "android": {
+    "allowMixedContent": false
+  }
+}

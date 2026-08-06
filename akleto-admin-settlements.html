@@ -38,6 +38,13 @@
   .tabs-row { display:flex; gap:8px; margin-bottom:16px; }
   .tab-btn { padding:9px 16px; border-radius:10px; border:1.5px solid rgba(255,255,255,.1); background:transparent; color:var(--cream30); font-size:13px; font-weight:700; cursor:pointer; }
   .tab-btn.active { background:var(--brand-red,#A23E48); color:#fff; border-color:var(--brand-red,#A23E48); }
+  .source-row { display:flex; gap:10px; margin-bottom:14px; }
+  .source-btn {
+    flex:1; padding:12px; border-radius:12px; border:1.5px solid rgba(255,255,255,.1); background:transparent;
+    color:var(--cream30); font-size:13.5px; font-weight:700; cursor:pointer; text-align:center;
+  }
+  .source-btn.active { background:rgba(162,62,72,.15); border-color:var(--brand-red,#A23E48); color:#fff; }
+  .tx-card .tx-main .tx-sub-range { font-size:11px; color:var(--cream30); display:block; margin-top:2px; }
 </style>
 <script type="module">
 import {
@@ -47,7 +54,9 @@ import {
 } from "./firebase-init.js";
 
 let allTx = [];
+let allStoreTx = [];
 let currentTab = 'pending';
+let currentSource = 'driver'; // 'driver' | 'store'
 
 function showToast(message, isError) {
   let toast = document.getElementById('akleto-toast');
@@ -85,17 +94,22 @@ window.addEventListener('DOMContentLoaded', () => {
         if (badge) { badge.textContent = count; badge.classList.toggle('hidden', count === 0); }
       });
       watchTransactions();
+      watchStoreCommissionRequests();
     }
   });
 
   window.adminLogout = () => signOut(auth);
 
+  function updateSettleBadge() {
+    const pendingCount = allTx.filter(t => t.status === 'pending').length + allStoreTx.filter(t => t.status === 'pending').length;
+    const badge = document.getElementById('settleNavBadge');
+    if (badge) { badge.textContent = pendingCount; badge.classList.toggle('hidden', pendingCount === 0); }
+  }
+
   function watchTransactions() {
     onSnapshot(collection(db, 'driver_balance_transactions'), snap => {
       allTx = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-      const pendingCount = allTx.filter(t => t.status === 'pending').length;
-      const badge = document.getElementById('settleNavBadge');
-      if (badge) { badge.textContent = pendingCount; badge.classList.toggle('hidden', pendingCount === 0); }
+      updateSettleBadge();
       render();
     }, err => {
       console.error('load transactions error', err);
@@ -103,40 +117,87 @@ window.addEventListener('DOMContentLoaded', () => {
     });
   }
 
+  function watchStoreCommissionRequests() {
+    onSnapshot(collection(db, 'store_commission_requests'), snap => {
+      allStoreTx = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      updateSettleBadge();
+      render();
+    }, err => {
+      console.error('load store commission requests error', err);
+    });
+  }
+
+  window.setSource = (source) => {
+    currentSource = source;
+    document.querySelectorAll('.source-btn').forEach(b => b.classList.toggle('active', b.dataset.source === source));
+    render();
+  };
+
   window.setTab = (tab) => {
     currentTab = tab;
     document.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b.dataset.tab === tab));
     render();
   };
 
+  function formatRange(t) {
+    if (!t.range_from && !t.range_to) return 'كل الفترة';
+    const fmt = (v) => {
+      if (!v) return '—';
+      const d = v.toDate ? v.toDate() : new Date(v);
+      return d.toLocaleDateString('ar-JO', { day: 'numeric', month: 'short' });
+    };
+    return `${fmt(t.range_from)} → ${fmt(t.range_to)}`;
+  }
+
   function render() {
     const wrap = document.getElementById('txWrap');
-    const filtered = currentTab === 'pending' ? allTx.filter(t => t.status === 'pending') : allTx.filter(t => t.status !== 'pending');
+    const source = currentSource === 'driver' ? allTx : allStoreTx;
+    const filtered = currentTab === 'pending' ? source.filter(t => t.status === 'pending') : source.filter(t => t.status !== 'pending');
     const sorted = [...filtered].sort((a, b) => (b.created_at?.toMillis?.() || 0) - (a.created_at?.toMillis?.() || 0));
 
     if (!sorted.length) {
-      wrap.innerHTML = `<div class="empty-state">${currentTab === 'pending' ? 'ما في طلبات قيد الانتظار حالياً 🎉' : 'ما في سجل طلبات سابقة بعد'}</div>`;
+      const emptyMsg = currentTab === 'pending' ? 'ما في طلبات قيد الانتظار حالياً 🎉' : 'ما في سجل طلبات سابقة بعد';
+      wrap.innerHTML = `<div class="empty-state">${emptyMsg}</div>`;
       return;
     }
 
     const typeLabel = { settlement: 'تسديد من كابتن', payout: 'تحويل لكابتن' };
     const statusLabel = { completed: 'تم ✓', rejected: 'مرفوض ✕' };
 
-    wrap.innerHTML = sorted.map(t => `
-      <div class="tx-card">
-        <span class="tx-type-badge ${t.type}">${typeLabel[t.type] || t.type}</span>
-        <div class="tx-main">
-          <b>${t.driver_name || 'كابتن'}</b>
-          <span>${timeAgo(t.created_at)}</span>
-        </div>
-        <div class="tx-amount">${(t.amount || 0).toFixed(2)} د.أ</div>
-        ${t.status === 'pending'
-          ? `<div class="tx-actions">
-               <button class="btn-confirm" onclick="confirmTx('${t.id}')">تأكيد ✓</button>
-               <button class="btn-reject" onclick="rejectTx('${t.id}')">رفض ✕</button>
-             </div>`
-          : `<span class="status-chip ${t.status}">${statusLabel[t.status] || t.status}</span>`}
-      </div>`).join('');
+    if (currentSource === 'driver') {
+      wrap.innerHTML = sorted.map(t => `
+        <div class="tx-card">
+          <span class="tx-type-badge ${t.type}">${typeLabel[t.type] || t.type}</span>
+          <div class="tx-main">
+            <b>${t.driver_name || 'كابتن'}</b>
+            <span>${timeAgo(t.created_at)}</span>
+          </div>
+          <div class="tx-amount">${(t.amount || 0).toFixed(2)} د.أ</div>
+          ${t.status === 'pending'
+            ? `<div class="tx-actions">
+                 <button class="btn-confirm" onclick="confirmTx('${t.id}')">تأكيد ✓</button>
+                 <button class="btn-reject" onclick="rejectTx('${t.id}')">رفض ✕</button>
+               </div>`
+            : `<span class="status-chip ${t.status}">${statusLabel[t.status] || t.status}</span>`}
+        </div>`).join('');
+    } else {
+      wrap.innerHTML = sorted.map(t => `
+        <div class="tx-card">
+          <span class="tx-type-badge payout">تحويل عمولة لموظف متجر</span>
+          <div class="tx-main">
+            <b>${t.emp_name || 'موظف'} — ${t.store_name || 'متجر'}</b>
+            <span>${timeAgo(t.created_at)}</span>
+            <span class="tx-sub-range">📅 ${formatRange(t)} · 📱 ${t.emp_phone || '—'}</span>
+          </div>
+          <div class="tx-amount">${(t.amount || 0).toFixed(2)} د.أ</div>
+          ${t.status === 'pending'
+            ? `<div class="tx-actions">
+                 <button class="btn-confirm" onclick="confirmStoreTx('${t.id}')">تأكيد ✓</button>
+                 <button class="btn-reject" onclick="rejectStoreTx('${t.id}')">رفض ✕</button>
+               </div>`
+            : `<span class="status-chip ${t.status}">${statusLabel[t.status] || t.status}</span>`}
+        </div>`).join('');
+    }
   }
 
   window.confirmTx = async (txId) => {
@@ -165,6 +226,35 @@ window.addEventListener('DOMContentLoaded', () => {
       showToast('تم رفض الطلب');
     } catch (e) {
       console.error('reject tx error', e);
+      showToast('صار خطأ — جرب مرة ثانية', true);
+    }
+  };
+
+  window.confirmStoreTx = async (txId) => {
+    const t = allStoreTx.find(x => x.id === txId);
+    if (!confirm(`تأكيد إنك حوّلت هالمبلغ فعلياً لـ${t?.emp_name || 'الموظف'} (${(t?.amount || 0).toFixed(2)} د.أ)؟`)) return;
+    try {
+      await withTimeout(
+        updateDoc(doc(db, 'store_commission_requests', txId), { status: 'completed', resolved_at: serverTimestamp() }),
+        15000, 'انتهت مهلة الحفظ'
+      );
+      showToast('تم تأكيد الطلب ✅');
+    } catch (e) {
+      console.error('confirm store tx error', e);
+      showToast('صار خطأ — جرب مرة ثانية', true);
+    }
+  };
+
+  window.rejectStoreTx = async (txId) => {
+    if (!confirm('تأكيد رفض هالطلب؟')) return;
+    try {
+      await withTimeout(
+        updateDoc(doc(db, 'store_commission_requests', txId), { status: 'rejected', resolved_at: serverTimestamp() }),
+        15000, 'انتهت مهلة الحفظ'
+      );
+      showToast('تم رفض الطلب');
+    } catch (e) {
+      console.error('reject store tx error', e);
       showToast('صار خطأ — جرب مرة ثانية', true);
     }
   };
@@ -246,12 +336,17 @@ if ("serviceWorker" in navigator) {
   <div class="topbar">
     <div>
       <div class="page-title">💳 طلبات التسديد والتحويل</div>
-      <div class="page-subtitle">راجع وأكّد طلبات تسديد الكباتن لأكليتو، وطلبات تحويل رصيدهم من أكليتو</div>
+      <div class="page-subtitle">راجع وأكّد طلبات تسديد/تحويل رصيد الكباتن، وطلبات تحصيل عمولات موظفي المتاجر الشريكة</div>
     </div>
     <div class="topbar-actions">
       <button class="menu-toggle" id="menuBtn" onclick="toggleSidebar()" title="القائمة">☰</button>
       <button class="theme-toggle" id="themeBtn" onclick="toggleTheme()" title="تبديل الوضع">🌙</button>
     </div>
+  </div>
+
+  <div class="source-row">
+    <button class="source-btn active" data-source="driver" onclick="setSource('driver')">🛵 طلبات السائقين</button>
+    <button class="source-btn" data-source="store" onclick="setSource('store')">🏪 طلبات المتاجر (عمولات الموظفين)</button>
   </div>
 
   <div class="tabs-row">

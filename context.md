@@ -1299,3 +1299,23 @@
 - **تطبيق السائق**: الكود جاهز (`initDriverPushNotifications`)، بس **لسا ما تم بناء APK له أبداً** — الإشعارات رح توصل للسائق بس بعد ما يُبنى ويُثبّت APK إله (نفس النقطة المعلّقة سابقاً بخانة "على الأفق").
 - ملاحظة مهمة موثّقة: الإشعارات **ما بتوصل إطلاقاً** لو المستخدم فاتح الصفحة من متصفح عادي (PWA) بدل تطبيق APK مثبّت — هذا مقصود بالكود (`Capacitor.isNativePlatform()` check).
 - تم قبول سياسة تنظيف تلقائي لصور الحاويات المؤقتة (container images) بـ Artifact Registry (تُحذف الصور الأقدم من يوم واحد تلقائياً، لتفادي أي فوترة صغيرة متراكمة).
+
+
+## 6 أغسطس 2026 — مشروعا Capacitor Android لتطبيقي المتجر والإدارة (mobile-store / mobile-admin)
+
+بناءً على قالب `mobile-driver` (اللي جُرّب ونجح بالبناء فعلياً)، تم استنساخ نفس البنية الكاملة لمشروعين جديدين:
+
+- **`mobile-store/`** → يغلّف `akleto-store.html`، App ID: `com.akalito.store`، الاسم الظاهر: "أكليتو المتجر"
+- **`mobile-admin/`** → يغلّف `akleto-admin.html`، App ID: `com.akalito.admin`، الاسم الظاهر: "أكليتو الإدارة"
+
+**الفرق المتعمّد عن قالب السائق:**
+- **بدون إشعارات دفع** (`@capacitor/push-notifications` والـ `google-services.json` مو مضافين) — لأن `akleto-store.html` و`akleto-admin.html` ما فيهم كود استقبال إشعارات أصلاً حالياً. `build.gradle` مكتوب أصلاً بحيث يتجاهل `google-services` plugin بهدوء لو الملف مو موجود (نفس آلية موثّقة بمشروع السائق)، فالبناء رح يشتغل عادي بدونها.
+- **صلاحية `INTERNET` بس** بـ`AndroidManifest.xml` — تحققت إنه لا `akleto-store.html` ولا `akleto-admin.html` يستخدموا `geolocation` إطلاقاً، فما في داعي لصلاحية الموقع.
+- `package-lock.json` ما انسخ (رح يتولّد تلقائياً أول `npm install`).
+- كل الأيقونات/splash screens/gradle wrapper نُسخت **بنفس الملفات الثنائية بالضبط** من مشروع السائق (أيقونة مؤقتة مشتركة) — لسا محتاجة تُستبدل لاحقاً بأيقونة خاصة بكل تطبيق (موثّق بـ README كل مشروع).
+
+**⚠️ تم بالكامل عبر GitHub API (بدون لمس أي ملف تاني بالريبو، تحقق آلي بعد الرفع)** — لسا ما جُرّب فعلياً بـ Android Studio ولا اتبنى APK منهم. **الخطوات المتبقية على مؤيد** (نفس أسلوب تطبيق السائق بالضبط):
+1. `git pull origin main`
+2. من جوا `mobile-store/` (وبعدها بشكل منفصل `mobile-admin/`): `npm install` ثم `npx cap sync android`
+3. فتح مجلد `android` بكل مشروع بـ Android Studio، استنى Gradle Sync
+4. `Build → Build Bundle(s)/APK(s) → Build APK(s)`

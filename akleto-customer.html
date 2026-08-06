@@ -1870,7 +1870,8 @@ function productTileHtml(i, storePrice) {
 /* يحسب مسافة كل متجر نشط من الزبون (لو في إحداثيات متوفرة) ويرتبهم الأقرب أولاً */
 async function loadActiveStoresForPicker() {
   const snap = await getDocs(collection(db, 'stores'));
-  const stores = snap.docs.map(d => ({ id: d.id, ...d.data() })).filter(s => s.is_active !== false);
+  const stores = snap.docs.map(d => ({ id: d.id, ...d.data() }))
+    .filter(s => s.is_active !== false && s.is_open !== false); // is_open=false يعني الموظف قافل المتجر مؤقتاً (زر "متاح/غير متاح" بتطبيق المتجر)
   const coords = await getRoutingCoords();
   stores.forEach(s => {
     s._dist = (coords && s.lat != null && s.lng != null) ? haversineKm(coords.lat, coords.lng, s.lat, s.lng) : Infinity;
@@ -2517,7 +2518,8 @@ async function loadStoresAndAvailability() {
     getDocs(collection(db, 'stores')),
     getDocs(query(collection(db, 'store_ingredients'), where('is_available', '==', true)))
   ]);
-  const stores = storesSnap.docs.map(d => ({ id: d.id, ...d.data() })).filter(s => s.is_active !== false);
+  const stores = storesSnap.docs.map(d => ({ id: d.id, ...d.data() }))
+    .filter(s => s.is_active !== false && s.is_open !== false); // is_open=false يعني الموظف قافل المتجر مؤقتاً (زر "متاح/غير متاح" بتطبيق المتجر)
   const availability = siSnap.docs.map(d => d.data());
   return { stores, availability };
 }
@@ -2954,6 +2956,12 @@ async function executeOrderSubmit() {
     const missing = ids.filter(id => !freshMap.has(id));
     if (missing.length) {
       showToast(`⚠️ بعض منتجات سلتك ما عاد متوفرة عند متجر "${cartLockedStore.name}" — عدّل السلة وجرب مرة ثانية`);
+      return;
+    }
+    const storeCheckSnap = await getDoc(doc(db, 'stores', cartLockedStore.id));
+    const storeCheckData = storeCheckSnap.exists() ? storeCheckSnap.data() : null;
+    if (!storeCheckData || storeCheckData.is_active === false || storeCheckData.is_open === false) {
+      showToast(`⚠️ متجر "${cartLockedStore.name}" مو متاح حالياً — عدّل السلة وجرب متجر تاني`);
       return;
     }
     const routingStoreId = cartLockedStore.id;

@@ -236,39 +236,7 @@
   .cart-fab-info { font-size:13px; font-weight:700; }
   .cart-fab-info b { color: var(--secondary); }
   .cart-fab-cta { font-size:12.5px; font-weight:800; background: var(--secondary); color:#fff; padding:8px 14px; border-radius:10px; white-space:nowrap; }
-
-  /* ═══ منتجاتي (المتجر) ═══ */
-  .store-tabs {
-    display:flex; gap:8px; padding: 0 18px 14px; overflow-x:auto;
-  }
-  .store-tab {
-    flex-shrink:0; padding: 9px 16px; border-radius: 20px; border: 1.5px solid var(--border);
-    background: var(--surface); font-family:'Cairo',sans-serif; font-weight:700; font-size: 13px;
-    color: var(--text30); white-space:nowrap;
-  }
   .store-tab.active { background: var(--primary); border-color: var(--primary); color:#fff; }
-  .product-grid {
-    display: grid; grid-template-columns: 1fr 1fr; gap: 14px; padding: 0 18px 18px;
-  }
-  .product-tile {
-    background: var(--surface); border-radius: 18px; overflow:hidden;
-    border: 1px solid var(--border); position: relative; text-align:right;
-  }
-  .product-tile-img {
-    width:100%; height: 140px; object-fit: cover; background: var(--border);
-    display:flex; align-items:center; justify-content:center; font-size: 36px;
-  }
-  .product-tile-body { padding: 10px 12px 12px; }
-  .product-tile-name { font-size: 14px; font-weight: 700; margin-bottom: 4px; }
-  .product-tile-price { font-size: 12px; color: var(--text30); }
-  .product-tile-badge-new {
-    position:absolute; top:8px; right:8px; background: var(--secondary,#F5A65B); color:#fff;
-    font-size: 10.5px; font-weight:700; padding: 3px 9px; border-radius: 20px;
-  }
-  .product-tile-badge-unavail {
-    position:absolute; top:8px; right:8px; background:#8a8a8a; color:#fff;
-    font-size: 10.5px; font-weight:700; padding: 3px 9px; border-radius: 20px;
-  }
   .store-sub-topbar {
     display:flex; align-items:center; gap:12px; padding: 22px 18px 4px;
   }
@@ -283,34 +251,6 @@
   }
   .store-assignment-note.warn {
     background: rgba(217,83,79,.08); border-color: rgba(217,83,79,.25); color:#D9534F;
-  }
-
-  /* ═══ طلبات المتجر ═══ */
-  .store-orders-badge {
-    position:absolute; top:14px; left:14px; background: var(--primary); color:#fff;
-    font-size: 11px; font-weight:800; min-width:20px; height:20px; border-radius:10px;
-    display:flex; align-items:center; justify-content:center; padding: 0 6px;
-  }
-  .store-order-card {
-    background: var(--surface); border:1px solid var(--border); border-radius:16px;
-    padding: 14px 16px; margin-bottom: 12px; cursor:pointer;
-  }
-  .store-order-card-head {
-    display:flex; align-items:center; justify-content:space-between; margin-bottom: 8px;
-  }
-  .store-order-code { font-weight:800; font-size:14px; font-family:monospace; }
-  .store-order-time { font-size:11.5px; color: var(--text30); }
-  .store-order-meals { font-size:13px; color: var(--text30); margin-bottom: 6px; }
-  .store-order-status-pill {
-    display:inline-block; font-size:11px; font-weight:700; padding:3px 10px; border-radius:20px;
-  }
-  .store-order-total {
-    display:flex; align-items:center; justify-content:space-between; font-weight:800;
-    font-size:15px; margin-top:14px; padding-top:12px; border-top:1px solid var(--border);
-  }
-  .store-ing-row {
-    display:flex; align-items:center; justify-content:space-between; padding: 7px 0;
-    border-bottom: 1px solid var(--border); font-size: 13.5px;
   }
 
   /* ═══ شاشة تفاصيل الوجبة ═══ */
@@ -344,10 +284,6 @@
     background:#fff; color:var(--primary); font-size:16px; font-weight:800;
   }
   .stepper span { font-size:16px; font-weight:800; min-width:20px; text-align:center; }
-  .brand-spinner {
-    width:32px; height:32px; border-radius:50%; border:4px solid var(--border);
-    border-top-color: var(--primary); animation: brandSpin .8s linear infinite; display:inline-block;
-  }
   @keyframes brandSpin { to { transform: rotate(360deg); } }
   .toss-dot {
     position: fixed; width:16px; height:16px; border-radius:50%; background: var(--olive);

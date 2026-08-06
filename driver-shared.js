@@ -81,6 +81,50 @@ export async function deleteDriverAccountById(driverId) {
   window.location.href = 'akleto-driver.html';
 }
 
+/* ══════════════════════════════════════════════════════════
+   إشعارات الدفع (Push Notifications) — تعمل فقط داخل تطبيق
+   أندرويد (APK عبر Capacitor) لتطبيق السائق، ولا تعمل ولا
+   تُستدعى أبداً عند فتح الموقع من متصفح عادي (PWA)، لأن
+   window.Capacitor غير موجود بهذه الحالة. نفس النمط المستخدم
+   بتطبيق الزبون (akleto-customer.html → initPushNotifications).
+   ══════════════════════════════════════════════════════════ */
+let _driverPushInitDone = false;
+export async function initDriverPushNotifications(driverId) {
+  if (_driverPushInitDone) return;
+  if (!driverId) return;
+  const Capacitor = window.Capacitor;
+  if (!Capacitor || !Capacitor.isNativePlatform || !Capacitor.isNativePlatform()) return; // مش جوا التطبيق، اطلع بهدوء
+  const Push = Capacitor.Plugins && Capacitor.Plugins.PushNotifications;
+  if (!Push) return;
+  _driverPushInitDone = true;
+  try {
+    const perm = await Push.requestPermissions();
+    if (perm.receive !== 'granted') return;
+    await Push.register();
+
+    Push.addListener('registration', async (tokenResult) => {
+      try {
+        await updateDoc(doc(db, 'drivers', driverId), {
+          fcm_token: tokenResult.value,
+          fcm_platform: 'android',
+          fcm_updated_at: serverTimestamp()
+        });
+      } catch (e) { console.error('تعذر حفظ توكن إشعارات السائق', e); }
+    });
+
+    Push.addListener('registrationError', (err) => {
+      console.error('فشل تسجيل إشعارات الدفع للسائق', err);
+    });
+
+    // لما السائق يضغط على إشعار وصل (طلب جديد متاح مثلاً)، وديه لصفحة الطلبات المتاحة
+    Push.addListener('pushNotificationActionPerformed', () => {
+      try { window.location.href = 'akleto-driver-orders.html'; } catch (e) {}
+    });
+  } catch (e) {
+    console.error('خطأ بتهيئة إشعارات الدفع للسائق', e);
+  }
+}
+
 /* ═══ عرض ═══ */
 export function ticketCode(id) { return '#' + (id || '----').slice(-4).toUpperCase(); }
 

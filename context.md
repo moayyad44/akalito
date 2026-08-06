@@ -1335,3 +1335,10 @@
 4. بدون هالملف، الـ APK رح يبنى ويشتغل عادي (Gradle بيتجاهل الميزة بهدوء)، بس تسجيل الإشعارات (`Push.register()`) رح يفشل صامتاً لأنه ما في إعداد Firebase صحيح مربوط بـ package الاسم هذا.
 
 **متبقي بعدها:** إعادة نشر الـ Cloud Function (`firebase deploy --only functions` من جذر المشروع على جهاز مؤيد) حتى تنعكس دالة `onOrderCreated` الجديدة على السيرفر.
+
+
+## 6 أغسطس 2026 — ✅ google-services.json مرفوع لتطبيق المتجر
+
+مؤيد سجّل `com.akalito.store` بـ Firebase Console ورفع لي `google-services.json` الناتج — تحقق منه ومطابق (يحوي client entry صحيح لـ `com.akalito.store` ضمن مشروع `akleto-prod`). تم رفعه لمسار `mobile-store/android/app/google-services.json`.
+
+**تطبيق المتجر صار جاهز بالكامل** لإشعارات الدفع (نفس مستوى الزبون والسائق) — الباقي فقط: بناء APK جديد من جهاز مؤيد (`npm install` → `npx cap sync android` → بناء APK بـ Android Studio)، وإعادة نشر الـ Cloud Function (`firebase deploy --only functions`) حتى تنعكس دالة `onOrderCreated` الجديدة على السيرفر.

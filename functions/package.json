@@ -1,0 +1,22 @@
+{
+  "name": "akalito-functions",
+  "description": "Cloud Functions لمشروع أكليتو — إرسال إشعارات الدفع (FCM) عند تغيّر حالة الطلب",
+  "engines": {
+    "node": "20"
+  },
+  "main": "index.js",
+  "scripts": {
+    "lint": "eslint .",
+    "serve": "firebase emulators:start --only functions",
+    "shell": "firebase functions:shell",
+    "start": "npm run shell",
+    "deploy": "firebase deploy --only functions",
+    "logs": "firebase functions:log"
+  },
+  "engines_note": "Firebase Functions v2 يتطلب خطة Blaze مفعّلة على المشروع (akleto-prod) قبل النشر.",
+  "dependencies": {
+    "firebase-admin": "^12.1.0",
+    "firebase-functions": "^5.0.0"
+  },
+  "private": true
+}

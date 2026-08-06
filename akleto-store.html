@@ -612,6 +612,50 @@ import {
   onSnapshot
 } from "./firebase-init.js";
 
+/* ══════════════════════════════════════════════════════════
+   إشعارات الدفع (Push Notifications) — تعمل فقط جوا تطبيق
+   أندرويد (APK عبر Capacitor)، وما بتشتغل إطلاقاً بمتصفح عادي.
+   نفس نمط تطبيقي الزبون والسائق بالضبط.
+   ══════════════════════════════════════════════════════════ */
+let _storePushInitDone = false;
+async function initStorePushNotifications(storeIdForPush) {
+  if (_storePushInitDone) return;
+  if (!storeIdForPush) return;
+  const Capacitor = window.Capacitor;
+  if (!Capacitor || !Capacitor.isNativePlatform || !Capacitor.isNativePlatform()) return;
+  const Push = Capacitor.Plugins && Capacitor.Plugins.PushNotifications;
+  if (!Push) return;
+  _storePushInitDone = true;
+  try {
+    const perm = await Push.requestPermissions();
+    if (perm.receive !== 'granted') return;
+    await Push.register();
+
+    Push.addListener('registration', async (tokenResult) => {
+      try {
+        await updateDoc(doc(db, 'stores', storeIdForPush), {
+          fcm_token: tokenResult.value,
+          fcm_platform: 'android',
+          fcm_updated_at: serverTimestamp()
+        });
+      } catch (e) { console.error('تعذر حفظ توكن إشعارات المتجر', e); }
+    });
+
+    Push.addListener('registrationError', (err) => {
+      console.error('فشل تسجيل إشعارات الدفع للمتجر', err);
+    });
+
+    // لما يضغط الموظف على إشعار طلب جديد، رجّعه لشاشة الطلبات
+    Push.addListener('pushNotificationActionPerformed', () => {
+      try {
+        document.getElementById('storeOrdersScreen')?.classList.remove('hidden');
+      } catch (e) {}
+    });
+  } catch (e) {
+    console.error('خطأ بتهيئة إشعارات الدفع للمتجر', e);
+  }
+}
+
 let notifItems = [];
 let notifBuckets = { all: [], mine: [] };
 let notifUnsubs = [];
@@ -811,6 +855,7 @@ function enterStoreMode() {
   watchStoreCommissionConfig();
   startOrResumeStoreWorkSession();
   watchStoreOpenState();
+  initStorePushNotifications(storeId);
 }
 
 window.logoutStore = () => {

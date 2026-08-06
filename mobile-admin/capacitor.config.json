@@ -1,0 +1,13 @@
+{
+  "appId": "com.akalito.admin",
+  "appName": "أكليتو الإدارة",
+  "webDir": "www",
+  "server": {
+    "url": "https://moayyad44.github.io/akalito/akleto-admin.html",
+    "androidScheme": "https",
+    "cleartext": false
+  },
+  "android": {
+    "allowMixedContent": false
+  }
+}

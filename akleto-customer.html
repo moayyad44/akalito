@@ -1816,16 +1816,18 @@ async function loadActiveStoresForPicker() {
   return stores;
 }
 
-/* يجيب كل المكونات المتوفرة فعلياً بمتجر معيّن + سعر كل وحدة عندهم تحديداً */
+/* يجيب كل المكونات المتوفرة فعلياً بمتجر معيّن + سعر كل وحدة عندهم تحديداً
+   ملاحظة: شرط واحد بس بالاستعلام (store_id) والفلترة على is_available صايرة
+   بالكود نفسه — تفادياً لحاجة فهرس Firestore مركّب (composite index) غير موجود. */
 async function loadStoreProductsMap(storeId) {
   const snap = await getDocs(query(
     collection(db, 'store_ingredients'),
-    where('store_id', '==', storeId),
-    where('is_available', '==', true)
+    where('store_id', '==', storeId)
   ));
   const map = new Map();
   snap.docs.forEach(d => {
     const data = d.data();
+    if (data.is_available !== true) return;
     map.set(data.ingredient_id, data.price_per_package);
   });
   return map;

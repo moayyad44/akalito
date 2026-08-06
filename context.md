@@ -1319,3 +1319,19 @@
 2. من جوا `mobile-store/` (وبعدها بشكل منفصل `mobile-admin/`): `npm install` ثم `npx cap sync android`
 3. فتح مجلد `android` بكل مشروع بـ Android Studio، استنى Gradle Sync
 4. `Build → Build Bundle(s)/APK(s) → Build APK(s)`
+
+
+## 6 أغسطس 2026 — إشعارات الدفع لتطبيق المتجر
+
+- أضفت `initStorePushNotifications(storeId)` بـ `akleto-store.html` (نفس نمط الزبون/السائق بالضبط) — تُستدعى من `enterStoreMode()` (تشتغل بعد تسجيل الدخول وبعد استرجاع الجلسة المحفوظة). التوكن يُحفظ بـ `stores/{storeId}.fcm_token`.
+- حدّثت مشروع `mobile-store/` ليتضمن `@capacitor/push-notifications` (package.json، capacitor.settings.gradle، capacitor.build.gradle) وصلاحية `POST_NOTIFICATIONS` بـ AndroidManifest.
+- أضفت دالة رابعة بـ Cloud Function: **`onOrderCreated`** — بترسل إشعار "طلب جديد 🛎️" للمتجر فور ما الزبون ينهي طلب (`orders/{orderId}` جديد). تم نشرها فوراً ضمن نفس النشر السابق (الدوال التانية موجودة أصلاً على السيرفر، هاي إضافة عليهم، بس **لسا لازم إعادة نشر يدوي** بنفس أمر `firebase deploy --only functions` حتى تنعكس فعلياً).
+
+**⚠️ خطوة ضرورية ناقصة قبل ما تشتغل فعلياً (المتجر تحديداً، بعكس الزبون والسائق):**
+تطبيق المتجر **مو مسجّل بمشروع Firebase بعد** كتطبيق أندرويد مستقل. لازم مؤيد:
+1. يروح لـ [Firebase Console](https://console.firebase.google.com) → مشروع `akleto-prod` → ⚙️ Project settings → General → Add app → أيقونة أندرويد.
+2. Android package name **بالضبط**: `com.akalito.store`
+3. يحمّل `google-services.json` الناتج ويحطه بالمسار: `mobile-store/android/app/google-services.json`
+4. بدون هالملف، الـ APK رح يبنى ويشتغل عادي (Gradle بيتجاهل الميزة بهدوء)، بس تسجيل الإشعارات (`Push.register()`) رح يفشل صامتاً لأنه ما في إعداد Firebase صحيح مربوط بـ package الاسم هذا.
+
+**متبقي بعدها:** إعادة نشر الـ Cloud Function (`firebase deploy --only functions` من جذر المشروع على جهاز مؤيد) حتى تنعكس دالة `onOrderCreated` الجديدة على السيرفر.

@@ -145,6 +145,23 @@
 
   /* ═══ شبكة الوجبات ═══ */
   .section-title { font-size: 17px; font-weight: 800; padding: 6px 18px 12px; font-family:'Tajawal',sans-serif; }
+
+  /* ═══ متاح / غير متاح (المتجر) ═══ */
+  .store-avail-toggle {
+    display:flex; align-items:center; justify-content:center; gap:8px; width:calc(100% - 36px);
+    margin: 12px 18px 2px; padding:11px 20px; border-radius:14px; border:none;
+    font-weight:800; font-size:13.5px; color:#fff; background:#9C8C82; font-family:'Cairo',sans-serif;
+    box-shadow:0 3px 10px rgba(0,0,0,.1); transition: background .2s ease; cursor:pointer;
+  }
+  .store-avail-toggle.on { background: var(--olive); }
+  .store-avail-toggle:disabled { opacity:.85; }
+  .store-avail-toggle .dot { width:9px; height:9px; border-radius:50%; background:#fff; flex-shrink:0; }
+  .store-avail-toggle.on .dot { box-shadow:0 0 0 3px rgba(255,255,255,.35); }
+  .store-avail-toggle .spin-wrap { display:none; align-items:center; }
+  .store-avail-toggle.loading .dot { display:none; }
+  .store-avail-toggle.loading .spin-wrap { display:inline-flex; }
+  .store-avail-toggle .spin { animation: store-spin-rotate .8s linear infinite; }
+  @keyframes store-spin-rotate { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
   .meals-scroll-grid {
     display: grid; grid-template-columns: 1fr 1fr; gap: 14px; padding: 0 18px 18px;
   }
@@ -754,6 +771,11 @@ if ("serviceWorker" in navigator) {
         <span class="bell-dot hidden" id="bellDotStore"></span>
       </div>
     </div>
+    <button class="store-avail-toggle" id="storeAvailToggleBtn" onclick="toggleStoreOpen()">
+      <span class="dot"></span>
+      <span class="spin-wrap"><svg class="spin" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3.5a8.5 8.5 0 1 0 8.5 8.5"/></svg></span>
+      <span id="storeAvailToggleLabel">جاري التحقق...</span>
+    </button>
     <div class="section-title">📦 طلبات المتجر</div>
     <div class="store-tabs" id="storeOrdersTabs"></div>
     <div id="storeOrdersList" style="padding:0 18px 24px;"></div>
@@ -916,6 +938,10 @@ let storeFinanceRangeTo = null;   // Date
 let storeFinanceUnsub = null;
 let storeCommissionRequestsCache = [];
 
+/* ═══ متاح / غير متاح ═══ */
+let storeIsOpen = true;
+let storeDocUnsub = null;
+
 function showToast(msg) {
   const t = document.getElementById('toast');
   t.textContent = msg;
@@ -1037,12 +1063,14 @@ function enterStoreMode() {
   ensureIngredientsCacheLoaded(); // تحميل صور المنتجات بالخلفية عشان تكون جاهزة بشيت تحميل الأوردر
   watchStoreCommissionConfig();
   startOrResumeStoreWorkSession();
+  watchStoreOpenState();
 }
 
 window.logoutStore = () => {
   if (!confirm('تأكيد الخروج من حساب المتجر؟')) return;
   if (storeOrdersUnsub) { storeOrdersUnsub(); storeOrdersUnsub = null; }
   if (storeFinanceUnsub) { storeFinanceUnsub(); storeFinanceUnsub = null; }
+  if (storeDocUnsub) { storeDocUnsub(); storeDocUnsub = null; }
   closeStoreWorkSession();
   localStorage.removeItem(STORE_ID_KEY);
   localStorage.removeItem(STORE_NAME_KEY);
@@ -1054,6 +1082,51 @@ window.logoutStore = () => {
   document.getElementById('storeProductsScreen').classList.add('hidden');
   document.getElementById('storeFinanceScreen').classList.add('hidden');
   document.getElementById('storeLoginScreen').classList.remove('hidden');
+};
+
+/* ═══════════ متاح / غير متاح — يتحكم فيها الموظف، وتحدد إذا المتجر يستقبل طلبات جديدة ═══════════ */
+function watchStoreOpenState() {
+  storeDocUnsub = onSnapshot(doc(db, 'stores', storeId), snap => {
+    if (!snap.exists()) return;
+    const data = snap.data();
+    storeIsOpen = data.is_open !== false; // افتراضياً "متاح" لو الحقل غير موجود (متجر قديم لسا ما استخدم الميزة)
+    renderStoreAvailBtn();
+  }, err => console.error('watchStoreOpenState error', err));
+}
+
+function renderStoreAvailBtn() {
+  const btn = document.getElementById('storeAvailToggleBtn');
+  const label = document.getElementById('storeAvailToggleLabel');
+  if (!btn) return;
+  btn.classList.toggle('on', storeIsOpen);
+  label.textContent = storeIsOpen ? '🟢 المتجر متاح لاستقبال الطلبات' : '⚪ المتجر غير متاح حالياً';
+}
+
+function setStoreAvailLoading(loading, loadingText) {
+  const btn = document.getElementById('storeAvailToggleBtn');
+  const label = document.getElementById('storeAvailToggleLabel');
+  btn.disabled = loading;
+  btn.classList.toggle('loading', loading);
+  if (loading) label.textContent = loadingText || 'جاري التحديث...';
+  else renderStoreAvailBtn();
+}
+
+window.toggleStoreOpen = async () => {
+  const next = !storeIsOpen;
+  setStoreAvailLoading(true, next ? 'جاري التفعيل...' : 'جاري الإيقاف...');
+  try {
+    await withTimeout(
+      updateDoc(doc(db, 'stores', storeId), { is_open: next }),
+      15000, 'انتهت مهلة التحديث — تأكد من الإنترنت'
+    );
+    storeIsOpen = next;
+    showToast(next ? '🟢 المتجر صار متاح لاستقبال طلبات جديدة' : '⚪ المتجر صار غير متاح — ما رح توصله طلبات جديدة');
+  } catch (e) {
+    console.error('toggleStoreOpen error', e);
+    showToast('صار خطأ — جرب مرة ثانية ❌');
+  } finally {
+    setStoreAvailLoading(false);
+  }
 };
 
 /* ═══════════ إعدادات العمولة (يتحكم فيها الأدمن — app_settings/commissions) ═══════════ */

@@ -25,6 +25,8 @@ import {
 
 let driversCache = [];
 
+const VEHICLE_LABELS = { car: 'سيارة', motorcycle: 'دراجة نارية', scooter: 'سكوتر توصيل' };
+
 function showToast(message, isError) {
   let toast = document.getElementById('akleto-toast');
   if (!toast) {
@@ -57,6 +59,7 @@ window.addEventListener('DOMContentLoaded', () => {
 
   async function loadDrivers() {
     const wrap = document.getElementById('driversWrap');
+    const pendingWrap = document.getElementById('pendingWrap');
     wrap.innerHTML = `<div class="empty-state" style="padding:14px 0;">جاري التحميل...</div>`;
     try {
       const snap = await getDocs(collection(db, 'drivers'));
@@ -72,29 +75,59 @@ window.addEventListener('DOMContentLoaded', () => {
 
   function renderDrivers() {
     const wrap = document.getElementById('driversWrap');
-    if (!driversCache.length) {
+    const pendingWrap = document.getElementById('pendingWrap');
+    const pendingSection = document.getElementById('pendingSection');
+
+    const pending = driversCache.filter(d => d.approval_status === 'pending');
+    const rest = driversCache.filter(d => d.approval_status !== 'pending');
+
+    document.getElementById('pendingCount').textContent = pending.length;
+    pendingSection.style.display = pending.length ? 'block' : 'none';
+
+    if (pending.length) {
+      const sortedPending = [...pending].sort((a, b) =>
+        (a.created_at?.toMillis?.() || 0) - (b.created_at?.toMillis?.() || 0));
+      pendingWrap.innerHTML = sortedPending.map(d => {
+        const joined = d.created_at && d.created_at.toDate ? d.created_at.toDate().toLocaleDateString('ar-JO') : '—';
+        return `
+          <div class="ingredient-list-item" style="cursor:pointer;" onclick="openDriverModal('${d.id}')">
+            <div class="ing-thumb">⏳</div>
+            <div class="ing-info">
+              <div class="ing-name">${d.name || 'بدون اسم'}</div>
+              <div class="ing-meta">${d.phone || '—'} · ${VEHICLE_LABELS[d.vehicle_type] || d.vehicle_type || ''} · قدّم بتاريخ ${joined}</div>
+            </div>
+            <span class="status-badge pending">قيد المراجعة</span>
+          </div>`;
+      }).join('');
+    }
+
+    if (!rest.length) {
       wrap.innerHTML = `<div class="empty-state" style="padding:30px 0;">
-        ما في سائقين مسجّلين لسا 🛵<br/>
-        <span style="font-size:12px;color:var(--cream30);">بيظهروا هون تلقائياً أول ما يسجّلوا من تطبيق السائق</span>
+        ما في سائقين مقبولين لسا 🛵<br/>
+        <span style="font-size:12px;color:var(--cream30);">بيظهروا هون تلقائياً بعد ما توافق على طلباتهم</span>
       </div>`;
       return;
     }
     // الأحدث تسجيلاً أولاً
-    const sorted = [...driversCache].sort((a, b) =>
+    const sorted = [...rest].sort((a, b) =>
       (b.created_at?.toMillis?.() || 0) - (a.created_at?.toMillis?.() || 0));
 
     wrap.innerHTML = sorted.map(d => {
       const blocked = d.is_active === false;
+      const rejected = d.approval_status === 'rejected';
       const joined = d.created_at && d.created_at.toDate ? d.created_at.toDate().toLocaleDateString('ar-JO') : '—';
       return `
         <div class="ingredient-list-item">
-          <div class="ing-thumb">🛵</div>
-          <div class="ing-info">
-            <div class="ing-name">${d.name || 'بدون اسم'} ${blocked ? '<span style=\"color:#D9534F;font-size:11px;\">(محظور)</span>' : ''}</div>
+          <div class="ing-thumb" style="cursor:pointer;" onclick="openDriverModal('${d.id}')">🛵</div>
+          <div class="ing-info" style="cursor:pointer;" onclick="openDriverModal('${d.id}')">
+            <div class="ing-name">${d.name || 'بدون اسم'}
+              ${blocked ? '<span style="color:#D9534F;font-size:11px;">(محظور)</span>' : ''}
+              ${rejected ? '<span style="color:#D9534F;font-size:11px;">(مرفوض)</span>' : ''}
+            </div>
             <div class="ing-meta">${d.phone || '—'} · ${d.deliveries_count || 0} توصيلة · انضم ${joined}</div>
           </div>
-          <button type="button" class="ing-remove" style="font-size:12px;width:auto;padding:6px 10px;"
-                  onclick="toggleBlockDriver('${d.id}', ${blocked})">${blocked ? 'رفع الحظر' : 'حظر'}</button>
+          ${rejected ? '' : `<button type="button" class="ing-remove" style="font-size:12px;width:auto;padding:6px 10px;"
+                  onclick="toggleBlockDriver('${d.id}', ${blocked})">${blocked ? 'رفع الحظر' : 'حظر'}</button>`}
         </div>`;
     }).join('');
   }
@@ -110,6 +143,83 @@ window.addEventListener('DOMContentLoaded', () => {
       showToast(currentlyBlocked ? 'تم رفع الحظر ✅' : 'تم حظر السائق ✅');
     } catch(e) {
       console.error('toggle block error', e);
+      showToast('صار خطأ — جرب مرة ثانية ❌', true);
+    }
+  };
+
+  /* ═══ مودال تفاصيل السائق (المراجعة + الوثائق) ═══ */
+  window.openDriverModal = (id) => {
+    const d = driversCache.find(x => x.id === id);
+    if (!d) return;
+    const overlay = document.getElementById('driverModalOverlay');
+    const body = document.getElementById('driverModalBody');
+    document.getElementById('driverModalTitle').textContent = d.name || 'بدون اسم';
+
+    const docs = [
+      ['الصورة الشخصية', d.photo_url],
+      ['الهوية — الوجه الأول', d.id_front_url],
+      ['الهوية — الوجه الثاني', d.id_back_url],
+      ['رخصة القيادة', d.license_url],
+      ['رخصة المركبة — الوجه الأول', d.vehicle_license_front_url],
+      ['رخصة المركبة — الوجه الثاني', d.vehicle_license_back_url],
+    ];
+
+    body.innerHTML = `
+      <div style="display:flex;flex-direction:column;gap:6px;margin-bottom:16px;font-size:14px;">
+        <div><b>الهاتف:</b> ${d.phone || '—'}</div>
+        <div><b>نوع المركبة:</b> ${VEHICLE_LABELS[d.vehicle_type] || d.vehicle_type || '—'}</div>
+        <div><b>الماركة والموديل:</b> ${d.vehicle_make_model || '—'}</div>
+        <div><b>رقم اللوحة:</b> ${d.plate_number || '—'}</div>
+        <div><b>الآيبان:</b> ${d.iban ? `<span dir="ltr" style="display:inline-block;">${d.iban}</span>` : 'ما أضافه بعد'}</div>
+      </div>
+      <div style="font-weight:700;margin-bottom:8px;font-size:13.5px;">الوثائق</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:18px;">
+        ${docs.map(([label, url]) => `
+          <a href="${url || '#'}" target="_blank" rel="noopener" style="text-decoration:none;color:inherit;${url ? '' : 'pointer-events:none;opacity:.4;'}">
+            <div style="border:1px solid var(--border);border-radius:12px;overflow:hidden;">
+              <div style="aspect-ratio:1/1;background:var(--bg2,#00000010);">
+                ${url ? `<img src="${url}" style="width:100%;height:100%;object-fit:cover;">` : ''}
+              </div>
+              <div style="font-size:11px;padding:6px 8px;text-align:center;">${label}</div>
+            </div>
+          </a>`).join('')}
+      </div>
+      ${d.approval_status === 'pending' ? `
+        <div style="display:flex;gap:10px;">
+          <button type="button" class="ing-remove" style="flex:1;background:var(--green,#65743A);color:#fff;" onclick="approveDriver('${d.id}')">قبول الطلب ✅</button>
+          <button type="button" class="ing-remove" style="flex:1;" onclick="rejectDriver('${d.id}')">رفض الطلب ❌</button>
+        </div>` : ''}
+    `;
+    overlay.classList.add('open');
+  };
+  window.closeDriverModal = () => document.getElementById('driverModalOverlay').classList.remove('open');
+
+  window.approveDriver = async (id) => {
+    if (!confirm('تأكيد قبول هذا السائق؟ رح يقدر يسجل دخول ويستلم طلبات فوراً.')) return;
+    try {
+      await withTimeout(updateDoc(doc(db, 'drivers', id), { approval_status: 'approved', is_active: true }), 15000, 'انتهت مهلة الحفظ — تأكد من الإنترنت');
+      const d = driversCache.find(x => x.id === id);
+      if (d) { d.approval_status = 'approved'; d.is_active = true; }
+      closeDriverModal();
+      renderDrivers();
+      showToast('تم قبول السائق ✅');
+    } catch(e) {
+      console.error('approve driver error', e);
+      showToast('صار خطأ — جرب مرة ثانية ❌', true);
+    }
+  };
+
+  window.rejectDriver = async (id) => {
+    if (!confirm('تأكيد رفض هذا الطلب؟')) return;
+    try {
+      await withTimeout(updateDoc(doc(db, 'drivers', id), { approval_status: 'rejected' }), 15000, 'انتهت مهلة الحفظ — تأكد من الإنترنت');
+      const d = driversCache.find(x => x.id === id);
+      if (d) d.approval_status = 'rejected';
+      closeDriverModal();
+      renderDrivers();
+      showToast('تم رفض الطلب');
+    } catch(e) {
+      console.error('reject driver error', e);
       showToast('صار خطأ — جرب مرة ثانية ❌', true);
     }
   };
@@ -201,10 +311,28 @@ if ("serviceWorker" in navigator) {
     </div>
   </div>
 
+  <div class="card" id="pendingSection" style="display:none;margin-bottom:16px;border:1.5px solid rgba(69,183,255,0.35);">
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">
+      <span style="font-weight:700;">⏳ طلبات قيد المراجعة</span>
+      <span class="status-badge pending" id="pendingCount">0</span>
+    </div>
+    <div id="pendingWrap"></div>
+  </div>
+
   <div class="card">
     <div id="driversWrap"></div>
   </div>
 </main>
+
+<div class="modal-overlay" id="driverModalOverlay">
+  <div class="modal-card">
+    <div class="modal-header">
+      <div class="modal-title" id="driverModalTitle">تفاصيل السائق</div>
+      <button type="button" class="modal-close" onclick="closeDriverModal()">✕</button>
+    </div>
+    <div class="modal-body" id="driverModalBody"></div>
+  </div>
+</div>
 
 </div>
 

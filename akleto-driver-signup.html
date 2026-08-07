@@ -1,0 +1,381 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<title>أكليتو — تسجيل حساب سائق</title>
+<link rel="manifest" href="manifest-driver.json">
+<meta name="theme-color" content="#A23E48">
+<link rel="apple-touch-icon" href="icons/driver-180.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="سائق أكليتو">
+<meta name="mobile-web-app-capable" content="yes">
+<link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;900&family=Tajawal:wght@400;500;700;800&display=swap" rel="stylesheet">
+<style>
+  :root { --primary:#A23E48; --secondary:#F5A65B; --bg:#FDF8F3; --surface:#FFFFFE; --border:#EBE0D3; --text:#3A2A28; --text30:#9C8C82; --green:#65743A; }
+  * { box-sizing: border-box; margin:0; padding:0; }
+  html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; overflow-x: hidden; }
+  body { font-family:'Cairo',sans-serif; background:var(--bg); color:var(--text); direction:rtl; min-height:100vh; overflow-x:hidden; }
+  h1,h2,h3 { font-family:'Tajawal',sans-serif; }
+  button { font-family:inherit; cursor:pointer; }
+
+  .wrap { max-width:520px; margin:0 auto; padding:20px 20px 100px; }
+  .top-bar { display:flex; align-items:center; gap:12px; padding:14px 0; position:sticky; top:0; background:var(--bg); z-index:5; }
+  .back-btn { width:38px; height:38px; border-radius:50%; border:1.5px solid var(--border); background:var(--surface); display:flex; align-items:center; justify-content:center; font-size:18px; color:var(--text); }
+  .top-title { font-family:'Tajawal',sans-serif; font-weight:700; font-size:17px; }
+
+  .steps-bar { display:flex; gap:6px; margin:10px 0 24px; }
+  .step-dot { flex:1; height:5px; border-radius:4px; background:var(--border); transition:.25s; }
+  .step-dot.active, .step-dot.done { background:var(--primary); }
+
+  .panel { display:none; }
+  .panel.active { display:block; animation:fadeIn .25s ease; }
+  @keyframes fadeIn { from{opacity:0; transform:translateY(6px);} to{opacity:1; transform:none;} }
+
+  .panel-title { font-size:19px; font-weight:800; margin-bottom:4px; }
+  .panel-sub { color:var(--text30); font-size:13px; margin-bottom:20px; line-height:1.6; }
+
+  .field-group { text-align:right; margin-bottom:14px; position:relative; }
+  .field-group label { font-size:13px; font-weight:600; display:block; margin-bottom:6px; }
+  .field-group input, .field-group select {
+    width:100%; padding:13px 16px; border-radius:12px; border:1.5px solid var(--border);
+    background:var(--surface); font-family:inherit; font-size:15px; color:var(--text);
+  }
+  .field-group input:focus, .field-group select:focus { outline:none; border-color:var(--primary); }
+  .field-hint { font-size:11.5px; color:var(--text30); margin-top:5px; }
+
+  /* dropdown بحث السيارة */
+  .combo-list { position:absolute; top:100%; right:0; left:0; z-index:20; background:var(--surface); border:1.5px solid var(--border);
+    border-radius:12px; margin-top:4px; max-height:230px; overflow-y:auto; box-shadow:0 8px 24px rgba(0,0,0,.1); display:none; }
+  .combo-list.show { display:block; }
+  .combo-item { padding:11px 16px; font-size:14px; cursor:pointer; border-bottom:1px solid var(--border); }
+  .combo-item:last-child { border-bottom:none; }
+  .combo-item:active, .combo-item.hover { background:var(--bg); }
+  .combo-empty { padding:14px 16px; font-size:13px; color:var(--text30); text-align:center; }
+
+  .btn-main {
+    width:100%; padding:15px; border-radius:14px; border:none; background:var(--primary);
+    color:#fff; font-weight:700; font-size:15px; display:flex; align-items:center; justify-content:center; gap:8px; margin-top:6px;
+  }
+  .btn-main:disabled { opacity:.5; }
+  .btn-ghost {
+    width:100%; padding:14px; border-radius:14px; border:1.5px solid var(--border); background:transparent;
+    color:var(--text); font-weight:600; font-size:14px; margin-top:10px;
+  }
+  .error-text { color:var(--primary); font-size:12.5px; margin-top:10px; display:none; text-align:center; }
+
+  /* رفع الصور */
+  .photo-grid { display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:8px; }
+  .photo-slot { position:relative; }
+  .photo-box {
+    aspect-ratio:1/1; border-radius:14px; border:1.5px dashed var(--border); background:var(--surface);
+    display:flex; flex-direction:column; align-items:center; justify-content:center; gap:6px; overflow:hidden; position:relative;
+  }
+  .photo-box img { width:100%; height:100%; object-fit:cover; }
+  .photo-box .ph-icon { font-size:26px; opacity:.5; }
+  .photo-box .ph-label { font-size:11.5px; color:var(--text30); text-align:center; padding:0 6px; font-weight:600; }
+  .photo-box.done { border-style:solid; border-color:var(--green); }
+  .photo-box .ph-check { position:absolute; top:6px; left:6px; width:22px; height:22px; border-radius:50%; background:var(--green); color:#fff; display:flex; align-items:center; justify-content:center; font-size:12px; }
+  .photo-box .ph-spin { position:absolute; inset:0; background:rgba(255,255,255,.8); display:flex; align-items:center; justify-content:center; font-size:12px; color:var(--primary); font-weight:700; }
+  .photo-box input[type=file] { position:absolute; inset:0; opacity:0; cursor:pointer; }
+
+  .skip-link { text-align:center; color:var(--text30); font-size:13px; margin-top:14px; text-decoration:underline; cursor:pointer; }
+
+  .done-screen { text-align:center; padding-top:60px; }
+  .done-emoji { font-size:56px; margin-bottom:14px; }
+  .done-title { font-size:21px; font-weight:800; color:var(--primary); margin-bottom:10px; }
+  .done-text { color:var(--text30); font-size:14px; line-height:1.8; margin-bottom:26px; }
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <div class="top-bar">
+    <button class="back-btn" id="backBtn" onclick="goBack()">‹</button>
+    <div class="top-title" id="topTitle">تسجيل حساب سائق</div>
+  </div>
+
+  <div class="steps-bar" id="stepsBar">
+    <div class="step-dot active" data-s="1"></div>
+    <div class="step-dot" data-s="2"></div>
+    <div class="step-dot" data-s="3"></div>
+  </div>
+
+  <!-- خطوة 1: المعلومات الشخصية والمركبة -->
+  <div class="panel active" id="panel-1">
+    <div class="panel-title">بياناتك ومركبتك</div>
+    <div class="panel-sub">هاي المعلومات لازم تكون صحيحة ومطابقة لهويتك — رح تُستخدم بمراجعة حسابك.</div>
+
+    <div class="field-group">
+      <label>الاسم الكامل (لازم ثلاث مقاطع على الأقل)</label>
+      <input type="text" id="f-name" placeholder="مثال: أحمد محمود العبدالله">
+      <div class="field-hint">مثل ما هو مكتوب بالهوية</div>
+    </div>
+
+    <div class="field-group">
+      <label>رقم الهاتف</label>
+      <input type="tel" id="f-phone" placeholder="مثال: 0791234567">
+    </div>
+
+    <div class="field-group">
+      <label>نوع المركبة</label>
+      <select id="f-vtype" onchange="onVehicleTypeChange()">
+        <option value="">اختر نوع المركبة</option>
+        <option value="car">سيارة</option>
+        <option value="motorcycle">دراجة نارية</option>
+        <option value="scooter">سكوتر توصيل</option>
+      </select>
+    </div>
+
+    <div class="field-group" id="modelFieldWrap">
+      <label>الماركة والموديل</label>
+      <input type="text" id="f-model" placeholder="اكتب عشان تبحث... مثال: هيونداي" autocomplete="off" oninput="filterModels()" onfocus="filterModels()">
+      <div class="combo-list" id="modelList"></div>
+    </div>
+
+    <div class="field-group">
+      <label>رقم لوحة المركبة</label>
+      <input type="text" id="f-plate" placeholder="مثال: 12 / أ ب ج / 34567">
+    </div>
+
+    <button class="btn-main" id="step1-btn" onclick="goToStep2()">التالي</button>
+    <div class="error-text" id="err-1"></div>
+  </div>
+
+  <!-- خطوة 2: الصور -->
+  <div class="panel" id="panel-2">
+    <div class="panel-title">الصور المطلوبة</div>
+    <div class="panel-sub">صوّر بوضوح وتأكد إن الكتابة واضحة بكل صورة. لازم ترفع الصور الست عشان تكمّل.</div>
+
+    <div class="photo-grid">
+      <div class="photo-slot">
+        <div class="photo-box" id="box-photo">
+          <span class="ph-icon">🧑</span><span class="ph-label">صورتك الشخصية</span>
+          <input type="file" accept="image/*" capture="environment" onchange="handlePhoto(this,'photo')">
+        </div>
+      </div>
+      <div class="photo-slot">
+        <div class="photo-box" id="box-id_front">
+          <span class="ph-icon">🪪</span><span class="ph-label">الهوية — الوجه الأول</span>
+          <input type="file" accept="image/*" capture="environment" onchange="handlePhoto(this,'id_front')">
+        </div>
+      </div>
+      <div class="photo-slot">
+        <div class="photo-box" id="box-id_back">
+          <span class="ph-icon">🪪</span><span class="ph-label">الهوية — الوجه الثاني</span>
+          <input type="file" accept="image/*" capture="environment" onchange="handlePhoto(this,'id_back')">
+        </div>
+      </div>
+      <div class="photo-slot">
+        <div class="photo-box" id="box-license">
+          <span class="ph-icon">🚦</span><span class="ph-label">رخصة القيادة</span>
+          <input type="file" accept="image/*" capture="environment" onchange="handlePhoto(this,'license')">
+        </div>
+      </div>
+      <div class="photo-slot">
+        <div class="photo-box" id="box-vlicense_front">
+          <span class="ph-icon">📄</span><span class="ph-label">رخصة المركبة — الوجه الأول</span>
+          <input type="file" accept="image/*" capture="environment" onchange="handlePhoto(this,'vlicense_front')">
+        </div>
+      </div>
+      <div class="photo-slot">
+        <div class="photo-box" id="box-vlicense_back">
+          <span class="ph-icon">📄</span><span class="ph-label">رخصة المركبة — الوجه الثاني</span>
+          <input type="file" accept="image/*" capture="environment" onchange="handlePhoto(this,'vlicense_back')">
+        </div>
+      </div>
+    </div>
+
+    <button class="btn-main" id="step2-btn" onclick="goToStep3()">التالي</button>
+    <div class="error-text" id="err-2"></div>
+  </div>
+
+  <!-- خطوة 3: الآيبان -->
+  <div class="panel" id="panel-3">
+    <div class="panel-title">حسابك البنكي (اختياري)</div>
+    <div class="panel-sub">عشان نقدر نحوّل أرباحك. تقدر تتخطى هاي الخطوة الآن وتضيفه لاحقاً من صفحة حسابك بأي وقت.</div>
+
+    <div class="field-group">
+      <label>رقم الآيبان (IBAN)</label>
+      <input type="text" id="f-iban" placeholder="مثال: JO94 CBJO 0010 0000 0000 0131 0003 02" style="direction:ltr; text-align:left;">
+    </div>
+
+    <button class="btn-main" id="step3-btn" onclick="submitSignup(false)">حفظ وإرسال الطلب</button>
+    <div class="skip-link" onclick="submitSignup(true)">تخطي هالخطوة، رح أضيفه لاحقاً</div>
+    <div class="error-text" id="err-3"></div>
+  </div>
+
+  <!-- شاشة النجاح -->
+  <div class="panel" id="panel-done">
+    <div class="done-screen">
+      <div class="done-emoji">⏳</div>
+      <div class="done-title">تم إرسال طلبك بنجاح</div>
+      <div class="done-text">حسابك الآن <b>قيد المراجعة</b>. رح نتحقق من بياناتك وصورك ونوافق عليك بأقرب وقت — بتقدر تجرب تسجل دخولك بعدين برقم هاتفك.</div>
+      <button class="btn-main" onclick="window.location.href='akleto-driver.html'">العودة لتسجيل الدخول</button>
+    </div>
+  </div>
+</div>
+
+<script>
+if ("serviceWorker" in navigator) {
+  window.addEventListener("load", () => { navigator.serviceWorker.register("./sw.js").catch(() => {}); });
+}
+</script>
+<script type="module">
+import { uploadImage } from "./firebase-init.js";
+import { findDriverByPhone, createDriverAccount } from "./driver-shared.js";
+import { JORDAN_CAR_MODELS } from "./jordan-vehicles.js";
+
+let currentStep = 1;
+const uploads = { photo: '', id_front: '', id_back: '', license: '', vlicense_front: '', vlicense_back: '' };
+const uploadKeyMap = {
+  photo: 'photo_url', id_front: 'id_front_url', id_back: 'id_back_url',
+  license: 'license_url', vlicense_front: 'vehicle_license_front_url', vlicense_back: 'vehicle_license_back_url'
+};
+let selectedModel = '';
+let vehicleType = '';
+
+function showErr(id, msg) {
+  const el = document.getElementById(id);
+  el.textContent = msg;
+  el.style.display = 'block';
+}
+function clearErr(id) { document.getElementById(id).style.display = 'none'; }
+
+function setStep(n) {
+  currentStep = n;
+  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.step-dot').forEach(d => {
+    const s = Number(d.dataset.s);
+    d.classList.toggle('active', s === n);
+    d.classList.toggle('done', s < n);
+  });
+  const titles = { 1: 'تسجيل حساب سائق', 2: 'الصور المطلوبة', 3: 'الحساب البنكي' };
+  document.getElementById('topTitle').textContent = titles[n] || 'تسجيل حساب سائق';
+  const bar = document.getElementById('stepsBar');
+  bar.style.display = n <= 3 ? 'flex' : 'none';
+  document.getElementById('panel-' + n).classList.add('active');
+  window.scrollTo(0, 0);
+}
+
+window.goBack = () => {
+  if (currentStep > 1 && currentStep <= 3) { setStep(currentStep - 1); return; }
+  window.location.href = 'akleto-driver.html';
+};
+
+window.onVehicleTypeChange = () => {
+  vehicleType = document.getElementById('f-vtype').value;
+  document.getElementById('f-model').value = '';
+  selectedModel = '';
+};
+
+window.filterModels = () => {
+  const box = document.getElementById('modelList');
+  const val = document.getElementById('f-model').value.trim();
+  if (!val) { box.classList.remove('show'); return; }
+  const matches = JORDAN_CAR_MODELS.filter(m => m.includes(val)).slice(0, 30);
+  if (!matches.length) {
+    box.innerHTML = `<div class="combo-empty">ما لقينا نتائج — اكتب الاسم كامل يدوياً وبنقبله</div>`;
+  } else {
+    box.innerHTML = matches.map(m => `<div class="combo-item" onclick="pickModel('${m.replace(/'/g, "\\'")}')">${m}</div>`).join('');
+  }
+  box.classList.add('show');
+};
+window.pickModel = (m) => {
+  document.getElementById('f-model').value = m;
+  selectedModel = m;
+  document.getElementById('modelList').classList.remove('show');
+};
+document.addEventListener('click', (e) => {
+  if (!e.target.closest('#modelFieldWrap')) document.getElementById('modelList').classList.remove('show');
+});
+
+window.goToStep2 = async () => {
+  clearErr('err-1');
+  const name = document.getElementById('f-name').value.trim();
+  const phone = document.getElementById('f-phone').value.trim();
+  const model = document.getElementById('f-model').value.trim();
+  const plate = document.getElementById('f-plate').value.trim();
+
+  const nameParts = name.split(/\s+/).filter(Boolean);
+  if (nameParts.length < 3) { showErr('err-1', 'لازم تكتب الاسم الكامل بثلاث مقاطع على الأقل (مثال: أحمد محمود العبدالله)'); return; }
+  if (!/^0\d{8,9}$/.test(phone)) { showErr('err-1', 'رقم الهاتف غير صحيح (مثال: 0791234567)'); return; }
+  if (!vehicleType) { showErr('err-1', 'اختر نوع المركبة'); return; }
+  if (!model) { showErr('err-1', 'اكتب الماركة والموديل'); return; }
+  if (!plate) { showErr('err-1', 'اكتب رقم لوحة المركبة'); return; }
+
+  const btn = document.getElementById('step1-btn');
+  btn.disabled = true; btn.textContent = 'جاري التحقق...';
+  try {
+    const existing = await findDriverByPhone(phone);
+    if (existing) {
+      showErr('err-1', 'هاد الرقم مسجّل عندنا مسبقاً — جرب تسجل دخول من الصفحة الرئيسية بدل التسجيل من جديد');
+      return;
+    }
+    window._signupData = { name, phone, vehicle_type: vehicleType, vehicle_make_model: model, plate_number: plate };
+    setStep(2);
+  } catch (e) {
+    console.error('phone check error', e);
+    showErr('err-1', 'صار خطأ بالتحقق — جرب مرة ثانية');
+  } finally {
+    btn.disabled = false; btn.textContent = 'التالي';
+  }
+};
+
+window.handlePhoto = async (input, key) => {
+  const file = input.files && input.files[0];
+  if (!file) return;
+  const box = document.getElementById('box-' + key);
+  const spin = document.createElement('div');
+  spin.className = 'ph-spin';
+  spin.textContent = 'جاري الرفع...';
+  box.appendChild(spin);
+  try {
+    const url = await uploadImage(file, 'driver_documents');
+    uploads[key] = url;
+    box.innerHTML = `<img src="${url}"><div class="ph-check">✓</div><input type="file" accept="image/*" capture="environment" onchange="handlePhoto(this,'${key}')">`;
+    box.classList.add('done');
+  } catch (e) {
+    console.error('upload error', key, e);
+    spin.remove();
+    alert('صار خطأ برفع الصورة — جرب مرة ثانية');
+  }
+};
+
+window.goToStep3 = () => {
+  clearErr('err-2');
+  const missing = Object.entries(uploads).filter(([, v]) => !v);
+  if (missing.length) { showErr('err-2', 'لازم ترفع كل الصور الست عشان تكمّل'); return; }
+  setStep(3);
+};
+
+window.submitSignup = async (skipIban) => {
+  clearErr('err-3');
+  const iban = skipIban ? '' : document.getElementById('f-iban').value.trim();
+  const btn = document.getElementById('step3-btn');
+  btn.disabled = true; btn.textContent = 'جاري الإرسال...';
+  try {
+    const payload = {
+      ...window._signupData,
+      photo_url: uploads.photo,
+      id_front_url: uploads.id_front,
+      id_back_url: uploads.id_back,
+      license_url: uploads.license,
+      vehicle_license_front_url: uploads.vlicense_front,
+      vehicle_license_back_url: uploads.vlicense_back,
+      iban
+    };
+    await createDriverAccount(payload);
+    setStep('done');
+  } catch (e) {
+    console.error('signup submit error', e);
+    showErr('err-3', 'صار خطأ بإرسال الطلب — تأكد من الإنترنت وجرب مرة ثانية');
+  } finally {
+    btn.disabled = false; btn.textContent = 'حفظ وإرسال الطلب';
+  }
+};
+</script>
+</body>
+</html>

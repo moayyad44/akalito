@@ -36,7 +36,18 @@
     color:#fff; font-weight:700; font-size:15px; display:flex; align-items:center; justify-content:center; gap:8px;
   }
   .btn-main:disabled { opacity:.5; }
+  .btn-ghost {
+    width:100%; padding:14px; border-radius:14px; border:1.5px solid var(--border); background:transparent;
+    color:var(--text); font-weight:600; font-size:14px; margin-top:12px;
+  }
   .error-text { color:var(--primary); font-size:12.5px; margin-top:10px; display:none; }
+  .divider { display:flex; align-items:center; gap:10px; color:var(--text30); font-size:12px; margin:22px 0; }
+  .divider::before, .divider::after { content:''; flex:1; height:1px; background:var(--border); }
+
+  .status-card { display:none; text-align:center; padding:20px; border-radius:16px; background:var(--surface); border:1.5px solid var(--border); margin-top:6px; }
+  .status-card .emoji { font-size:40px; margin-bottom:10px; }
+  .status-card .title { font-weight:800; font-size:16px; margin-bottom:6px; }
+  .status-card .desc { color:var(--text30); font-size:13px; line-height:1.7; margin-bottom:16px; }
 </style>
 </head>
 <body>
@@ -53,19 +64,27 @@
     </svg>
   </div>
   <h1>أكليتو للسائقين</h1>
-  <p>سجّل بياناتك عشان تبدأ تستلم طلبات التوصيل</p>
+  <p id="welcomeSub">سجّل دخولك برقم هاتفك عشان تبدأ تستلم طلبات التوصيل</p>
 
-  <div class="field-group">
-    <label>الاسم</label>
-    <input type="text" id="w-name" placeholder="مثال: أحمد محمود">
-  </div>
-  <div class="field-group">
-    <label>رقم الهاتف</label>
-    <input type="tel" id="w-phone" placeholder="مثال: 0791234567">
+  <div id="loginBox">
+    <div class="field-group">
+      <label>رقم الهاتف</label>
+      <input type="tel" id="w-phone" placeholder="مثال: 0791234567">
+    </div>
+
+    <button class="btn-main" id="w-start-btn" onclick="loginDriver()">دخول 🚀</button>
+    <div class="error-text" id="w-error"></div>
+
+    <div class="divider">أو</div>
+    <button class="btn-ghost" onclick="window.location.href='akleto-driver-signup.html'">ما عندي حساب — سجّل كسائق جديد</button>
   </div>
 
-  <button class="btn-main" id="w-start-btn" onclick="startDriverSession()">ابدأ 🚀</button>
-  <div class="error-text" id="w-error"></div>
+  <div class="status-card" id="statusCard">
+    <div class="emoji" id="statusEmoji">⏳</div>
+    <div class="title" id="statusTitle"></div>
+    <div class="desc" id="statusDesc"></div>
+    <button class="btn-ghost" onclick="resetLogin()">رجوع</button>
+  </div>
 </div>
 
 <script>
@@ -74,20 +93,27 @@ if ("serviceWorker" in navigator) {
 }
 </script>
 <script type="module">
-import { db, collection, addDoc, serverTimestamp, withTimeout } from "./firebase-init.js";
-import { getDriverSession, saveDriverSession } from "./driver-shared.js";
+import { getDriverSession, saveDriverSession, findDriverByPhone } from "./driver-shared.js";
 
-window.startDriverSession = async () => {
-  const name = document.getElementById('w-name').value.trim();
+window.resetLogin = () => {
+  document.getElementById('statusCard').style.display = 'none';
+  document.getElementById('loginBox').style.display = 'block';
+};
+
+function showStatus(emoji, title, desc) {
+  document.getElementById('loginBox').style.display = 'none';
+  const card = document.getElementById('statusCard');
+  document.getElementById('statusEmoji').textContent = emoji;
+  document.getElementById('statusTitle').textContent = title;
+  document.getElementById('statusDesc').textContent = desc;
+  card.style.display = 'block';
+}
+
+window.loginDriver = async () => {
   const phone = document.getElementById('w-phone').value.trim();
   const errBox = document.getElementById('w-error');
   errBox.style.display = 'none';
 
-  if (!name || !phone) {
-    errBox.textContent = 'لازم تكتب الاسم ورقم الهاتف';
-    errBox.style.display = 'block';
-    return;
-  }
   if (!/^0\d{8,9}$/.test(phone)) {
     errBox.textContent = 'رقم الهاتف غير صحيح (مثال: 0791234567)';
     errBox.style.display = 'block';
@@ -96,24 +122,37 @@ window.startDriverSession = async () => {
 
   const btn = document.getElementById('w-start-btn');
   btn.disabled = true;
-  btn.textContent = 'جاري التحضير...';
+  btn.textContent = 'جاري التحقق...';
 
   try {
-    const newRef = await withTimeout(
-      addDoc(collection(db, 'drivers'), {
-        name, phone, is_active: true, is_available: false, deliveries_count: 0, created_at: serverTimestamp()
-      }),
-      15000, 'انتهت مهلة الاتصال — تأكد من الإنترنت'
-    );
-    saveDriverSession(newRef.id, name, phone);
+    const driver = await findDriverByPhone(phone);
+
+    if (!driver) {
+      showStatus('🤔', 'ما لقينا حساب بهاد الرقم', 'تأكد من الرقم، أو سجّل كسائق جديد من الصفحة الرئيسية.');
+      return;
+    }
+    if (driver.approval_status === 'rejected') {
+      showStatus('🚫', 'طلبك ما تم قبوله', 'للاستفسار تواصل معنا مباشرة.');
+      return;
+    }
+    if (driver.approval_status === 'pending') {
+      showStatus('⏳', 'حسابك قيد المراجعة', 'رح نتحقق من بياناتك وصورك ونوافق عليك بأقرب وقت. جرب ترجع تسجل دخول بعد فترة.');
+      return;
+    }
+    if (driver.is_active === false) {
+      showStatus('⛔', 'حسابك موقوف حالياً', 'للاستفسار عن سبب الإيقاف تواصل معنا مباشرة.');
+      return;
+    }
+
+    saveDriverSession(driver.id, driver.name, driver.phone);
     window.location.href = 'akleto-driver-home.html';
   } catch (e) {
-    console.error('driver signup error', e);
+    console.error('driver login error', e);
     errBox.textContent = 'صار خطأ — جرب مرة ثانية';
     errBox.style.display = 'block';
   } finally {
     btn.disabled = false;
-    btn.textContent = 'ابدأ 🚀';
+    btn.textContent = 'دخول 🚀';
   }
 };
 

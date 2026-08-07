@@ -5,7 +5,7 @@
 // ══════════════════════════════════════════════════════════
 import {
   db, doc, updateDoc, deleteDoc, collection, query, where, onSnapshot,
-  serverTimestamp, withTimeout, addDoc, getDoc
+  serverTimestamp, withTimeout, addDoc, getDoc, getDocs
 } from "./firebase-init.js";
 
 export const DRIVER_STORAGE_KEY = 'akleto_driver_id';
@@ -14,6 +14,53 @@ export const DRIVER_PHONE_KEY = 'akleto_driver_phone';
 export const DRIVER_AVAIL_KEY = 'akleto_driver_available';
 export const DRIVER_SHIFT_ID_KEY = 'akleto_driver_shift_id';
 export const DRIVER_NOTIF_SEEN_KEY = 'akleto_driver_notif_seen';
+
+/* ══════════════════════════════════════════════════════════
+   نظام تسجيل حساب السائق + الدخول برقم الهاتف
+   حالات المراجعة: pending (قيد المراجعة) / approved (مقبول) / rejected (مرفوض)
+   ══════════════════════════════════════════════════════════ */
+export const APPROVAL_PENDING = 'pending';
+export const APPROVAL_APPROVED = 'approved';
+export const APPROVAL_REJECTED = 'rejected';
+
+/* يبحث عن سائق برقم هاتفه — يرجع أول نتيجة أو null. يُستخدم بالتسجيل (منع تكرار) وبالدخول. */
+export async function findDriverByPhone(phone) {
+  const q = query(collection(db, 'drivers'), where('phone', '==', phone));
+  const snap = await withTimeout(getDocs(q), 15000, 'انتهت مهلة الاتصال — تأكد من الإنترنت');
+  if (snap.empty) return null;
+  const d = snap.docs[0];
+  return { id: d.id, ...d.data() };
+}
+
+/* ينشئ حساب سائق جديد بحالة "قيد المراجعة" */
+export async function createDriverAccount(data) {
+  const payload = {
+    name: data.name,
+    phone: data.phone,
+    vehicle_type: data.vehicle_type,
+    vehicle_make_model: data.vehicle_make_model || '',
+    plate_number: data.plate_number,
+    photo_url: data.photo_url,
+    id_front_url: data.id_front_url,
+    id_back_url: data.id_back_url,
+    license_url: data.license_url,
+    vehicle_license_front_url: data.vehicle_license_front_url,
+    vehicle_license_back_url: data.vehicle_license_back_url,
+    iban: data.iban || '',
+    approval_status: APPROVAL_PENDING,
+    is_active: true,
+    is_available: false,
+    deliveries_count: 0,
+    created_at: serverTimestamp()
+  };
+  const ref = await withTimeout(addDoc(collection(db, 'drivers'), payload), 20000, 'انتهت مهلة الحفظ — تأكد من الإنترنت');
+  return ref.id;
+}
+
+/* يضيف/يحدّث الآيبان لسائق موجود أصلاً (يُستخدم لو تخطى مرحلة الآيبان بالتسجيل وحبّ يضيفه لاحقاً) */
+export function updateDriverIban(driverId, iban) {
+  return withTimeout(updateDoc(doc(db, 'drivers', driverId), { iban }), 15000, 'انتهت مهلة الحفظ — تأكد من الإنترنت');
+}
 
 // ⚠️ قيمة عمولة افتراضية احتياطية (تُستخدم فقط لحد ما توصل إعدادات الأدمن الفعلية من Firestore،
 // أو لو الأدمن لسا ما حفظ أي إعداد). القيمة الحقيقية تُدار الآن من لوحة الأدمن

@@ -735,3 +735,26 @@ export function mountActiveOrderGuard(session) {
     aogRenderOrder(active);
   });
 }
+
+/* ══════════════════════════════════════════════════════════
+   زر الرجوع الفيزيائي (Android hardware back button) — تطبيق
+   السائق مبني من صفحات منفصلة حقيقية (location.href)، فأصلاً
+   السلوك الافتراضي لـ Capacitor بيتنقّل صح بينهم. الإضافة هون
+   بس لحالة الصفحة الرئيسية (akleto-driver-home.html) — لأنها
+   "الجذر"، لازم الرجوع منها يطلع من التطبيق مباشرة بدل ما يحاول
+   يرجع لصفحة تسجيل الدخول. يشتغل تلقائياً بمجرد استيراد هالملف،
+   بدون حاجة لاستدعاء أي دالة من الصفحة نفسها.
+   ══════════════════════════════════════════════════════════ */
+(function setupDriverHardwareBackButton() {
+  const Capacitor = window.Capacitor;
+  if (!Capacitor || !Capacitor.isNativePlatform || !Capacitor.isNativePlatform()) return;
+  const AppPlugin = Capacitor.Plugins && Capacitor.Plugins.App;
+  if (!AppPlugin) return;
+
+  const isHomePage = /akleto-driver-home\.html/.test(window.location.pathname);
+
+  AppPlugin.addListener('backButton', () => {
+    if (isHomePage) { AppPlugin.exitApp(); return; }
+    window.location.href = 'akleto-driver-home.html';
+  });
+})();

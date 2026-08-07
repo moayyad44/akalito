@@ -993,6 +993,53 @@ import {
 
 function ticketCode(id) { return '#' + (id || '----').slice(-4).toUpperCase(); }
 
+/* ══════════════════════════════════════════════════════════
+   زر الرجوع الفيزيائي (Android hardware back button) — يشتغل
+   فقط جوا تطبيق أندرويد (Capacitor)، وبيتجاهل نفسه بالمتصفح
+   العادي. بيتحقق من أي شاشة/نافذة مفتوحة حالياً بترتيب
+   "الأعمق أولاً" ويسكّرها بنفس دالة الإغلاق المستخدمة بزر
+   الرجوع الداخلي (‹/✕) — وبالنهاية لو ما في شي مفتوح ولا احنا
+   بالشاشة الرئيسية، يطلع من التطبيق بدل ما يسكّر الصفحة بالخطأ.
+   ══════════════════════════════════════════════════════════ */
+function setupHardwareBackButton() {
+  const Capacitor = window.Capacitor;
+  if (!Capacitor || !Capacitor.isNativePlatform || !Capacitor.isNativePlatform()) return;
+  const AppPlugin = Capacitor.Plugins && Capacitor.Plugins.App;
+  if (!AppPlugin) return;
+
+  const isOpen = (id, byClass) => {
+    const el = document.getElementById(id);
+    if (!el) return false;
+    return byClass ? el.classList.contains('open') : !el.classList.contains('hidden');
+  };
+
+  AppPlugin.addListener('backButton', () => {
+    // (١) الأعمق: نموذج/شاشة عنوان جديد جوا شاشة العناوين
+    if (isOpen('addressFormScreen')) { window.closeAddressForm(); return; }
+    if (isOpen('addressesScreen')) { window.closeAddressesScreen(); return; }
+    if (isOpen('settingsScreen')) { window.closeSettingsScreen(); return; }
+    if (isOpen('orderConfirmScreen')) { window.closeOrderConfirm(); return; }
+    // (٢) النوافذ المنبثقة (sheets)
+    if (isOpen('mealSheet', true)) { window.closeMealSheet(); return; }
+    if (isOpen('productSheet', true)) { window.closeProductSheet(); return; }
+    if (isOpen('ingredientPickerSheet', true)) { window.closeIngredientPicker(); return; }
+    if (isOpen('notifSheet', true)) { window.closeNotifSheet(); return; }
+    if (isOpen('comingSoonSheet', true)) { window.closeComingSoon(); return; }
+    if (isOpen('csDrawer', true)) { window.closeCustomerMenu(); return; }
+    // (٣) شاشة "المنتجات" وهو متصفح منتجات متجر معيّن → رجّعه لقائمة المتاجر
+    const productsScreenVisible = isOpen('productsScreen');
+    const productsBrowseVisible = productsScreenVisible && isOpen('productsBrowseWrap');
+    if (productsBrowseVisible) { window.changeProductsStore(); return; }
+    // (٤) لسا بشاشة تسجيل الدخول (ما دخل عالتطبيق بعد) → اطلع من التطبيق مباشرة
+    if (!isOpen('appShell')) { AppPlugin.exitApp(); return; }
+    // (٥) بتبويب مو الرئيسية → رجّعه للرئيسية
+    const homeActive = document.getElementById('nav-home')?.classList.contains('active');
+    if (!homeActive) { window.switchScreen('home'); return; }
+    // (٦) ولا شي مفتوح واحنا بالرئيسية أصلاً → اطلع من التطبيق
+    AppPlugin.exitApp();
+  });
+}
+
 /* رقم الطلب المعروض — يفضّل الرقم التسلسلي الحقيقي order_number لو موجود، وإلا يرجع للرقم المشتق (fallback). */
 function orderDisplayCode(order) {
   if (order && order.order_number) return '#' + String(order.order_number).padStart(5, '0');
@@ -3137,6 +3184,7 @@ window.closeNotifSheet = () => document.getElementById('notifSheet').classList.r
 
 
 window.addEventListener('DOMContentLoaded', () => {
+  setupHardwareBackButton();
   const savedId = localStorage.getItem(CUSTOMER_STORAGE_KEY);
   if (savedId) {
     customerId = savedId;

@@ -25,6 +25,31 @@ import {
 } from "./firebase-init.js";
 
 let ingredientsCache = []; // {id, name_ar, measure_type, category, package_label, package_qty, price_per_package, image_url}
+
+/* ══════════════════════════════════════════════════════════
+   زر الرجوع الفيزيائي (Android hardware back button) — يسكّر
+   نوافذ "إضافة وجبة/مكوّن" المنبثقة لو مفتوحة، وإلا يطلع من
+   التطبيق (هاي الصفحة هي الجذر — باقي صفحات الإدارة صفحات
+   منفصلة حقيقية وبيرجع لها زر الرجوع تلقائياً بدون كود إضافي).
+   ══════════════════════════════════════════════════════════ */
+function setupAdminHardwareBackButton() {
+  const Capacitor = window.Capacitor;
+  if (!Capacitor || !Capacitor.isNativePlatform || !Capacitor.isNativePlatform()) return;
+  const AppPlugin = Capacitor.Plugins && Capacitor.Plugins.App;
+  if (!AppPlugin) return;
+
+  const isOpen = (id) => {
+    const el = document.getElementById(id);
+    return !!el && el.classList.contains('open');
+  };
+
+  AppPlugin.addListener('backButton', () => {
+    if (isOpen('addMealOverlay')) { window.closeAddMealModal(); return; }
+    if (isOpen('addIngredientOverlay')) { window.closeAddIngredientModal(); return; }
+    AppPlugin.exitApp();
+  });
+}
+
 let mealIngredientRows = []; // rows in the add-meal modal: {ingredientId, recipeUnit, recipeQty}
 let mealImageFile = null;
 let ingredientImageFile = null;
@@ -66,6 +91,7 @@ function showToast(message, isError) {
 
 
 window.addEventListener('DOMContentLoaded', () => {
+  setupAdminHardwareBackButton();
 
   onAuthStateChanged(auth, user => {
     if (!user) {

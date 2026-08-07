@@ -656,6 +656,37 @@ async function initStorePushNotifications(storeIdForPush) {
   }
 }
 
+/* ══════════════════════════════════════════════════════════
+   زر الرجوع الفيزيائي (Android hardware back button) — نفس
+   الفكرة المستخدمة بتطبيق الزبون: يسكّر أعمق نافذة/شاشة مفتوحة
+   بنفس دالة الإغلاق الداخلية، وبالنهاية يطلع من التطبيق بدل ما
+   يسكّر الصفحة بالغلط.
+   ══════════════════════════════════════════════════════════ */
+function setupStoreHardwareBackButton() {
+  const Capacitor = window.Capacitor;
+  if (!Capacitor || !Capacitor.isNativePlatform || !Capacitor.isNativePlatform()) return;
+  const AppPlugin = Capacitor.Plugins && Capacitor.Plugins.App;
+  if (!AppPlugin) return;
+
+  const isOpen = (id, byClass) => {
+    const el = document.getElementById(id);
+    if (!el) return false;
+    return byClass ? el.classList.contains('open') : !el.classList.contains('hidden');
+  };
+
+  AppPlugin.addListener('backButton', () => {
+    if (isOpen('imgLightbox')) { window.closeImgLightbox(); return; }
+    if (isOpen('storeOrderSheet', true)) { window.closeStoreOrderSheet(); return; }
+    if (isOpen('storeProductSheet', true)) { window.closeStoreProductSheet(); return; }
+    if (isOpen('notifSheet', true)) { window.closeNotifSheet(); return; }
+    if (isOpen('storeProductsScreen')) { window.closeStoreProducts(); return; }
+    if (isOpen('storeFinanceScreen')) { window.closeStoreFinance(); return; }
+    if (isOpen('csDrawerStore', true)) { window.closeStoreMenu(); return; }
+    // ما في شي مفتوح — إما لسا بشاشة الدخول، أو بالشاشة الرئيسية (الطلبات) → اطلع من التطبيق
+    AppPlugin.exitApp();
+  });
+}
+
 let notifItems = [];
 let notifBuckets = { all: [], mine: [] };
 let notifUnsubs = [];
@@ -1714,6 +1745,7 @@ window.closeNotifSheet = () => document.getElementById('notifSheet').classList.r
 
 
 window.addEventListener('DOMContentLoaded', () => {
+  setupStoreHardwareBackButton();
   const savedStoreId = localStorage.getItem(STORE_ID_KEY);
   if (savedStoreId) {
     storeId = savedStoreId;

@@ -82,6 +82,15 @@ export function watchUnreadNotifications(callback) {
   });
 }
 
+/* عدد طلبات تسجيل السائقين "قيد المراجعة" — يُستخدم لعرض شارة رقمية بجانب تبويب "السائقين" بالقائمة الجانبية */
+export function watchPendingDriversCount(callback) {
+  const q = query(collection(db, 'drivers'), where('approval_status', '==', 'pending'));
+  return onSnapshot(q, snap => callback(snap.size), err => {
+    console.error('watchPendingDriversCount error', err);
+    callback(0);
+  });
+}
+
 // ══════════════════════════════════════════════════════════
 // نظام "أنواع القياس" — مشترك بين شاشة المكونات، شاشة الوجبات، وتطبيق الزبون
 // كل مكوّن إله "نوع قياس" (وزن/حجم/عدد)، ومقاديره بالوصفة تُدخل بوحدات مطبخية

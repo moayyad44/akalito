@@ -54,6 +54,16 @@ export async function createDriverAccount(data) {
     created_at: serverTimestamp()
   };
   const ref = await withTimeout(addDoc(collection(db, 'drivers'), payload), 20000, 'انتهت مهلة الحفظ — تأكد من الإنترنت');
+
+  addDoc(collection(db, 'admin_notifications'), {
+    type: 'driver_signup',
+    title: `طلب تسجيل سائق جديد`,
+    message: `${data.name || 'سائق جديد'} قدّم طلب انضمام (${data.phone || ''}) — بانتظار المراجعة`,
+    related_id: ref.id,
+    created_at: serverTimestamp(),
+    read: false
+  }).catch(e => console.error('admin_notifications write error', e));
+
   return ref.id;
 }
 

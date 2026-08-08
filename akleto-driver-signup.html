@@ -261,9 +261,9 @@
   <!-- شاشة النجاح -->
   <div class="panel" id="panel-done">
     <div class="done-screen">
-      <div class="done-emoji">⏳</div>
-      <div class="done-title">تم إرسال طلبك بنجاح</div>
-      <div class="done-text">حسابك الآن <b>قيد المراجعة</b>. رح نتحقق من بياناتك وصورك ونوافق عليك بأقرب وقت — بتقدر تجرب تسجل دخولك بعدين برقم هاتفك.</div>
+      <div class="done-emoji" id="doneEmoji">⏳</div>
+      <div class="done-title" id="doneTitle">تم إرسال طلبك بنجاح</div>
+      <div class="done-text" id="doneText">حسابك الآن <b>قيد المراجعة</b>. رح نتحقق من بياناتك وصورك ونوافق عليك بأقرب وقت — بتقدر تجرب تسجل دخولك بعدين برقم هاتفك.</div>
       <button class="btn-main" onclick="window.location.href='akleto-driver.html'">العودة لتسجيل الدخول</button>
     </div>
   </div>
@@ -323,9 +323,12 @@ document.getElementById('ill-vlicense').innerHTML = `<div style="text-align:cent
   <div style="text-align:center;"><div style="font-size:11px;color:#9C8C82;margin-bottom:4px;">خلفي</div>${svgCardBack()}</div>`;
 </script>
 <script type="module">
-import { uploadImage } from "./firebase-init.js";
-import { findDriverByPhone, createDriverAccount } from "./driver-shared.js";
+import { uploadImage, db, doc, getDoc } from "./firebase-init.js";
+import { findDriverByPhone, createDriverAccount, resubmitDriverAccount } from "./driver-shared.js";
 import { JORDAN_CAR_MODELS } from "./jordan-vehicles.js";
+
+const urlParams = new URLSearchParams(window.location.search);
+const resubmitId = urlParams.get('resubmit'); // لو موجود، هاد تصحيح لطلب مرفوض سابقاً مو تسجيل جديد
 
 const STEP_ORDER = ['1', '2a', '2b', '2c', '2d', '3'];
 let currentStep = '1';
@@ -407,10 +410,12 @@ window.goToStep2 = async () => {
   const btn = document.getElementById('step1-btn');
   btn.disabled = true; btn.textContent = 'جاري التحقق...';
   try {
-    const existing = await findDriverByPhone(phone);
-    if (existing) {
-      showErr('err-1', 'هاد الرقم مسجّل عندنا مسبقاً — جرب تسجل دخول من الصفحة الرئيسية بدل التسجيل من جديد');
-      return;
+    if (!resubmitId) {
+      const existing = await findDriverByPhone(phone);
+      if (existing) {
+        showErr('err-1', 'هاد الرقم مسجّل عندنا مسبقاً — جرب تسجل دخول من الصفحة الرئيسية بدل التسجيل من جديد');
+        return;
+      }
     }
     window._signupData = { name, phone, vehicle_type: vehicleType, vehicle_make_model: model, plate_number: plate };
     setStep('2a');
@@ -514,7 +519,14 @@ window.submitSignup = async (skipIban) => {
       vehicle_license_back_url: uploads.vlicense_back,
       iban
     };
-    await createDriverAccount(payload);
+    if (resubmitId) {
+      await resubmitDriverAccount(resubmitId, payload);
+      document.getElementById('doneEmoji').textContent = '✅';
+      document.getElementById('doneTitle').textContent = 'تم إرسال طلبك المعدّل';
+      document.getElementById('doneText').innerHTML = 'رجعنا حسابك لحالة <b>قيد المراجعة</b> بعد التعديل. رح نراجعه من جديد بأقرب وقت.';
+    } else {
+      await createDriverAccount(payload);
+    }
     setStep('done');
   } catch (e) {
     console.error('signup submit error', e);
@@ -523,6 +535,31 @@ window.submitSignup = async (skipIban) => {
     btn.disabled = false; btn.textContent = 'حفظ وإرسال الطلب';
   }
 };
+
+/* لو الرابط جاي من شاشة "طلبك مرفوض" — نعبّي البيانات القديمة تلقائياً ونعرض سبب الرفض بأعلى الخطوة الأولى */
+if (resubmitId) {
+  (async () => {
+    try {
+      const snap = await getDoc(doc(db, 'drivers', resubmitId));
+      if (!snap.exists()) return;
+      const d = snap.data();
+      document.getElementById('f-name').value = d.name || '';
+      document.getElementById('f-phone').value = d.phone || '';
+      document.getElementById('f-vtype').value = d.vehicle_type || '';
+      document.getElementById('f-model').value = d.vehicle_make_model || '';
+      vehicleType = d.vehicle_type || '';
+      document.getElementById('f-plate').value = d.plate_number || '';
+      if (d.rejection_reason) {
+        const banner = document.createElement('div');
+        banner.style.cssText = 'background:rgba(217,83,79,0.08);border:1px solid rgba(217,83,79,0.25);border-radius:12px;padding:12px 14px;font-size:13px;margin-bottom:16px;';
+        banner.innerHTML = `<b>سبب رفض طلبك السابق:</b> ${d.rejection_reason}<br><span style="color:var(--text30);">صحّح المطلوب وأعد رفع الصور كاملة.</span>`;
+        document.getElementById('panel-1').insertBefore(banner, document.getElementById('panel-1').firstChild.nextSibling);
+      }
+    } catch (e) {
+      console.error('load resubmit data error', e);
+    }
+  })();
+}
 </script>
 </body>
 </html>

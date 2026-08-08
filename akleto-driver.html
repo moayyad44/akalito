@@ -82,7 +82,8 @@
   <div class="status-card" id="statusCard">
     <div class="emoji" id="statusEmoji">⏳</div>
     <div class="title" id="statusTitle"></div>
-    <div class="desc" id="statusDesc"></div>
+    <div class="desc" id="statusDesc" style="white-space:pre-line;"></div>
+    <button class="btn-main" id="resubmitBtn" style="display:none;margin-bottom:10px;">صلّح البيانات وأعد الإرسال ✏️</button>
     <button class="btn-ghost" onclick="resetLogin()">رجوع</button>
   </div>
 </div>
@@ -106,6 +107,7 @@ function showStatus(emoji, title, desc) {
   document.getElementById('statusEmoji').textContent = emoji;
   document.getElementById('statusTitle').textContent = title;
   document.getElementById('statusDesc').textContent = desc;
+  document.getElementById('resubmitBtn').style.display = 'none';
   card.style.display = 'block';
 }
 
@@ -132,7 +134,12 @@ window.loginDriver = async () => {
       return;
     }
     if (driver.approval_status === 'rejected') {
-      showStatus('🚫', 'طلبك ما تم قبوله', 'للاستفسار تواصل معنا مباشرة.');
+      const reasonText = driver.rejection_reason ? `السبب: ${driver.rejection_reason}\n\nصلّح الملاحظة وأعد التقديم.` : 'للاستفسار تواصل معنا مباشرة.';
+      showStatus('🚫', 'طلبك ما تم قبوله', reasonText);
+      document.getElementById('resubmitBtn').style.display = driver.rejection_reason ? 'block' : 'none';
+      document.getElementById('resubmitBtn').onclick = () => {
+        window.location.href = 'akleto-driver-signup.html?resubmit=' + driver.id;
+      };
       return;
     }
     if (driver.approval_status === 'pending') {

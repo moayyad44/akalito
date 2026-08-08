@@ -194,6 +194,10 @@ window.addEventListener('DOMContentLoaded', () => {
           <button type="button" class="ing-remove" style="flex:1;background:var(--green,#65743A);color:#fff;" onclick="approveDriver('${d.id}')">قبول الطلب ✅</button>
           <button type="button" class="ing-remove" style="flex:1;" onclick="rejectDriver('${d.id}')">رفض الطلب ❌</button>
         </div>` : ''}
+      ${d.approval_status === 'rejected' && d.rejection_reason ? `
+        <div style="margin-top:14px;padding:12px 14px;border-radius:12px;background:rgba(217,83,79,0.08);border:1px solid rgba(217,83,79,0.25);font-size:13px;">
+          <b>سبب الرفض:</b> ${d.rejection_reason}
+        </div>` : ''}
     `;
     overlay.classList.add('open');
   };
@@ -215,11 +219,14 @@ window.addEventListener('DOMContentLoaded', () => {
   };
 
   window.rejectDriver = async (id) => {
-    if (!confirm('تأكيد رفض هذا الطلب؟')) return;
+    const reason = prompt('اكتب سبب رفض الطلب — هالسبب رح يظهر للسائق (مثلاً: الصور غير واضحة):');
+    if (reason === null) return; // ألغى العملية
+    const trimmed = reason.trim();
+    if (!trimmed) { showToast('لازم تكتب سبب الرفض ❌', true); return; }
     try {
-      await withTimeout(updateDoc(doc(db, 'drivers', id), { approval_status: 'rejected' }), 15000, 'انتهت مهلة الحفظ — تأكد من الإنترنت');
+      await withTimeout(updateDoc(doc(db, 'drivers', id), { approval_status: 'rejected', rejection_reason: trimmed }), 15000, 'انتهت مهلة الحفظ — تأكد من الإنترنت');
       const d = driversCache.find(x => x.id === id);
-      if (d) d.approval_status = 'rejected';
+      if (d) { d.approval_status = 'rejected'; d.rejection_reason = trimmed; }
       closeDriverModal();
       renderDrivers();
       showToast('تم رفض الطلب');

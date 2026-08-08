@@ -239,8 +239,30 @@
         <input type="file" accept="image/*" capture="environment" onchange="handlePhoto(this,'vlicense_back')">
       </div>
     </div>
-    <button class="btn-main" id="step2d-btn" onclick="goToStep3()">التالي</button>
+    <button class="btn-main" id="step2d-btn" onclick="goToPhotoStep('2e')">التالي</button>
     <div class="error-text" id="err-2d"></div>
+  </div>
+
+  <!-- خطوة 2هـ: شهادة عدم محكومية -->
+  <div class="panel" id="panel-2e">
+    <div class="panel-title">شهادة عدم محكومية</div>
+    <div class="panel-sub">مطلوبة لسلامة الزبائن — لازم تكون شهادة حديثة (صادرة خلال آخر 3 أشهر).</div>
+    <div class="guide-card">
+      <div class="guide-illustration" id="ill-clearance"></div>
+      <ul class="guide-tips">
+        <li>الشهادة صادرة من الجهة الرسمية (الأحوال المدنية / نقطة الشرطة)</li>
+        <li>حديثة — خلال آخر 3 أشهر من تاريخ التسجيل</li>
+        <li>كل البيانات والختم الرسمي واضحين بالصورة</li>
+      </ul>
+    </div>
+    <div class="photo-grid single">
+      <div class="photo-box" id="box-clearance">
+        <span class="ph-icon">📜</span><span class="ph-label">ارفع شهادة عدم المحكومية</span>
+        <input type="file" accept="image/*" capture="environment" onchange="handlePhoto(this,'clearance')">
+      </div>
+    </div>
+    <button class="btn-main" id="step2e-btn" onclick="goToStep3()">التالي</button>
+    <div class="error-text" id="err-2e"></div>
   </div>
 
   <!-- خطوة 3: الآيبان -->
@@ -321,6 +343,7 @@ document.getElementById('ill-id').innerHTML = `<div style="text-align:center;"><
 document.getElementById('ill-license').innerHTML = `<div style="text-align:center;">${svgCardFront()}</div>`;
 document.getElementById('ill-vlicense').innerHTML = `<div style="text-align:center;"><div style="font-size:11px;color:#9C8C82;margin-bottom:4px;">أمامي</div>${svgVehicleCard()}</div>
   <div style="text-align:center;"><div style="font-size:11px;color:#9C8C82;margin-bottom:4px;">خلفي</div>${svgCardBack()}</div>`;
+document.getElementById('ill-clearance').innerHTML = `<div style="text-align:center;">${svgCardFront()}</div>`;
 </script>
 <script type="module">
 import { uploadImage, db, doc, getDoc } from "./firebase-init.js";
@@ -330,9 +353,9 @@ import { JORDAN_CAR_MODELS } from "./jordan-vehicles.js";
 const urlParams = new URLSearchParams(window.location.search);
 const resubmitId = urlParams.get('resubmit'); // لو موجود، هاد تصحيح لطلب مرفوض سابقاً مو تسجيل جديد
 
-const STEP_ORDER = ['1', '2a', '2b', '2c', '2d', '3'];
+const STEP_ORDER = ['1', '2a', '2b', '2c', '2d', '2e', '3'];
 let currentStep = '1';
-const uploads = { photo: '', id_front: '', id_back: '', license: '', vlicense_front: '', vlicense_back: '' };
+const uploads = { photo: '', id_front: '', id_back: '', license: '', vlicense_front: '', vlicense_back: '', clearance: '' };
 let selectedModel = '';
 let vehicleType = '';
 
@@ -358,7 +381,7 @@ function setStep(n) {
     d.classList.toggle('active', dIdx === idx);
     d.classList.toggle('done', dIdx >= 0 && idx >= 0 && dIdx < idx);
   });
-  const titles = { '1': 'بياناتك ومركبتك', '2a': 'الصورة الشخصية', '2b': 'الهوية الشخصية', '2c': 'رخصة القيادة', '2d': 'رخصة المركبة', '3': 'الحساب البنكي' };
+  const titles = { '1': 'بياناتك ومركبتك', '2a': 'الصورة الشخصية', '2b': 'الهوية الشخصية', '2c': 'رخصة القيادة', '2d': 'رخصة المركبة', '2e': 'شهادة عدم محكومية', '3': 'الحساب البنكي' };
   document.getElementById('topTitle').textContent = titles[n] || 'تسجيل حساب سائق';
   document.getElementById('stepsBar').style.display = idx >= 0 ? 'flex' : 'none';
   document.getElementById('panel-' + n).classList.add('active');
@@ -485,7 +508,8 @@ window.handlePhoto = async (input, key) => {
 window.goToPhotoStep = (nextStep) => {
   const checkMap = { '2b': ['photo', 'err-2a', 'لازم ترفع الصورة الشخصية عشان تكمّل'],
                       '2c': ['id_front,id_back', 'err-2b', 'لازم ترفع صورتي الهوية (الوجهين) عشان تكمّل'],
-                      '2d': ['license', 'err-2c', 'لازم ترفع صورة رخصة القيادة عشان تكمّل'] };
+                      '2d': ['license', 'err-2c', 'لازم ترفع صورة رخصة القيادة عشان تكمّل'],
+                      '2e': ['vlicense_front,vlicense_back', 'err-2d', 'لازم ترفع صورتي رخصة المركبة (الوجهين) عشان تكمّل'] };
   const [keysStr, errId, msg] = checkMap[nextStep];
   clearErr(errId);
   const keys = keysStr.split(',');
@@ -495,9 +519,9 @@ window.goToPhotoStep = (nextStep) => {
 };
 
 window.goToStep3 = () => {
-  clearErr('err-2d');
-  if (!uploads.vlicense_front || !uploads.vlicense_back) {
-    showErr('err-2d', 'لازم ترفع صورتي رخصة المركبة (الوجهين) عشان تكمّل');
+  clearErr('err-2e');
+  if (!uploads.clearance) {
+    showErr('err-2e', 'لازم ترفع صورة شهادة عدم المحكومية عشان تكمّل');
     return;
   }
   setStep('3');
@@ -517,6 +541,7 @@ window.submitSignup = async (skipIban) => {
       license_url: uploads.license,
       vehicle_license_front_url: uploads.vlicense_front,
       vehicle_license_back_url: uploads.vlicense_back,
+      clearance_certificate_url: uploads.clearance,
       iban
     };
     if (resubmitId) {

@@ -34,16 +34,21 @@ const CUSTOMER_STATUS_MESSAGES = {
   cancelled: { title: "تم إلغاء طلبك ❌", body: "للأسف تم إلغاء طلبك. تواصل معنا لأي استفسار." },
 };
 
-/* يبعت إشعار FCM واحد لتوكن معيّن، وبيتعامل بهدوء مع توكن غير صالح/منتهي */
-async function sendPush(token, title, body, data = {}) {
+/* يبعت إشعار FCM واحد لتوكن معيّن، وبيتعامل بهدوء مع توكن غير صالح/منتهي
+   fullScreenAlert=true → data-only بدون notification block (تنبيهات طلبات السائق فقط) —
+   عشان تضمن استدعاء onMessageReceived بكود التطبيق حتى لو التطبيق مسكّر تماماً،
+   وتسمح ببناء إشعار "Full-Screen Intent" يفتح التطبيق فوق شاشة القفل. */
+async function sendPush(token, title, body, data = {}, fullScreenAlert = false) {
   if (!token) return;
   try {
-    await messaging.send({
+    const stringData = Object.fromEntries(Object.entries(data).map(([k, v]) => [k, String(v)]));
+    const payload = {
       token,
-      notification: { title, body },
-      data: Object.fromEntries(Object.entries(data).map(([k, v]) => [k, String(v)])),
+      data: fullScreenAlert ? { ...stringData, title, body } : stringData,
       android: { priority: "high" },
-    });
+    };
+    if (!fullScreenAlert) payload.notification = { title, body };
+    await messaging.send(payload);
   } catch (e) {
     console.error("فشل إرسال إشعار FCM:", e.message || e);
     // توكن غير صالح (مثلاً المستخدم حذف التطبيق) — ما في داعي نكرر المحاولة
@@ -83,7 +88,8 @@ exports.onOrderUpdated = onDocumentUpdated("orders/{orderId}", async (event) => 
         token,
         "طلب جديد إلك 🚴",
         "تم تعيين طلب جديد إلك — افتح التطبيق للتفاصيل.",
-        { type: "order_assigned", order_id: orderId }
+        { type: "order_assigned", order_id: orderId },
+        true
       );
     } catch (e) {
       console.error("خطأ جلب توكن السائق:", e.message || e);
@@ -136,7 +142,7 @@ exports.onOrderReady = onDocumentUpdated("orders/{orderId}", async (event) => {
         sendPush(token, "طلب جديد متاح 📦", "في طلب جديد جاهز بانتظار سائق — افتح التطبيق.", {
           type: "order_available",
           order_id: event.params.orderId,
-        })
+        }, true)
       )
     );
   } catch (e) {

@@ -23,10 +23,10 @@
 
   .wrap { max-width:520px; margin:0 auto; padding:20px 20px 100px; }
   .top-bar { display:flex; align-items:center; gap:12px; padding:14px 0; position:sticky; top:0; background:var(--bg); z-index:5; }
-  .back-btn { width:38px; height:38px; border-radius:50%; border:1.5px solid var(--border); background:var(--surface); display:flex; align-items:center; justify-content:center; font-size:18px; color:var(--text); }
+  .back-btn { width:38px; height:38px; border-radius:50%; border:1.5px solid var(--border); background:var(--surface); display:flex; align-items:center; justify-content:center; font-size:18px; color:var(--text); flex-shrink:0; }
   .top-title { font-family:'Tajawal',sans-serif; font-weight:700; font-size:17px; }
 
-  .steps-bar { display:flex; gap:6px; margin:10px 0 24px; }
+  .steps-bar { display:flex; gap:5px; margin:10px 0 24px; }
   .step-dot { flex:1; height:5px; border-radius:4px; background:var(--border); transition:.25s; }
   .step-dot.active, .step-dot.done { background:var(--primary); }
 
@@ -46,7 +46,6 @@
   .field-group input:focus, .field-group select:focus { outline:none; border-color:var(--primary); }
   .field-hint { font-size:11.5px; color:var(--text30); margin-top:5px; }
 
-  /* dropdown بحث السيارة */
   .combo-list { position:absolute; top:100%; right:0; left:0; z-index:20; background:var(--surface); border:1.5px solid var(--border);
     border-radius:12px; margin-top:4px; max-height:230px; overflow-y:auto; box-shadow:0 8px 24px rgba(0,0,0,.1); display:none; }
   .combo-list.show { display:block; }
@@ -66,9 +65,17 @@
   }
   .error-text { color:var(--primary); font-size:12.5px; margin-top:10px; display:none; text-align:center; }
 
-  /* رفع الصور */
+  /* بطاقة إرشادات كل صورة */
+  .guide-card { background:var(--surface); border:1.5px solid var(--border); border-radius:16px; padding:16px; margin-bottom:18px; }
+  .guide-illustration { display:flex; justify-content:center; gap:14px; margin-bottom:14px; flex-wrap:wrap; }
+  .guide-illustration svg { border-radius:10px; background:var(--bg); }
+  .guide-tips { list-style:none; }
+  .guide-tips li { font-size:13px; display:flex; align-items:flex-start; gap:8px; margin-bottom:8px; line-height:1.5; }
+  .guide-tips li::before { content:'✔'; color:var(--green); font-weight:700; flex-shrink:0; }
+
   .photo-grid { display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:8px; }
-  .photo-slot { position:relative; }
+  .photo-grid.single { grid-template-columns:1fr; max-width:220px; margin:0 auto 8px; }
+  .photo-slot {}
   .photo-box {
     aspect-ratio:1/1; border-radius:14px; border:1.5px dashed var(--border); background:var(--surface);
     display:flex; flex-direction:column; align-items:center; justify-content:center; gap:6px; overflow:hidden; position:relative;
@@ -78,7 +85,7 @@
   .photo-box .ph-label { font-size:11.5px; color:var(--text30); text-align:center; padding:0 6px; font-weight:600; }
   .photo-box.done { border-style:solid; border-color:var(--green); }
   .photo-box .ph-check { position:absolute; top:6px; left:6px; width:22px; height:22px; border-radius:50%; background:var(--green); color:#fff; display:flex; align-items:center; justify-content:center; font-size:12px; }
-  .photo-box .ph-spin { position:absolute; inset:0; background:rgba(255,255,255,.8); display:flex; align-items:center; justify-content:center; font-size:12px; color:var(--primary); font-weight:700; }
+  .photo-box .ph-spin { position:absolute; inset:0; background:rgba(255,255,255,.92); display:flex; align-items:center; justify-content:center; font-size:12px; color:var(--primary); font-weight:700; text-align:center; padding:8px; }
   .photo-box input[type=file] { position:absolute; inset:0; opacity:0; cursor:pointer; }
 
   .skip-link { text-align:center; color:var(--text30); font-size:13px; margin-top:14px; text-decoration:underline; cursor:pointer; }
@@ -97,11 +104,7 @@
     <div class="top-title" id="topTitle">تسجيل حساب سائق</div>
   </div>
 
-  <div class="steps-bar" id="stepsBar">
-    <div class="step-dot active" data-s="1"></div>
-    <div class="step-dot" data-s="2"></div>
-    <div class="step-dot" data-s="3"></div>
-  </div>
+  <div class="steps-bar" id="stepsBar"></div>
 
   <!-- خطوة 1: المعلومات الشخصية والمركبة -->
   <div class="panel active" id="panel-1">
@@ -121,7 +124,7 @@
 
     <div class="field-group">
       <label>نوع المركبة</label>
-      <select id="f-vtype" onchange="onVehicleTypeChange()">
+      <select id="f-vtype">
         <option value="">اختر نوع المركبة</option>
         <option value="car">سيارة</option>
         <option value="motorcycle">دراجة نارية</option>
@@ -133,6 +136,7 @@
       <label>الماركة والموديل</label>
       <input type="text" id="f-model" placeholder="اكتب عشان تبحث... مثال: هيونداي" autocomplete="off" oninput="filterModels()" onfocus="filterModels()">
       <div class="combo-list" id="modelList"></div>
+      <div class="field-hint">مش لاقي مركبتك بالقائمة؟ ولا مشكلة — اكتب الماركة والموديل يدوياً بنفس الحقل وبنقبلها.</div>
     </div>
 
     <div class="field-group">
@@ -144,52 +148,99 @@
     <div class="error-text" id="err-1"></div>
   </div>
 
-  <!-- خطوة 2: الصور -->
-  <div class="panel" id="panel-2">
-    <div class="panel-title">الصور المطلوبة</div>
-    <div class="panel-sub">صوّر بوضوح وتأكد إن الكتابة واضحة بكل صورة. لازم ترفع الصور الست عشان تكمّل.</div>
-
-    <div class="photo-grid">
-      <div class="photo-slot">
-        <div class="photo-box" id="box-photo">
-          <span class="ph-icon">🧑</span><span class="ph-label">صورتك الشخصية</span>
-          <input type="file" accept="image/*" capture="environment" onchange="handlePhoto(this,'photo')">
-        </div>
-      </div>
-      <div class="photo-slot">
-        <div class="photo-box" id="box-id_front">
-          <span class="ph-icon">🪪</span><span class="ph-label">الهوية — الوجه الأول</span>
-          <input type="file" accept="image/*" capture="environment" onchange="handlePhoto(this,'id_front')">
-        </div>
-      </div>
-      <div class="photo-slot">
-        <div class="photo-box" id="box-id_back">
-          <span class="ph-icon">🪪</span><span class="ph-label">الهوية — الوجه الثاني</span>
-          <input type="file" accept="image/*" capture="environment" onchange="handlePhoto(this,'id_back')">
-        </div>
-      </div>
-      <div class="photo-slot">
-        <div class="photo-box" id="box-license">
-          <span class="ph-icon">🚦</span><span class="ph-label">رخصة القيادة</span>
-          <input type="file" accept="image/*" capture="environment" onchange="handlePhoto(this,'license')">
-        </div>
-      </div>
-      <div class="photo-slot">
-        <div class="photo-box" id="box-vlicense_front">
-          <span class="ph-icon">📄</span><span class="ph-label">رخصة المركبة — الوجه الأول</span>
-          <input type="file" accept="image/*" capture="environment" onchange="handlePhoto(this,'vlicense_front')">
-        </div>
-      </div>
-      <div class="photo-slot">
-        <div class="photo-box" id="box-vlicense_back">
-          <span class="ph-icon">📄</span><span class="ph-label">رخصة المركبة — الوجه الثاني</span>
-          <input type="file" accept="image/*" capture="environment" onchange="handlePhoto(this,'vlicense_back')">
-        </div>
+  <!-- خطوة 2أ: الصورة الشخصية -->
+  <div class="panel" id="panel-2a">
+    <div class="panel-title">الصورة الشخصية</div>
+    <div class="panel-sub">هاي الصورة بتظهر للزبون والمتجر لما تستلم طلبهم.</div>
+    <div class="guide-card">
+      <div class="guide-illustration" id="ill-personal"></div>
+      <ul class="guide-tips">
+        <li>خلفية بيضاء أو فاتحة وموحّدة</li>
+        <li>اخلع النظارات إن وجدت</li>
+        <li>صورة واضحة بدون غباش وبإضاءة كافية</li>
+        <li>وجهك بالكامل وناظر للكاميرا مباشرة</li>
+      </ul>
+    </div>
+    <div class="photo-grid single">
+      <div class="photo-box" id="box-photo">
+        <span class="ph-icon">🧑</span><span class="ph-label">ارفع الصورة الشخصية</span>
+        <input type="file" accept="image/*" capture="environment" onchange="handlePhoto(this,'photo')">
       </div>
     </div>
+    <button class="btn-main" id="step2a-btn" onclick="goToPhotoStep('2b')">التالي</button>
+    <div class="error-text" id="err-2a"></div>
+  </div>
 
-    <button class="btn-main" id="step2-btn" onclick="goToStep3()">التالي</button>
-    <div class="error-text" id="err-2"></div>
+  <!-- خطوة 2ب: الهوية الشخصية -->
+  <div class="panel" id="panel-2b">
+    <div class="panel-title">الهوية الشخصية</div>
+    <div class="panel-sub">صوّر بطاقة الأحوال المدنية الأردنية من الوجهين.</div>
+    <div class="guide-card">
+      <div class="guide-illustration" id="ill-id"></div>
+      <ul class="guide-tips">
+        <li>البطاقة كاملة داخل الصورة وبدون قص أطراف</li>
+        <li>كل الكتابة والأرقام واضحة ومقروءة</li>
+        <li>بدون انعكاس ضوء يغطي النص</li>
+      </ul>
+    </div>
+    <div class="photo-grid">
+      <div class="photo-box" id="box-id_front">
+        <span class="ph-icon">🪪</span><span class="ph-label">الوجه الأمامي</span>
+        <input type="file" accept="image/*" capture="environment" onchange="handlePhoto(this,'id_front')">
+      </div>
+      <div class="photo-box" id="box-id_back">
+        <span class="ph-icon">🪪</span><span class="ph-label">الوجه الخلفي</span>
+        <input type="file" accept="image/*" capture="environment" onchange="handlePhoto(this,'id_back')">
+      </div>
+    </div>
+    <button class="btn-main" id="step2b-btn" onclick="goToPhotoStep('2c')">التالي</button>
+    <div class="error-text" id="err-2b"></div>
+  </div>
+
+  <!-- خطوة 2ج: رخصة القيادة -->
+  <div class="panel" id="panel-2c">
+    <div class="panel-title">رخصة القيادة</div>
+    <div class="panel-sub">صوّر رخصة القيادة الأردنية — الوجه الأمامي فقط.</div>
+    <div class="guide-card">
+      <div class="guide-illustration" id="ill-license"></div>
+      <ul class="guide-tips">
+        <li>الرخصة سارية المفعول وغير منتهية</li>
+        <li>الصورة والبيانات المطبوعة واضحة</li>
+      </ul>
+    </div>
+    <div class="photo-grid single">
+      <div class="photo-box" id="box-license">
+        <span class="ph-icon">🚦</span><span class="ph-label">الوجه الأمامي لرخصة القيادة</span>
+        <input type="file" accept="image/*" capture="environment" onchange="handlePhoto(this,'license')">
+      </div>
+    </div>
+    <button class="btn-main" id="step2c-btn" onclick="goToPhotoStep('2d')">التالي</button>
+    <div class="error-text" id="err-2c"></div>
+  </div>
+
+  <!-- خطوة 2د: رخصة المركبة -->
+  <div class="panel" id="panel-2d">
+    <div class="panel-title">رخصة المركبة</div>
+    <div class="panel-sub">صوّر رخصة (دفتر) المركبة الأردنية من الوجهين.</div>
+    <div class="guide-card">
+      <div class="guide-illustration" id="ill-vlicense"></div>
+      <ul class="guide-tips">
+        <li>رقم اللوحة بالرخصة مطابق للي كتبته بالخطوة الأولى</li>
+        <li>الرخصة سارية المفعول</li>
+      </ul>
+    </div>
+    <div class="photo-grid">
+      <div class="photo-box" id="box-vlicense_front">
+        <span class="ph-icon">📄</span><span class="ph-label">الوجه الأمامي</span>
+        <input type="file" accept="image/*" capture="environment" onchange="handlePhoto(this,'vlicense_front')">
+      </div>
+      <div class="photo-box" id="box-vlicense_back">
+        <span class="ph-icon">📄</span><span class="ph-label">الوجه الخلفي</span>
+        <input type="file" accept="image/*" capture="environment" onchange="handlePhoto(this,'vlicense_back')">
+      </div>
+    </div>
+    <button class="btn-main" id="step2d-btn" onclick="goToStep3()">التالي</button>
+    <div class="error-text" id="err-2d"></div>
   </div>
 
   <!-- خطوة 3: الآيبان -->
@@ -222,18 +273,63 @@
 if ("serviceWorker" in navigator) {
   window.addEventListener("load", () => { navigator.serviceWorker.register("./sw.js").catch(() => {}); });
 }
+
+/* ═══ رسومات إرشادية بسيطة (SVG) لكل نوع وثيقة — رسومات توضيحية عامة وليست وثائق حقيقية ═══ */
+function svgCardFront(labelTop, labelLines) {
+  return `<svg width="150" height="96" viewBox="0 0 150 96">
+    <rect x="1" y="1" width="148" height="94" rx="10" fill="#fff" stroke="#EBE0D3" stroke-width="2"/>
+    <rect x="12" y="14" width="34" height="42" rx="4" fill="#EBE0D3"/>
+    <circle cx="29" cy="28" r="8" fill="#C9B8A8"/>
+    <path d="M17 50c2-8 8-11 12-11s10 3 12 11" fill="#C9B8A8"/>
+    <rect x="55" y="16" width="80" height="7" rx="3" fill="#EBE0D3"/>
+    <rect x="55" y="30" width="65" height="6" rx="3" fill="#F1E9DD"/>
+    <rect x="55" y="42" width="70" height="6" rx="3" fill="#F1E9DD"/>
+    <rect x="55" y="54" width="50" height="6" rx="3" fill="#F1E9DD"/>
+    <rect x="12" y="70" width="126" height="14" rx="3" fill="#A23E48" opacity=".12"/>
+  </svg>`;
+}
+function svgCardBack() {
+  return `<svg width="150" height="96" viewBox="0 0 150 96">
+    <rect x="1" y="1" width="148" height="94" rx="10" fill="#fff" stroke="#EBE0D3" stroke-width="2"/>
+    <rect x="12" y="14" width="126" height="16" fill="#3A2A28" opacity=".75"/>
+    <rect x="12" y="38" width="126" height="6" rx="3" fill="#F1E9DD"/>
+    <rect x="12" y="50" width="100" height="6" rx="3" fill="#F1E9DD"/>
+    <rect x="12" y="62" width="110" height="6" rx="3" fill="#F1E9DD"/>
+    <rect x="100" y="74" width="38" height="12" rx="2" fill="#EBE0D3"/>
+  </svg>`;
+}
+function svgVehicleCard() {
+  return `<svg width="150" height="96" viewBox="0 0 150 96">
+    <rect x="1" y="1" width="148" height="94" rx="10" fill="#fff" stroke="#EBE0D3" stroke-width="2"/>
+    <rect x="12" y="16" width="90" height="7" rx="3" fill="#EBE0D3"/>
+    <path d="M20 50l6-10h20l6 10v10H20z" fill="#C9B8A8"/>
+    <circle cx="27" cy="60" r="4" fill="#3A2A28" opacity=".5"/>
+    <circle cx="45" cy="60" r="4" fill="#3A2A28" opacity=".5"/>
+    <rect x="60" y="40" width="75" height="6" rx="3" fill="#F1E9DD"/>
+    <rect x="60" y="52" width="60" height="6" rx="3" fill="#F1E9DD"/>
+    <rect x="60" y="64" width="65" height="6" rx="3" fill="#F1E9DD"/>
+    <rect x="12" y="76" width="126" height="10" rx="3" fill="#A23E48" opacity=".12"/>
+  </svg>`;
+}
+document.getElementById('ill-personal').innerHTML = `<svg width="150" height="96" viewBox="0 0 150 96">
+  <rect x="1" y="1" width="148" height="94" rx="10" fill="#fff" stroke="#EBE0D3" stroke-width="2"/>
+  <circle cx="75" cy="38" r="16" fill="#C9B8A8"/>
+  <path d="M45 90c4-20 18-30 30-30s26 10 30 30" fill="#C9B8A8"/>
+</svg>`;
+document.getElementById('ill-id').innerHTML = `<div style="text-align:center;"><div style="font-size:11px;color:#9C8C82;margin-bottom:4px;">أمامي</div>${svgCardFront()}</div>
+  <div style="text-align:center;"><div style="font-size:11px;color:#9C8C82;margin-bottom:4px;">خلفي</div>${svgCardBack()}</div>`;
+document.getElementById('ill-license').innerHTML = `<div style="text-align:center;">${svgCardFront()}</div>`;
+document.getElementById('ill-vlicense').innerHTML = `<div style="text-align:center;"><div style="font-size:11px;color:#9C8C82;margin-bottom:4px;">أمامي</div>${svgVehicleCard()}</div>
+  <div style="text-align:center;"><div style="font-size:11px;color:#9C8C82;margin-bottom:4px;">خلفي</div>${svgCardBack()}</div>`;
 </script>
 <script type="module">
 import { uploadImage } from "./firebase-init.js";
 import { findDriverByPhone, createDriverAccount } from "./driver-shared.js";
 import { JORDAN_CAR_MODELS } from "./jordan-vehicles.js";
 
-let currentStep = 1;
+const STEP_ORDER = ['1', '2a', '2b', '2c', '2d', '3'];
+let currentStep = '1';
 const uploads = { photo: '', id_front: '', id_back: '', license: '', vlicense_front: '', vlicense_back: '' };
-const uploadKeyMap = {
-  photo: 'photo_url', id_front: 'id_front_url', id_back: 'id_back_url',
-  license: 'license_url', vlicense_front: 'vehicle_license_front_url', vlicense_back: 'vehicle_license_back_url'
-};
 let selectedModel = '';
 let vehicleType = '';
 
@@ -242,33 +338,34 @@ function showErr(id, msg) {
   el.textContent = msg;
   el.style.display = 'block';
 }
-function clearErr(id) { document.getElementById(id).style.display = 'none'; }
+function clearErr(id) { const el = document.getElementById(id); if (el) el.style.display = 'none'; }
+
+function buildStepsBar() {
+  const bar = document.getElementById('stepsBar');
+  bar.innerHTML = STEP_ORDER.map(s => `<div class="step-dot" data-s="${s}"></div>`).join('');
+}
+buildStepsBar();
 
 function setStep(n) {
   currentStep = n;
   document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+  const idx = STEP_ORDER.indexOf(n);
   document.querySelectorAll('.step-dot').forEach(d => {
-    const s = Number(d.dataset.s);
-    d.classList.toggle('active', s === n);
-    d.classList.toggle('done', s < n);
+    const dIdx = STEP_ORDER.indexOf(d.dataset.s);
+    d.classList.toggle('active', dIdx === idx);
+    d.classList.toggle('done', dIdx >= 0 && idx >= 0 && dIdx < idx);
   });
-  const titles = { 1: 'تسجيل حساب سائق', 2: 'الصور المطلوبة', 3: 'الحساب البنكي' };
+  const titles = { '1': 'بياناتك ومركبتك', '2a': 'الصورة الشخصية', '2b': 'الهوية الشخصية', '2c': 'رخصة القيادة', '2d': 'رخصة المركبة', '3': 'الحساب البنكي' };
   document.getElementById('topTitle').textContent = titles[n] || 'تسجيل حساب سائق';
-  const bar = document.getElementById('stepsBar');
-  bar.style.display = n <= 3 ? 'flex' : 'none';
+  document.getElementById('stepsBar').style.display = idx >= 0 ? 'flex' : 'none';
   document.getElementById('panel-' + n).classList.add('active');
   window.scrollTo(0, 0);
 }
 
 window.goBack = () => {
-  if (currentStep > 1 && currentStep <= 3) { setStep(currentStep - 1); return; }
+  const idx = STEP_ORDER.indexOf(currentStep);
+  if (idx > 0) { setStep(STEP_ORDER[idx - 1]); return; }
   window.location.href = 'akleto-driver.html';
-};
-
-window.onVehicleTypeChange = () => {
-  vehicleType = document.getElementById('f-vtype').value;
-  document.getElementById('f-model').value = '';
-  selectedModel = '';
 };
 
 window.filterModels = () => {
@@ -277,7 +374,7 @@ window.filterModels = () => {
   if (!val) { box.classList.remove('show'); return; }
   const matches = JORDAN_CAR_MODELS.filter(m => m.includes(val)).slice(0, 30);
   if (!matches.length) {
-    box.innerHTML = `<div class="combo-empty">ما لقينا نتائج — اكتب الاسم كامل يدوياً وبنقبله</div>`;
+    box.innerHTML = `<div class="combo-empty">ما لقينا نتائج مشابهة — اكمل الكتابة يدوياً وبنقبلها زي ما هي</div>`;
   } else {
     box.innerHTML = matches.map(m => `<div class="combo-item" onclick="pickModel('${m.replace(/'/g, "\\'")}')">${m}</div>`).join('');
   }
@@ -296,6 +393,7 @@ window.goToStep2 = async () => {
   clearErr('err-1');
   const name = document.getElementById('f-name').value.trim();
   const phone = document.getElementById('f-phone').value.trim();
+  vehicleType = document.getElementById('f-vtype').value;
   const model = document.getElementById('f-model').value.trim();
   const plate = document.getElementById('f-plate').value.trim();
 
@@ -303,7 +401,7 @@ window.goToStep2 = async () => {
   if (nameParts.length < 3) { showErr('err-1', 'لازم تكتب الاسم الكامل بثلاث مقاطع على الأقل (مثال: أحمد محمود العبدالله)'); return; }
   if (!/^0\d{8,9}$/.test(phone)) { showErr('err-1', 'رقم الهاتف غير صحيح (مثال: 0791234567)'); return; }
   if (!vehicleType) { showErr('err-1', 'اختر نوع المركبة'); return; }
-  if (!model) { showErr('err-1', 'اكتب الماركة والموديل'); return; }
+  if (!model) { showErr('err-1', 'اكتب الماركة والموديل (تقدر تكتبها يدوياً لو مش موجودة بالقائمة)'); return; }
   if (!plate) { showErr('err-1', 'اكتب رقم لوحة المركبة'); return; }
 
   const btn = document.getElementById('step1-btn');
@@ -315,7 +413,7 @@ window.goToStep2 = async () => {
       return;
     }
     window._signupData = { name, phone, vehicle_type: vehicleType, vehicle_make_model: model, plate_number: plate };
-    setStep(2);
+    setStep('2a');
   } catch (e) {
     console.error('phone check error', e);
     showErr('err-1', 'صار خطأ بالتحقق — جرب مرة ثانية');
@@ -324,31 +422,80 @@ window.goToStep2 = async () => {
   }
 };
 
+/* يضغط الصورة قبل الرفع (يقلل الحجم كثيراً ويسرّع الرفع ويقلّل فرصة انتهاء المهلة) */
+function compressImage(file, maxDim = 1500, quality = 0.72) {
+  return new Promise((resolve) => {
+    try {
+      const img = new Image();
+      const url = URL.createObjectURL(file);
+      img.onload = () => {
+        let { width, height } = img;
+        if (width > maxDim || height > maxDim) {
+          if (width > height) { height = Math.round(height * maxDim / width); width = maxDim; }
+          else { width = Math.round(width * maxDim / height); height = maxDim; }
+        }
+        const canvas = document.createElement('canvas');
+        canvas.width = width; canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, width, height);
+        URL.revokeObjectURL(url);
+        canvas.toBlob((blob) => {
+          if (!blob) { resolve(file); return; }
+          resolve(new File([blob], 'doc_' + Date.now() + '.jpg', { type: 'image/jpeg' }));
+        }, 'image/jpeg', quality);
+      };
+      img.onerror = () => { URL.revokeObjectURL(url); resolve(file); };
+      img.src = url;
+    } catch (e) {
+      resolve(file);
+    }
+  });
+}
+
 window.handlePhoto = async (input, key) => {
   const file = input.files && input.files[0];
   if (!file) return;
   const box = document.getElementById('box-' + key);
   const spin = document.createElement('div');
   spin.className = 'ph-spin';
-  spin.textContent = 'جاري الرفع...';
+  spin.textContent = 'جاري تجهيز الصورة...';
   box.appendChild(spin);
   try {
-    const url = await uploadImage(file, 'driver_documents');
+    const compressed = await compressImage(file);
+    spin.textContent = 'جاري الرفع...';
+    const url = await uploadImage(compressed, 'driver_documents', 45000);
     uploads[key] = url;
     box.innerHTML = `<img src="${url}"><div class="ph-check">✓</div><input type="file" accept="image/*" capture="environment" onchange="handlePhoto(this,'${key}')">`;
     box.classList.add('done');
   } catch (e) {
     console.error('upload error', key, e);
     spin.remove();
-    alert('صار خطأ برفع الصورة — جرب مرة ثانية');
+    const msg = (e && e.code === 'timeout') ? 'انتهت مهلة الرفع — تأكد من قوة الإنترنت وجرب مرة ثانية'
+      : (e && e.code === 'storage/unauthorized') ? 'ما في صلاحية للرفع — تواصل معنا'
+      : 'صار خطأ برفع الصورة — تأكد من الإنترنت وجرب مرة ثانية';
+    alert(msg);
   }
 };
 
+window.goToPhotoStep = (nextStep) => {
+  const checkMap = { '2b': ['photo', 'err-2a', 'لازم ترفع الصورة الشخصية عشان تكمّل'],
+                      '2c': ['id_front,id_back', 'err-2b', 'لازم ترفع صورتي الهوية (الوجهين) عشان تكمّل'],
+                      '2d': ['license', 'err-2c', 'لازم ترفع صورة رخصة القيادة عشان تكمّل'] };
+  const [keysStr, errId, msg] = checkMap[nextStep];
+  clearErr(errId);
+  const keys = keysStr.split(',');
+  const missing = keys.filter(k => !uploads[k]);
+  if (missing.length) { showErr(errId, msg); return; }
+  setStep(nextStep);
+};
+
 window.goToStep3 = () => {
-  clearErr('err-2');
-  const missing = Object.entries(uploads).filter(([, v]) => !v);
-  if (missing.length) { showErr('err-2', 'لازم ترفع كل الصور الست عشان تكمّل'); return; }
-  setStep(3);
+  clearErr('err-2d');
+  if (!uploads.vlicense_front || !uploads.vlicense_back) {
+    showErr('err-2d', 'لازم ترفع صورتي رخصة المركبة (الوجهين) عشان تكمّل');
+    return;
+  }
+  setStep('3');
 };
 
 window.submitSignup = async (skipIban) => {

@@ -38,13 +38,13 @@ export {
 };
 
 /* رفع صورة إلى Firebase Storage وإرجاع الرابط — مشتركة بكل الصفحات */
-export async function uploadImage(file, folder) {
+export async function uploadImage(file, folder, timeoutMs = 15000) {
   if (!file) return '';
   const safeName = Date.now() + '_' + file.name.replace(/[^a-zA-Z0-9.\-_]/g, '');
   const path = `${folder}/${safeName}`;
   const sref = storageRef(storage, path);
-  await withTimeout(uploadBytes(sref, file), 15000, 'انتهت مهلة رفع الصورة');
-  return await withTimeout(getDownloadURL(sref), 15000, 'انتهت مهلة رفع الصورة');
+  await withTimeout(uploadBytes(sref, file), timeoutMs, 'انتهت مهلة رفع الصورة');
+  return await withTimeout(getDownloadURL(sref), timeoutMs, 'انتهت مهلة رفع الصورة');
 }
 
 /* يمنع أي عملية من التعليق للأبد */

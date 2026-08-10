@@ -1566,3 +1566,23 @@ match /stores/{storeId} {
 - تسجيل حساب سائق كامل بالـAPK الجديد (بيانات + 7 صور + آيبان)
 - وصول إشعارات الدفع فعلياً (سائق/متجر)
 - بناء + تجربة ميزة Full-Screen Intent (مهمة 8) على جهاز حقيقي
+
+## 10 أغسطس 2026 (جلسة سابعة) — ✅ إصلاح خطأ Compile منع بناء APK السائق (سبب مهمة 8)
+
+**المشكلة يلي أبلغ عنها مؤيد:** بعد آخر تحديث (مهمة 8 — Full-Screen Intent)، صار Android Studio ما يقدر يبني APK لمشروع `mobile-driver`، وما فيه إمكانية معالجة الأخطاء من الاستديو مباشرة.
+
+**السبب الجذري (تأكدت 100% بفحص ملفات الـ Gradle الفعلية من الريبو + محتوى حزمة `@capacitor/push-notifications` من npm):**
+- `OrderMessagingService.java` (يلي أضيف بجلسة "مهمة 8") بيستورد ويستخدم `com.google.firebase.messaging.RemoteMessage` مباشرة.
+- مكتبة `@capacitor/push-notifications` (نسخة 8.1.2 المستخدمة بالمشروع) بتضيف `com.google.firebase:firebase-messaging:25.0.1` بملفها الداخلي `android/build.gradle` **بنوع `implementation`**.
+- بقواعد Gradle: اعتماديات نوع `implementation` **ما بتنعدّي (transitive)** لأي مشروع (module) تاني يستخدم هالمكتبة — يعني `app` module (مشروع السائق نفسه) ما كان إله رؤية على كلاس `RemoteMessage` وقت الترجمة (compile)، فبيطلع خطأ `cannot find symbol: class RemoteMessage`.
+- هاي بالضبط النقطة يلي كانت محذّرة عنها بجلسة "مهمة 8" ("ما قدرت أتحقق من نجاح الـ compile فعلياً، ما في Android SDK بالبيئة") — تأكدت فعلياً إنها كانت المشكلة.
+
+**الإصلاح المطبّق (على `main` مباشرة):**
+1. `mobile-driver/android/variables.gradle`: أُضيف `firebaseMessagingVersion = '25.0.1'` (نفس النسخة الافتراضية يلي بتستخدمها مكتبة push-notifications، لتفادي تعارض نسخ/كلاسات مكررة).
+2. `mobile-driver/android/app/build.gradle`: أُضيف سطر `implementation "com.google.firebase:firebase-messaging:$firebaseMessagingVersion"` صراحة بقسم `dependencies`.
+
+**المطلوب من مؤيد الآن:**
+- `git pull` على مشروع `mobile-driver` (تعديلات Gradle فقط، ما في تغيير كود جافا).
+- Sync Gradle بـ Android Studio (أو حذف `.gradle` cache لو ظهرت مشاكل cache قديمة) ثم إعادة محاولة بناء الـ APK.
+- لو ظهر خطأ compile جديد مختلف، يرسل نص الخطأ كامل من Android Studio (Build Output) بدل وصف عام — بيسرّع التشخيص كثير.
+- بعد نجاح البناء، لسا المطلوب اختبار Full-Screen Intent فعلياً على جهاز حقيقي (نفس نقاط الاختبار المذكورة بجلسة "مهمة 8" أعلاه: طلب يتعيّن والتطبيق Force Stop، والتأكد من فتح الشاشة فوق القفل).

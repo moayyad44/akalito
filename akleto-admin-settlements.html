@@ -45,12 +45,20 @@
   }
   .source-btn.active { background:rgba(162,62,72,.15); border-color:var(--brand-red,#A23E48); color:#fff; }
   .tx-card .tx-main .tx-sub-range { font-size:11px; color:var(--cream30); display:block; margin-top:2px; }
+
+  @media print {
+    body * { visibility: hidden; }
+    #statementPrintArea, #statementPrintArea * { visibility: visible; }
+    #statementPrintArea { position: absolute; top: 0; right: 0; left: 0; }
+    #statementPrintArea table { color: #000; }
+    #statementPrintArea th, #statementPrintArea td { border-color: #ccc !important; color: #000; }
+  }
 </style>
 <script type="module">
 import {
   watchUnreadNotifications,
   watchPendingDriversCount,
-  db, auth, collection, query, where, onSnapshot, doc, updateDoc, serverTimestamp, withTimeout,
+  db, auth, collection, query, where, onSnapshot, doc, getDoc, updateDoc, serverTimestamp, withTimeout, writeBatch,
   onAuthStateChanged, signOut
 } from "./firebase-init.js";
 
@@ -160,6 +168,11 @@ window.addEventListener('DOMContentLoaded', () => {
     const filtered = currentTab === 'pending' ? source.filter(t => t.status === 'pending') : source.filter(t => t.status !== 'pending');
     const sorted = [...filtered].sort((a, b) => (b.created_at?.toMillis?.() || 0) - (a.created_at?.toMillis?.() || 0));
 
+    // زر "كشف التحويلات الجامع" يظهر بس بتبويب "قيد الانتظار" لمصدر السائقين، ولو في تحويلات payout معلّقة فعلاً
+    const pendingPayouts = allTx.filter(t => t.status === 'pending' && t.type === 'payout');
+    const statementBtn = document.getElementById('statementBtn');
+    statementBtn.style.display = (currentSource === 'driver' && currentTab === 'pending' && pendingPayouts.length) ? 'inline-block' : 'none';
+
     if (!sorted.length) {
       const emptyMsg = currentTab === 'pending' ? 'ما في طلبات قيد الانتظار حالياً 🎉' : 'ما في سجل طلبات سابقة بعد';
       wrap.innerHTML = `<div class="empty-state">${emptyMsg}</div>`;
@@ -264,6 +277,111 @@ window.addEventListener('DOMContentLoaded', () => {
     }
   };
 
+  /* ═══ كشف التحويلات الجامع (payout فقط) — طباعة بدون أي تأثير على الحالة،
+     وتأكيد جماعي منفصل بعد ما يتأكد الأدمن إنه التحويل صار فعلياً بالبنك ═══ */
+  let statementRows = [];
+
+  window.openStatement = async () => {
+    const overlay = document.getElementById('statementOverlay');
+    const area = document.getElementById('statementPrintArea');
+    area.innerHTML = `<div class="empty-state" style="padding:20px 0;">جاري تجهيز الكشف...</div>`;
+    overlay.classList.add('open');
+
+    const pendingPayouts = allTx.filter(t => t.status === 'pending' && t.type === 'payout');
+
+    // نجيب آيبان كل كابتن من مجموعة drivers (مو مخزّن بمعاملة التحويل نفسها)
+    statementRows = await Promise.all(pendingPayouts.map(async (t) => {
+      let iban = '';
+      try {
+        const dSnap = await getDoc(doc(db, 'drivers', t.driver_id));
+        if (dSnap.exists()) iban = dSnap.data().iban || '';
+      } catch (e) { console.error('load driver iban error', e); }
+      return { ...t, iban };
+    }));
+
+    renderStatementTable();
+  };
+
+  function renderStatementTable() {
+    const area = document.getElementById('statementPrintArea');
+    if (!statementRows.length) {
+      area.innerHTML = `<div class="empty-state" style="padding:20px 0;">ما في تحويلات معلّقة حالياً</div>`;
+      document.getElementById('statementActions').style.display = 'none';
+      return;
+    }
+    document.getElementById('statementActions').style.display = 'flex';
+    const total = statementRows.reduce((s, r) => s + (r.amount || 0), 0);
+    area.innerHTML = `
+      <div style="text-align:center;margin-bottom:10px;font-weight:800;">كشف تحويلات — ${new Date().toLocaleDateString('ar-JO')}</div>
+      <table style="width:100%;border-collapse:collapse;font-size:13px;">
+        <thead>
+          <tr style="border-bottom:1.5px solid rgba(255,255,255,.15);">
+            <th style="padding:8px 4px;text-align:center;width:34px;">
+              <input type="checkbox" id="stmtSelectAll" checked onchange="toggleSelectAll(this.checked)">
+            </th>
+            <th style="padding:8px 4px;text-align:right;">اسم الكابتن</th>
+            <th style="padding:8px 4px;text-align:right;">الآيبان</th>
+            <th style="padding:8px 4px;text-align:left;">المبلغ</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${statementRows.map((r, i) => `
+            <tr style="border-bottom:1px solid rgba(255,255,255,.08);">
+              <td style="padding:8px 4px;text-align:center;">
+                <input type="checkbox" class="stmt-row-check" data-idx="${i}" checked>
+              </td>
+              <td style="padding:8px 4px;">${r.driver_name || 'كابتن'}</td>
+              <td style="padding:8px 4px;font-family:'JetBrains Mono',monospace;direction:ltr;text-align:right;">
+                ${r.iban ? r.iban : '<span style="color:#D9534F;">⚠️ ما سجّل آيبان</span>'}
+              </td>
+              <td style="padding:8px 4px;text-align:left;font-weight:700;">${(r.amount || 0).toFixed(2)} د.أ</td>
+            </tr>`).join('')}
+        </tbody>
+        <tfoot>
+          <tr>
+            <td colspan="3" style="padding:10px 4px;font-weight:800;">الإجمالي</td>
+            <td style="padding:10px 4px;text-align:left;font-weight:800;">${total.toFixed(2)} د.أ</td>
+          </tr>
+        </tfoot>
+      </table>`;
+  }
+
+  window.toggleSelectAll = (checked) => {
+    document.querySelectorAll('.stmt-row-check').forEach(cb => cb.checked = checked);
+  };
+
+  window.printStatement = () => {
+    // الطباعة بدون أي تأثير على قاعدة البيانات — تقدر تعيدها براحتك
+    window.print();
+  };
+
+  window.confirmSelectedPayouts = async () => {
+    const checked = Array.from(document.querySelectorAll('.stmt-row-check:checked'))
+      .map(cb => statementRows[Number(cb.dataset.idx)])
+      .filter(Boolean);
+
+    if (!checked.length) { showToast('حدد كابتن واحد على الأقل عشان تأكد', true); return; }
+    if (!confirm(`تأكيد إنك حوّلت فعلياً لـ ${checked.length} كابتن بمبلغ إجمالي ${checked.reduce((s, r) => s + (r.amount || 0), 0).toFixed(2)} د.أ؟ هالإجراء بينعكس على أرصدتهم فوراً.`)) return;
+
+    try {
+      const batch = writeBatch(db);
+      checked.forEach(r => {
+        batch.update(doc(db, 'driver_balance_transactions', r.id), { status: 'completed', resolved_at: serverTimestamp() });
+      });
+      await withTimeout(batch.commit(), 20000, 'انتهت مهلة الحفظ — تأكد من الإنترنت');
+      showToast(`تم تأكيد ${checked.length} تحويل ✅`);
+      closeStatement();
+    } catch (e) {
+      console.error('confirm selected payouts error', e);
+      showToast('صار خطأ — جرب مرة ثانية', true);
+    }
+  };
+
+  window.closeStatement = () => {
+    document.getElementById('statementOverlay').classList.remove('open');
+    statementRows = [];
+  };
+
 });
 </script>
 <script>
@@ -357,10 +475,31 @@ if ("serviceWorker" in navigator) {
   <div class="tabs-row">
     <button class="tab-btn active" data-tab="pending" onclick="setTab('pending')">قيد الانتظار</button>
     <button class="tab-btn" data-tab="history" onclick="setTab('history')">السجل السابق</button>
+    <button class="tab-btn" id="statementBtn" style="display:none;margin-right:auto;" onclick="openStatement()">📋 كشف التحويلات الجامع</button>
   </div>
 
   <div id="txWrap"><div class="empty-state">جاري التحميل...</div></div>
 </main>
+
+<div class="modal-overlay" id="statementOverlay">
+  <div class="modal-card" style="max-width:640px;">
+    <div class="modal-header">
+      <div class="modal-title">📋 كشف تحويلات الكباتن الجامع</div>
+      <button type="button" class="modal-close" onclick="closeStatement()">✕</button>
+    </div>
+    <div class="modal-body">
+      <div id="statementNote" style="font-size:12.5px;color:var(--cream30);margin-bottom:14px;line-height:1.7;">
+        الطباعة لا تغيّر أي شي بالنظام — اطبع براحتك للمراجعة قبل ما تروح البنك.
+        بعد ما تتأكد إنه التحويل صار فعلياً، حدد الكباتن يلي تحوّلولهم فعلاً وبس وقتها دوس "تأكيد التحويلات المحددة".
+      </div>
+      <div id="statementPrintArea"></div>
+      <div style="display:flex;gap:10px;margin-top:16px;" id="statementActions">
+        <button type="button" class="ing-remove" style="flex:1;background:var(--panel,rgba(255,255,255,.06));color:inherit;" onclick="printStatement()">🖨️ طباعة</button>
+        <button type="button" class="ing-remove" style="flex:1;background:#2E7D4F;color:#fff;" onclick="confirmSelectedPayouts()">تأكيد التحويلات المحددة ✓</button>
+      </div>
+    </div>
+  </div>
+</div>
 
 </div>
 

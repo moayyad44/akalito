@@ -397,7 +397,7 @@ watchMyOrders(session.id, list => {
   document.getElementById('acc-stat-done').textContent = done.length;
   setNavBadge('myBadge', active.length);
 });
-watchAvailableOrders(list => setNavBadge('availBadge', list.length));
+watchAvailableOrders(session.id, list => setNavBadge('availBadge', list.length));
 
 window.deleteDriverAccountFlow = async () => {
   const errBox = document.getElementById('acc-delete-error');

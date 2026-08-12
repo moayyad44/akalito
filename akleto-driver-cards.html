@@ -385,7 +385,7 @@ const session = requireDriverSession();
 if (session) mountActiveOrderGuard(session);
 if (session) document.getElementById('greet-name').textContent = session.name;
 
-watchAvailableOrders(list => setNavBadge('availBadge', list.length));
+watchAvailableOrders(session.id, list => setNavBadge('availBadge', list.length));
 watchMyOrders(session.id, list => setNavBadge('myBadge', list.filter(o => o.status === 'delivering').length));
 
 

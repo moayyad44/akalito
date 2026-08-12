@@ -62,7 +62,7 @@ service cloud.firestore {
           !('auth_uid' in resource.data) ||
           resource.data.auth_uid == null
         ) &&
-        request.resource.data.approval_status != 'approved' &&
+        !(request.resource.data.approval_status == 'approved' && resource.data.approval_status != 'approved') &&
         request.resource.data.is_active == resource.data.is_active
       );
 

@@ -415,7 +415,7 @@ function formatCommissionLabel() {
 }
 
 watchCommissionSettings(() => recompute());
-watchAvailableOrders(list => setNavBadge('availBadge', list.length));
+watchAvailableOrders(session.id, list => setNavBadge('availBadge', list.length));
 watchMyOrders(session.id, list => {
   setNavBadge('myBadge', list.filter(o => o.status === 'delivering').length);
   allDoneOrders = list.filter(o => o.status === 'done');

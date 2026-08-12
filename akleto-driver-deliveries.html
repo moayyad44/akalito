@@ -395,7 +395,7 @@ function renderMyOrders() {
 }
 
 watchMyOrders(session.id, list => { myOrders = list; renderMyOrders(); });
-watchAvailableOrders(list => setNavBadge('availBadge', list.length));
+watchAvailableOrders(session.id, list => setNavBadge('availBadge', list.length));
 
 window.toggleDriverMenu = () => {
   document.getElementById('csd-driver-avatar').textContent = (session.name || '؟').trim().charAt(0);

@@ -149,7 +149,9 @@ async function getBusyDriverIds() {
   return new Set(snap.docs.map((d) => d.data().driver_id).filter(Boolean));
 }
 
-/* يختار أقرب سائق متاح وغير مشغول لموقع المتجر، ما عدا اللي جُرّبوا قبل بنفس الطلب */
+/* يختار أقرب سائق متاح وغير مشغول لموقع المتجر، ما عدا اللي جُرّبوا قبل بنفس الطلب.
+   لو المتجر أو السائق ما عندهم إحداثيات محفوظة، بيتعامل معهم كـ"أبعد خيار" بدل ما يتجاهلهم
+   بالكامل — عشان الطلب يضل يوصل لسائق مباشرة حتى لو نقصت بيانات الموقع. */
 async function pickNextDriver(storeLat, storeLng, triedIds) {
   const [availSnap, busyIds] = await Promise.all([
     db.collection("drivers").where("is_available", "==", true).get(),
@@ -160,9 +162,8 @@ async function pickNextDriver(storeLat, storeLng, triedIds) {
   availSnap.docs.forEach((d) => {
     if (triedIds.includes(d.id) || busyIds.has(d.id)) return;
     const data = d.data();
-    if (data.lat == null || data.lng == null) return;
     const dist = distanceMeters(storeLat, storeLng, data.lat, data.lng);
-    if (dist < bestDist) { bestDist = dist; best = { id: d.id, ...data }; }
+    if (best === null || dist < bestDist) { bestDist = dist; best = { id: d.id, ...data }; }
   });
   return best;
 }

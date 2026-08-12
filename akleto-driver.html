@@ -94,7 +94,7 @@ if ("serviceWorker" in navigator) {
 }
 </script>
 <script type="module">
-import { getDriverSession, saveDriverSession, findDriverByPhone } from "./driver-shared.js";
+import { getDriverSession, saveDriverSession, findDriverByPhone, linkDriverAuthUid } from "./driver-shared.js";
 
 window.resetLogin = () => {
   document.getElementById('statusCard').style.display = 'none';
@@ -151,6 +151,7 @@ window.loginDriver = async () => {
       return;
     }
 
+    await linkDriverAuthUid(driver.id);
     saveDriverSession(driver.id, driver.name, driver.phone);
     window.location.href = 'akleto-driver-home.html';
   } catch (e) {

@@ -1,0 +1,96 @@
+rules_version = '2';
+
+// ══════════════════════════════════════════════════════════
+// قواعد أمان Firestore لمشروع أكليتو
+//
+// ⚠️ هالملف صار مُدار بالريبو من اليوم (11 أغسطس 2026) — قبل هيك كانت
+// القواعد تُدار يدوياً من Firebase Console بدون تتبّع تاريخي بـ Git.
+//
+// الحالة الحالية: أول خطوة بمسار "تفعيل Auth حقيقي" (مهمة 3+8 بـcontext.md).
+// كل المجموعات لسا على وضعها المفتوح الأصلي (allow read, write: if true)
+// **ما عدا drivers** اللي صارت أول مجموعة تجريبية تعتمد فعلياً على
+// Firebase Anonymous Auth + حقل auth_uid المرتبط بكل سائق.
+//
+// بعد ما نتأكد إنه نمط drivers شغال صح بالتجربة الفعلية، رح نطبّق نفس
+// النمط تدريجياً على customers ثم stores ثم orders (الأعقد، فيها 3 أطراف).
+// ══════════════════════════════════════════════════════════
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    /* هل صاحب الطلب أدمن؟ — بيتحقق من وجود مستند بمجموعة admins بنفس
+       الـuid تبع حساب Firebase Auth (إيميل/باسورد) الخاص فيه.
+       ⚠️ لازم مؤيد يعمل هالمستند يدوياً من Firebase Console أول مرة —
+       تعليمات كاملة بـcontext.md. */
+    function isAdmin() {
+      return request.auth != null
+        && exists(/databases/$(database)/documents/admins/$(request.auth.uid));
+    }
+
+    /* مجموعة قائمة الأدمنز نفسها — قراءة بس لأي حد مسجّل دخول (عشان
+       isAdmin() تقدر تتحقق)، وكتابة ممنوعة بالكامل من التطبيق (تُدار
+       يدوياً من Firebase Console حالياً لحد ما نبني صفحة إدارة مخصصة). */
+    match /admins/{adminId} {
+      allow read: if request.auth != null;
+      allow write: if false;
+    }
+
+    /* ═══ drivers — أول مجموعة مقيّدة فعلياً (تجربة) ═══
+       - القراءة تضل عامة: مستخدمة لعرض "السائقين القريبين مني" بالخريطة
+         ولوحة تحكم الأدمن، ما فيها بيانات حساسة كافية تستاهل تقييد القراءة حالياً.
+       - الإنشاء (create): لازم يكون فيه Auth (حتى لو مجهول/Anonymous)،
+         وحقل auth_uid بالمستند الجديد لازم يطابق هوية المُنشئ.
+       - التعديل (update): مسموح للأدمن دايماً. غير هيك، مسموح بس لصاحب
+         المستند (auth_uid يطابق)، أو لو المستند قديم وما فيه auth_uid
+         بعد (سائقين سجّلوا قبل هالتحديث — أول تسجيل دخول إلهم بعد
+         التحديث بيربط حسابهم تلقائياً — نافذة انتقالية مؤقتة، موثّقة
+         بـcontext.md). بكل الحالات غير الأدمن: ممنوع السائق يحط
+         approval_status = approved بنفسه (بس يقدر يرجعها pending —
+         إعادة تقديم بعد رفض)، وممنوع يلمس is_active إطلاقاً (تفعيل/
+         إيقاف الحساب قرار أدمن حصري).
+       - الحذف: أدمن بس. */
+    match /drivers/{driverId} {
+      allow read: if true;
+
+      allow create: if request.auth != null
+        && request.resource.data.auth_uid == request.auth.uid;
+
+      allow update: if isAdmin() || (
+        request.auth != null &&
+        (
+          resource.data.auth_uid == request.auth.uid ||
+          !('auth_uid' in resource.data) ||
+          resource.data.auth_uid == null
+        ) &&
+        request.resource.data.approval_status != 'approved' &&
+        request.resource.data.is_active == resource.data.is_active
+      );
+
+      allow delete: if isAdmin() || (
+        request.auth != null && resource.data.auth_uid == request.auth.uid
+      );
+    }
+
+    /* ═══ باقي المجموعات — لسا على وضعها المفتوح الأصلي، بانتظار دورها
+       بعد ما نتأكد إنه نمط drivers شغال صح فعلياً. ═══ */
+    match /customers/{id} { allow read, write: if true; }
+    match /stores/{id} { allow read, write: if true; }
+    match /orders/{id} { allow read, write: if true; }
+    match /admin_notifications/{id} { allow read, write: if true; }
+    match /user_notifications/{id} { allow read, write: if true; }
+    match /app_settings/{id} { allow read, write: if true; }
+    match /coupons/{id} { allow read, write: if true; }
+    match /meals/{id} { allow read, write: if true; }
+    match /meal_ingredients/{id} { allow read, write: if true; }
+    match /ingredients/{id} { allow read, write: if true; }
+    match /measure_config/{id} { allow read, write: if true; }
+    match /counters/{id} { allow read, write: if true; }
+    match /driver_shifts/{id} { allow read, write: if true; }
+    match /driver_balance_transactions/{id} { allow read, write: if true; }
+    match /store_employees/{id} { allow read, write: if true; }
+    match /store_ingredients/{id} { allow read, write: if true; }
+    match /store_work_sessions/{id} { allow read, write: if true; }
+    match /store_commission_requests/{id} { allow read, write: if true; }
+    match /users/{id} { allow read, write: if true; }
+  }
+}

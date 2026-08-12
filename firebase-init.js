@@ -9,7 +9,7 @@ import {
   doc, serverTimestamp, getDocFromServer, runTransaction
 } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 import {
-  getAuth, onAuthStateChanged, signInWithEmailAndPassword, signOut
+  getAuth, onAuthStateChanged, signInWithEmailAndPassword, signOut, signInAnonymously
 } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
 import {
   getStorage, ref as storageRef, uploadBytes, getDownloadURL
@@ -33,7 +33,7 @@ export {
   collection, getDocs, getDoc, query, orderBy, limit, where, onSnapshot,
   addDoc, setDoc, updateDoc, deleteDoc, writeBatch, doc, serverTimestamp, getDocFromServer,
   runTransaction,
-  onAuthStateChanged, signInWithEmailAndPassword, signOut,
+  onAuthStateChanged, signInWithEmailAndPassword, signOut, signInAnonymously,
   storageRef, uploadBytes, getDownloadURL
 };
 

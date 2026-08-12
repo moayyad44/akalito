@@ -5,7 +5,8 @@
 // ══════════════════════════════════════════════════════════
 import {
   db, doc, updateDoc, deleteDoc, collection, query, where, onSnapshot,
-  serverTimestamp, withTimeout, addDoc, getDoc, getDocs, runTransaction
+  serverTimestamp, withTimeout, addDoc, getDoc, getDocs, runTransaction,
+  auth, onAuthStateChanged, signInAnonymously
 } from "./firebase-init.js";
 
 export const DRIVER_STORAGE_KEY = 'akleto_driver_id';
@@ -14,6 +15,40 @@ export const DRIVER_PHONE_KEY = 'akleto_driver_phone';
 export const DRIVER_AVAIL_KEY = 'akleto_driver_available';
 export const DRIVER_SHIFT_ID_KEY = 'akleto_driver_shift_id';
 export const DRIVER_NOTIF_SEEN_KEY = 'akleto_driver_notif_seen';
+
+/* ══════════════════════════════════════════════════════════
+   Auth حقيقي (Firebase Anonymous Auth) — 11 أغسطس 2026
+   كل جهاز سائق ياخد uid ثابت من Firebase نفسه (مجاني، بدون SMS)،
+   يُربط بحقل auth_uid على مستند السائق. هالـuid هو أساس قواعد
+   أمان Firestore الجديدة لمجموعة drivers (بدل الاعتماد الكامل
+   على رقم الهاتف المُدخل بالتطبيق بدون أي تحقق فعلي).
+   ══════════════════════════════════════════════════════════ */
+let _driverAuthPromise = null;
+
+/* يضمن وجود جلسة Firebase Auth (تسجّل دخول مجهول تلقائياً لو ما في)، ويرجع الـuid */
+export function ensureDriverAuth() {
+  if (_driverAuthPromise) return _driverAuthPromise;
+  _driverAuthPromise = new Promise((resolve, reject) => {
+    const unsub = onAuthStateChanged(auth, (user) => {
+      if (user) { unsub(); resolve(user.uid); }
+    }, (e) => { console.error('driver auth state error', e); reject(e); });
+    if (!auth.currentUser) {
+      signInAnonymously(auth).catch((e) => { console.error('anonymous sign-in error', e); reject(e); });
+    }
+  });
+  return _driverAuthPromise;
+}
+
+/* يربط جلسة Auth الحالية بمستند سائق موجود — يُستدعى بعد نجاح تسجيل الدخول.
+   لو السائق قديم (auth_uid لسا فاضي)، هاي أول مرة بتتربط فيها هويته فعلياً. */
+export async function linkDriverAuthUid(driverId) {
+  try {
+    const uid = await ensureDriverAuth();
+    await updateDoc(doc(db, 'drivers', driverId), { auth_uid: uid });
+  } catch (e) {
+    console.error('link driver auth uid error', e);
+  }
+}
 
 /* ══════════════════════════════════════════════════════════
    نظام تسجيل حساب السائق + الدخول برقم الهاتف
@@ -34,6 +69,7 @@ export async function findDriverByPhone(phone) {
 
 /* ينشئ حساب سائق جديد بحالة "قيد المراجعة" */
 export async function createDriverAccount(data) {
+  const authUid = await ensureDriverAuth();
   const payload = {
     name: data.name,
     phone: data.phone,
@@ -52,6 +88,7 @@ export async function createDriverAccount(data) {
     is_active: true,
     is_available: false,
     deliveries_count: 0,
+    auth_uid: authUid,
     created_at: serverTimestamp()
   };
   const ref = await withTimeout(addDoc(collection(db, 'drivers'), payload), 20000, 'انتهت مهلة الحفظ — تأكد من الإنترنت');
@@ -856,6 +893,7 @@ window.__aogSubmitRating = async (orderId) => {
 export function mountActiveOrderGuard(session) {
   if (!session || _aogMounted) return;
   _aogMounted = true;
+  linkDriverAuthUid(session.id); // يضمن ربط Auth حتى لجلسات مسجّلة دخول من قبل هالتحديث (بدون ما يحتاجوا يعيدوا تسجيل الدخول)
   aogInjectStyles();
   aogEnsureContainer();
   watchCommissionSettings(); // نضمن توفر إعدادات العمولة لحساب ملخص المرحلة الخامسة

@@ -415,7 +415,7 @@ function renderAvailableOrders() {
   }).join('');
 }
 
-watchAvailableOrders(list => {
+watchAvailableOrders(session.id, list => {
   availableOrders = list;
   setNavBadge('availBadge', list.length);
   renderAvailableOrders();

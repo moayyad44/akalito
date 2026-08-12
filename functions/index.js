@@ -15,12 +15,17 @@
 
 const { onDocumentUpdated } = require("firebase-functions/v2/firestore");
 const { onDocumentCreated } = require("firebase-functions/v2/firestore");
+const { onTaskDispatched } = require("firebase-functions/v2/tasks");
 const { setGlobalOptions } = require("firebase-functions/v2");
 const admin = require("firebase-admin");
+const { getFunctions } = require("firebase-admin/functions");
 
 admin.initializeApp();
 const db = admin.firestore();
 const messaging = admin.messaging();
+
+// مدة عرض الطلب على كل سائق بالدور (ثواني) — لازم تطابق العدّاد بواجهة السائق (akleto-driver-home.html)
+const OFFER_WINDOW_SECONDS = 5;
 
 // المنطقة الأقرب جغرافياً (أوروبا) — عدّلها لو حابب منطقة تانية
 setGlobalOptions({ region: "europe-west1", maxInstances: 10 });
@@ -118,13 +123,117 @@ exports.onOrderCreated = onDocumentCreated("orders/{orderId}", async (event) => 
 });
 
 /* ══════════════════════════════════════════════════════════
-   4) طلب صار "جاهز" (ready) بدون سائق بعد → إشعار جماعي
-      لكل السائقين المتاحين (is_available == true) بمنطقة عامة،
-      عشان يشوفوا فيه طلب متاح بأسرع وقت (بدل ما يعتمدوا بس على
-      فتح التطبيق والتحديث اللحظي بصفحة "الطلبات المتاحة").
-   ⚠️ إشعار جماعي (broadcast) — لو عدد السائقين المتاحين كبير
-      مستقبلاً، يُفضّل تحويله لموضوع FCM Topic بدل حلقة send فردية.
+   4) طلب صار "جاهز" (ready) بدون سائق بعد → توزيع بالدور
+      بدل ما نبعت الطلب لكل السائقين المتاحين مرة وحدة، نعرضه
+      على أقرب سائق متاح (وغير مشغول بطلب نشط) بمفرده لمدة
+      OFFER_WINDOW_SECONDS (5 ثواني). لو ما قبِله خلال المهلة،
+      يتدوّر تلقائياً لأقرب سائق تالي، وهكذا. لو خلصت قائمة
+      السائقين المتاحين بدون قبول، يرجع الطلب "مفتوح للجميع"
+      (broadcast) كخط أمان عشان ما يعلق بدون سائق نهائياً.
    ══════════════════════════════════════════════════════════ */
+
+/* حساب المسافة بالمتر بين نقطتين (Haversine) */
+function distanceMeters(lat1, lng1, lat2, lng2) {
+  if ([lat1, lng1, lat2, lng2].some((v) => v == null)) return Infinity;
+  const R = 6371000;
+  const toRad = (d) => (d * Math.PI) / 180;
+  const dLat = toRad(lat2 - lat1);
+  const dLng = toRad(lng2 - lng1);
+  const a = Math.sin(dLat / 2) ** 2 + Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLng / 2) ** 2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+/* يرجع مجموعة IDs السائقين المشغولين حالياً بطلب توصيل نشط (status == delivering) */
+async function getBusyDriverIds() {
+  const snap = await db.collection("orders").where("status", "==", "delivering").get();
+  return new Set(snap.docs.map((d) => d.data().driver_id).filter(Boolean));
+}
+
+/* يختار أقرب سائق متاح وغير مشغول لموقع المتجر، ما عدا اللي جُرّبوا قبل بنفس الطلب */
+async function pickNextDriver(storeLat, storeLng, triedIds) {
+  const [availSnap, busyIds] = await Promise.all([
+    db.collection("drivers").where("is_available", "==", true).get(),
+    getBusyDriverIds(),
+  ]);
+  let best = null;
+  let bestDist = Infinity;
+  availSnap.docs.forEach((d) => {
+    if (triedIds.includes(d.id) || busyIds.has(d.id)) return;
+    const data = d.data();
+    if (data.lat == null || data.lng == null) return;
+    const dist = distanceMeters(storeLat, storeLng, data.lat, data.lng);
+    if (dist < bestDist) { bestDist = dist; best = { id: d.id, ...data }; }
+  });
+  return best;
+}
+
+/* يعرض الطلب على أقرب سائق تالي، أو يفتحه للجميع (broadcast) لو خلصت قائمة السائقين */
+async function offerOrderToNextDriver(orderId, order, triedIds) {
+  let storeLat = null;
+  let storeLng = null;
+  if (order.store_id) {
+    const storeSnap = await db.collection("stores").doc(order.store_id).get();
+    if (storeSnap.exists) {
+      storeLat = storeSnap.data().lat;
+      storeLng = storeSnap.data().lng;
+    }
+  }
+
+  const next = await pickNextDriver(storeLat, storeLng, triedIds);
+
+  if (!next) {
+    // ما بقي سائق تاني نجرّبه — نفتح الطلب للجميع كخط أمان بدل ما يعلق بدون سائق
+    await db.collection("orders").doc(orderId).update({
+      offered_driver_id: null,
+      offer_broadcast: true,
+      offer_expires_at: null,
+      offered_driver_ids: triedIds,
+    });
+    try {
+      const availSnap = await db.collection("drivers").where("is_available", "==", true).get();
+      const tokens = availSnap.docs.map((d) => d.data().fcm_token).filter(Boolean);
+      await Promise.all(
+        tokens.map((token) =>
+          sendPush(token, "طلب جديد متاح 📦", "في طلب جديد جاهز بانتظار سائق — افتح التطبيق.", {
+            type: "order_available",
+            order_id: orderId,
+          }, true)
+        )
+      );
+    } catch (e) {
+      console.error("خطأ إرسال إشعار الطلب المفتوح للجميع:", e.message || e);
+    }
+    return;
+  }
+
+  const expiresAt = admin.firestore.Timestamp.fromMillis(Date.now() + OFFER_WINDOW_SECONDS * 1000);
+  await db.collection("orders").doc(orderId).update({
+    offered_driver_id: next.id,
+    offer_broadcast: false,
+    offer_expires_at: expiresAt,
+    offered_driver_ids: admin.firestore.FieldValue.arrayUnion(next.id),
+  });
+
+  await sendPush(
+    next.fcm_token,
+    "طلب جديد إلك 🚴",
+    "عندك 5 ثواني لقبول الطلب — افتح التطبيق.",
+    { type: "order_offer", order_id: orderId },
+    true
+  );
+
+  // نجدول مهمة تدوير تلقائي لو ما رد السائق خلال المهلة (Cloud Tasks — يتفعّل بمجرد أول نشر)
+  try {
+    const queue = getFunctions().taskQueue("advanceOrderOffer");
+    await queue.enqueue(
+      { orderId, offeredDriverId: next.id, triedIds: [...triedIds, next.id] },
+      { scheduleDelaySeconds: OFFER_WINDOW_SECONDS }
+    );
+  } catch (e) {
+    console.error("فشل جدولة مهمة تدوير العرض:", e.message || e);
+  }
+}
+
 exports.onOrderReady = onDocumentUpdated("orders/{orderId}", async (event) => {
   const before = event.data.before.data();
   const after = event.data.after.data();
@@ -133,19 +242,26 @@ exports.onOrderReady = onDocumentUpdated("orders/{orderId}", async (event) => {
   if (!becameReady) return;
 
   try {
-    const availSnap = await db.collection("drivers").where("is_available", "==", true).get();
-    const tokens = availSnap.docs.map((d) => d.data().fcm_token).filter(Boolean);
-    if (!tokens.length) return;
-
-    await Promise.all(
-      tokens.map((token) =>
-        sendPush(token, "طلب جديد متاح 📦", "في طلب جديد جاهز بانتظار سائق — افتح التطبيق.", {
-          type: "order_available",
-          order_id: event.params.orderId,
-        }, true)
-      )
-    );
+    await offerOrderToNextDriver(event.params.orderId, after, []);
   } catch (e) {
-    console.error("خطأ إرسال إشعار الطلب المتاح:", e.message || e);
+    console.error("خطأ بدء توزيع الطلب بالدور:", e.message || e);
   }
 });
+
+/* ══════════════════════════════════════════════════════════
+   5) مهمة مجدولة (Cloud Tasks) — تشتغل بعد OFFER_WINDOW_SECONDS
+      من كل عرض. لو السائق قبِل الطلب قبلها، العرض بيكون تغيّر
+      (status ما عاد ready، أو offered_driver_id تغيّر) فما بتعمل شي.
+      غير هيك، بتدوّر الطلب لأقرب سائق تالي.
+   ══════════════════════════════════════════════════════════ */
+exports.advanceOrderOffer = onTaskDispatched(
+  { retryConfig: { maxAttempts: 1 }, rateLimits: { maxConcurrentDispatches: 10 } },
+  async (req) => {
+    const { orderId, offeredDriverId, triedIds } = req.data;
+    const snap = await db.collection("orders").doc(orderId).get();
+    if (!snap.exists) return;
+    const order = snap.data();
+    if (order.status !== "ready" || order.offered_driver_id !== offeredDriverId) return;
+    await offerOrderToNextDriver(orderId, order, triedIds || [offeredDriverId]);
+  }
+);

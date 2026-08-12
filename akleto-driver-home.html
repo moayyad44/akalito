@@ -319,6 +319,54 @@
   .legend-row:last-child { margin-bottom:0; }
   .legend-dot { width:10px; height:10px; border-radius:50%; flex-shrink:0; }
 
+  /* ═══ حاوية "طلب جديد" — تظهر فوق الخريطة، 5 ثواني بس ═══ */
+  .noc-wrap {
+    position:fixed; left:14px; right:14px; bottom:calc(76px + env(safe-area-inset-bottom) + 16px);
+    z-index:70; display:flex; justify-content:center;
+    pointer-events:none;
+  }
+  .noc-wrap.hidden { display:none; }
+  .noc-card {
+    width:100%; max-width:420px; background:var(--surface); border-radius:20px;
+    box-shadow:0 10px 32px rgba(20,10,10,.28); border:1.5px solid var(--border);
+    overflow:hidden; pointer-events:auto;
+    animation: nocPop .25s cubic-bezier(.2,.9,.3,1.3);
+  }
+  @keyframes nocPop { from { transform:scale(.9) translateY(10px); opacity:0; } to { transform:scale(1) translateY(0); opacity:1; } }
+  .noc-progress-track { height:5px; background:var(--border); }
+  .noc-progress-bar { height:100%; background:var(--secondary); width:100%; transform-origin:right; }
+  .noc-progress-bar.animate { animation: nocShrink linear forwards; }
+  @keyframes nocShrink { from { width:100%; } to { width:0%; } }
+  .noc-body { padding:16px 18px 14px; }
+  .noc-title-row { display:flex; align-items:center; justify-content:space-between; margin-bottom:12px; }
+  .noc-title { font-family:'Tajawal',sans-serif; font-weight:900; font-size:15.5px; color:var(--primary); display:flex; align-items:center; gap:6px; }
+  .noc-title svg { width:17px; height:17px; }
+  .noc-code { font-size:11.5px; color:var(--text30); }
+  .noc-rows { display:flex; flex-direction:column; gap:9px; margin-bottom:16px; }
+  .noc-row { display:flex; align-items:center; gap:9px; font-size:13.5px; }
+  .noc-row .noc-ic {
+    width:30px; height:30px; border-radius:10px; background:rgba(162,62,72,.08); color:var(--primary);
+    display:flex; align-items:center; justify-content:center; flex-shrink:0;
+  }
+  .noc-row .noc-ic svg { width:15px; height:15px; }
+  .noc-row .noc-label { color:var(--text30); font-size:11.5px; }
+  .noc-row .noc-val { font-weight:800; }
+  .noc-row.noc-price .noc-val { color:var(--primary); font-size:15px; }
+  .noc-pay-badge {
+    display:inline-flex; align-items:center; gap:4px; font-size:11.5px; font-weight:800;
+    padding:2px 9px; border-radius:20px;
+  }
+  .noc-pay-badge.cash { background:rgba(101,116,58,.12); color:var(--olive); }
+  .noc-pay-badge.card { background:rgba(142,68,173,.12); color:var(--purple); }
+  .noc-actions { display:flex; }
+  .noc-accept-btn {
+    width:100%; padding:13px; border-radius:14px; border:none; background:var(--olive); color:#fff;
+    font-weight:800; font-size:14.5px; display:flex; align-items:center; justify-content:center; gap:7px;
+  }
+  .noc-accept-btn:active { opacity:.85; }
+  .noc-accept-btn svg { width:17px; height:17px; }
+  .noc-accept-btn:disabled { opacity:.6; }
+
 </style>
 <script>
 if ("serviceWorker" in navigator) {
@@ -361,6 +409,37 @@ if ("serviceWorker" in navigator) {
 <div class="legend-box" id="legendBox">
   <div class="legend-row"><span class="legend-dot" style="background:#8E44AD;"></span>متجر فيه طلبات بانتظار الاستلام</div>
   <div class="legend-row"><span class="legend-dot" style="background:#F5A65B;"></span>🛵 كابتن</div>
+</div>
+
+<div class="noc-wrap hidden" id="nocWrap">
+  <div class="noc-card">
+    <div class="noc-progress-track"><div class="noc-progress-bar" id="nocProgressBar"></div></div>
+    <div class="noc-body">
+      <div class="noc-title-row">
+        <div class="noc-title"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="17" r="2.2"/><circle cx="18" cy="17" r="2.2"/><path d="M6 17h5l3-7h4"/><path d="M9.5 10h4"/></svg>طلب جديد!</div>
+        <span class="noc-code mono" id="nocCode"></span>
+      </div>
+      <div class="noc-rows">
+        <div class="noc-row">
+          <span class="noc-ic"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9.5 5 4h14l1 5.5"/><path d="M4 9.5a2 2 0 0 0 4 0 2 2 0 0 0 4 0 2 2 0 0 0 4 0 2 2 0 0 0 4 0"/><path d="M5.5 9.8V20h13V9.8"/><path d="M10 20v-5.5h4V20"/></svg></span>
+          <span class="noc-val" id="nocStoreName">—</span>
+        </div>
+        <div class="noc-row">
+          <span class="noc-ic"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s-7-6.3-7-11.2a7 7 0 1 1 14 0C19 14.7 12 21 12 21Z"/><circle cx="12" cy="9.8" r="2.4"/></svg></span>
+          <span class="noc-label">المسافة للعميل</span>
+          <span class="noc-val" id="nocDistance" style="margin-right:auto;">—</span>
+        </div>
+        <div class="noc-row noc-price">
+          <span class="noc-ic"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="9.5" width="16" height="10" rx="1.4"/><path d="M4 9.5h16M12 9.5V20"/></svg></span>
+          <span class="noc-val" id="nocPrice" style="margin-left:auto;"></span>
+          <span id="nocPayBadge"></span>
+        </div>
+      </div>
+      <div class="noc-actions">
+        <button class="noc-accept-btn" id="nocAcceptBtn" onclick="acceptOrderOffer()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4.5 12.8 9 17.3 19.5 6.7"/></svg>قبول الطلب</button>
+      </div>
+    </div>
+  </div>
 </div>
 
 
@@ -411,10 +490,11 @@ if ("serviceWorker" in navigator) {
 <script type="module">
 import { db, collection, getDocs } from "./firebase-init.js";
 import {
-  requireDriverSession, ticketCode, timeAgo, showToast, watchDriverNotifs, updateNotifBadge,
+  requireDriverSession, ticketCode, orderDisplayCode, timeAgo, showToast, watchDriverNotifs, updateNotifBadge,
   renderNotifList, watchAvailableOrders, watchMyOrders, watchHotspotOrders, watchActiveDrivers,
+  watchMyOrderOffer, claimOrderTransaction, haversineKm,
   setDriverAvailability, updateDriverLocation, setNavBadge, logoutDriver,
-  startShift, endShift, haversineKm, mountActiveOrderGuard, initDriverPushNotifications,
+  startShift, endShift, mountActiveOrderGuard, initDriverPushNotifications,
   DRIVER_AVAIL_KEY, DRIVER_SHIFT_ID_KEY, DRIVER_NOTIF_SEEN_KEY
 } from "./driver-shared.js";
 
@@ -738,8 +818,78 @@ function refreshLegend() {
 }
 
 /* ═══ شارات شريط التنقّل ═══ */
-watchAvailableOrders(list => setNavBadge('availBadge', list.length));
+watchAvailableOrders(session.id, list => setNavBadge('availBadge', list.length));
 watchMyOrders(session.id, list => setNavBadge('myBadge', list.filter(o => o.status === 'delivering').length));
+
+/* ═══ حاوية "طلب جديد" — توزيع بالدور مع عداد 5 ثواني (تختفي تلقائياً وتروح لكابتن تاني لو ما قُبلت) ═══ */
+let currentOfferId = null;
+let offerAcceptLoading = false;
+
+function formatDistanceForOffer(km) {
+  if (km == null || isNaN(km)) return '—';
+  if (km < 1) return `${Math.round(km * 1000)} م`;
+  return `${km.toFixed(1)} كم`;
+}
+
+function renderOrderOffer(order) {
+  const wrap = document.getElementById('nocWrap');
+  if (!order) {
+    wrap.classList.add('hidden');
+    document.getElementById('nocProgressBar').classList.remove('animate');
+    currentOfferId = null;
+    return;
+  }
+
+  document.getElementById('nocCode').textContent = orderDisplayCode(order);
+  document.getElementById('nocStoreName').textContent = order.store_name || 'غير محدد';
+
+  let distText = '—';
+  if (myCurrentPosition && order.delivery_lat != null && order.delivery_lng != null) {
+    distText = formatDistanceForOffer(haversineKm(myCurrentPosition.lat, myCurrentPosition.lng, order.delivery_lat, order.delivery_lng));
+  }
+  document.getElementById('nocDistance').textContent = distText;
+
+  document.getElementById('nocPrice').textContent = (order.total_estimated_price || 0).toFixed(2) + ' د.أ';
+  const isOnlinePay = order.payment_method === 'card' || order.payment_method === 'online';
+  document.getElementById('nocPayBadge').innerHTML = isOnlinePay
+    ? `<span class="noc-pay-badge card">💳 فيزا</span>`
+    : `<span class="noc-pay-badge cash">💵 كاش</span>`;
+
+  wrap.classList.remove('hidden');
+
+  // نشغّل أنيميشن الشريط بس أول مرة يظهر فيها هالطلب بالذات (مش كل تحديث لايف عادي)
+  if (order.id !== currentOfferId) {
+    currentOfferId = order.id;
+    const bar = document.getElementById('nocProgressBar');
+    bar.classList.remove('animate');
+    void bar.offsetWidth; // إجبار المتصفح يعيد حساب الستايل قبل ما نضيف الكلاس من جديد
+    const expiresAtMs = order.offer_expires_at?.toMillis?.();
+    const remainingMs = expiresAtMs ? Math.max(500, expiresAtMs - Date.now()) : 5000;
+    bar.style.animationDuration = `${remainingMs}ms`;
+    bar.classList.add('animate');
+  }
+}
+
+window.acceptOrderOffer = async () => {
+  if (!currentOfferId || offerAcceptLoading) return;
+  offerAcceptLoading = true;
+  const btn = document.getElementById('nocAcceptBtn');
+  btn.disabled = true;
+  try {
+    await claimOrderTransaction(currentOfferId, session);
+    showToast('✅ تم استلام الطلب — روح توصّله');
+    window.location.href = 'akleto-driver-deliveries.html';
+  } catch (e) {
+    if (e.message === 'TAKEN') showToast('⚠️ الطلب راح لكابتن تاني — بيجيك طلب جديد قريباً');
+    else { console.error('accept order offer error', e); showToast('صار خطأ — جرب مرة ثانية'); }
+    renderOrderOffer(null);
+  } finally {
+    offerAcceptLoading = false;
+    btn.disabled = false;
+  }
+};
+
+watchMyOrderOffer(session.id, order => renderOrderOffer(order));
 
 
 window.toggleDriverMenu = () => {

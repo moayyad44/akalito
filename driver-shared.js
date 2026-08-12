@@ -5,7 +5,7 @@
 // ══════════════════════════════════════════════════════════
 import {
   db, doc, updateDoc, deleteDoc, collection, query, where, onSnapshot,
-  serverTimestamp, withTimeout, addDoc, getDoc, getDocs
+  serverTimestamp, withTimeout, addDoc, getDoc, getDocs, runTransaction
 } from "./firebase-init.js";
 
 export const DRIVER_STORAGE_KEY = 'akleto_driver_id';
@@ -311,14 +311,57 @@ export function renderNotifList(wrapId, notifItems) {
     </div>`).join('');
 }
 
-/* ═══ الطلبات ═══ */
-export function watchAvailableOrders(cb) {
-  const q = query(collection(db, 'orders'), where('status', '==', 'ready'));
+/* ═══ الطلبات — توزيع بالدور ═══
+   كل طلب "جاهز" (ready) بيتعرض بالدور على أقرب سائق متاح (عبر Cloud Functions)
+   عن طريق حقلين على مستند الطلب: offered_driver_id (مين معروض عليه حالياً)
+   و offer_expires_at (وقت انتهاء مهلة الـ5 ثواني). لو ما قبِل خلال المهلة،
+   السيرفر بيدوّره تلقائياً لسائق تاني. لو خلصت قائمة السائقين المتاحين
+   بدون قبول، الطلب يصير "مفتوح للجميع" (offer_broadcast: true) كخط أمان. */
+
+/* الطلب المعروض شخصياً على هالسائق حالياً (لو في) — يُستخدم بحاوية "طلب جديد" بشاشة الخريطة */
+export function watchMyOrderOffer(driverId, cb) {
+  const q = query(collection(db, 'orders'), where('offered_driver_id', '==', driverId), where('status', '==', 'ready'));
   return onSnapshot(q, snap => {
     const list = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-    list.sort((a, b) => (a.created_at?.toMillis?.() || 0) - (b.created_at?.toMillis?.() || 0));
-    cb(list);
-  }, err => { console.error('available orders error', err); cb([]); });
+    list.sort((a, b) => (a.offer_expires_at?.toMillis?.() || 0) - (b.offer_expires_at?.toMillis?.() || 0));
+    cb(list[0] || null);
+  }, err => { console.error('my order offer error', err); cb(null); });
+}
+
+/* قائمة الطلبات المتاحة لهالسائق: المعروضة عليه شخصياً بالدور + المفتوحة للجميع (Broadcast) — لصفحة "الطلبات المتاحة" وشارة العداد */
+export function watchAvailableOrders(driverId, cb) {
+  const buckets = { mine: [], broadcast: [] };
+  const merge = () => {
+    const seen = new Set();
+    const combined = [...buckets.mine, ...buckets.broadcast].filter(o => (seen.has(o.id) ? false : (seen.add(o.id), true)));
+    combined.sort((a, b) => (a.created_at?.toMillis?.() || 0) - (b.created_at?.toMillis?.() || 0));
+    cb(combined);
+  };
+  const qMine = query(collection(db, 'orders'), where('offered_driver_id', '==', driverId), where('status', '==', 'ready'));
+  const qBroadcast = query(collection(db, 'orders'), where('offer_broadcast', '==', true), where('status', '==', 'ready'));
+  const u1 = onSnapshot(qMine, snap => { buckets.mine = snap.docs.map(d => ({ id: d.id, ...d.data() })); merge(); }, err => console.error('available orders (offered) error', err));
+  const u2 = onSnapshot(qBroadcast, snap => { buckets.broadcast = snap.docs.map(d => ({ id: d.id, ...d.data() })); merge(); }, err => console.error('available orders (broadcast) error', err));
+  return () => { u1(); u2(); };
+}
+
+/* استلام طلب (سواء معروض شخصياً بالدور أو مفتوح للجميع) — عملية ذرية، أول سائق يعمل commit ياخد الطلب */
+export async function claimOrderTransaction(orderId, session) {
+  await runTransaction(db, async (tx) => {
+    const orderRef = doc(db, 'orders', orderId);
+    const snap = await tx.get(orderRef);
+    if (!snap.exists() || snap.data().status !== 'ready') throw new Error('TAKEN');
+    tx.update(orderRef, {
+      status: 'delivering', driver_id: session.id, driver_name: session.name,
+      driver_phone: session.phone, picked_up_at: serverTimestamp(),
+      driver_flow_stage: 'to_store'
+    });
+  });
+  addDoc(collection(db, 'admin_notifications'), {
+    type: 'order_claimed',
+    title: `طلب استلمه سائق ${orderDisplayCode({ id: orderId })}`,
+    message: `${session.name || 'سائق'} استلم طلب وبده يوصّله`,
+    related_id: orderId, created_at: serverTimestamp(), read: false
+  }).catch(e => console.error('admin_notifications write error', e));
 }
 
 export function watchMyOrders(driverId, cb) {

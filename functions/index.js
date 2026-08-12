@@ -255,6 +255,9 @@ exports.onOrderReady = onDocumentUpdated("orders/{orderId}", async (event) => {
       (status ما عاد ready، أو offered_driver_id تغيّر) فما بتعمل شي.
       غير هيك، بتدوّر الطلب لأقرب سائق تالي.
    ══════════════════════════════════════════════════════════ */
+/* v2 — إعادة نشر إجباري (12 أغسطس 2026) عشان نضمن محاولة إنشاء Cloud Tasks Queue
+   من جديد بعد تفعيل cloudtasks.googleapis.com؛ أول نشر فشلت فيه الخطوة قبل تفعيل الـAPI،
+   وFirebase CLI كان بيتخطى إعادة النشر لعدم وجود تغيير بالكود فعلياً. */
 exports.advanceOrderOffer = onTaskDispatched(
   { retryConfig: { maxAttempts: 1 }, rateLimits: { maxConcurrentDispatches: 10 } },
   async (req) => {

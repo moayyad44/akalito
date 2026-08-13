@@ -19,9 +19,13 @@ import java.util.Map;
  * التوكن، تمرير الإشعار لجافاسكربت وقت التطبيق مفتوح، ...الخ).
  *
  * الإضافة الوحيدة: لما توصل رسالة FCM من نوع "طلب جديد" (order_assigned أو
- * order_available) — وهاي الرسائل بترسل كـ data-only بدون notification block
- * من الـ Cloud Function عمداً — منبني إشعار "Full-Screen Intent" يفتح التطبيق
- * تلقائياً فوق شاشة القفل، بالضبط متل تطبيقات التوصيل (أوبر/كريم).
+ * order_available أو order_offer) — وهاي الرسائل بترسل كـ data-only بدون
+ * notification block من الـ Cloud Function عمداً — منبني إشعار "Full-Screen
+ * Intent" يفتح التطبيق تلقائياً فوق شاشة القفل، بالضبط متل تطبيقات التوصيل
+ * (أوبر/كريم).
+ *
+ * ملاحظة (12 أغسطس 2026): order_offer هو نوع جديد لتوزيع الطلبات بالدور —
+ * العرض الشخصي على أقرب سائق لمدة 5 ثواني قبل ما يتدوّر لسائق تاني.
  */
 public class OrderMessagingService extends com.capacitorjs.plugins.pushnotifications.MessagingService {
 
@@ -33,7 +37,8 @@ public class OrderMessagingService extends com.capacitorjs.plugins.pushnotificat
         Map<String, String> data = remoteMessage.getData();
         String type = data != null ? data.get("type") : null;
 
-        boolean isOrderAlert = "order_assigned".equals(type) || "order_available".equals(type);
+        boolean isOrderAlert = "order_assigned".equals(type) || "order_available".equals(type)
+            || "order_offer".equals(type);
 
         if (isOrderAlert) {
             String title = data.get("title") != null ? data.get("title") : "طلب جديد 🚴";

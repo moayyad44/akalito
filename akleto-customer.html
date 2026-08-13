@@ -865,7 +865,7 @@ if ("serviceWorker" in navigator) {
       </div>
 
       <div class="confirm-card">
-        <div class="confirm-card-title-row"><span class="confirm-edit-link" onclick="menuOpenAddresses()">تعديل</span><span>تفاصيل التوصيل</span></div>
+        <div class="confirm-card-title-row"><span class="confirm-edit-link" onclick="editOrderConfirmAddress()">تعديل</span><span>تفاصيل التوصيل</span></div>
         <div id="oc-delivery-details"></div>
         <div class="field-group" style="margin-top:12px;margin-bottom:0;">
           <label style="font-size:12px;">ملاحظات إضافية للتاجر أو السائق (اختياري)</label>
@@ -988,10 +988,40 @@ if ("serviceWorker" in navigator) {
 <script type="module">
 import {
   db, collection, getDocs, getDoc, addDoc, doc, updateDoc, deleteDoc, query, where, serverTimestamp, withTimeout,
-  onSnapshot, MEASURE_TYPES, convertToBase, loadMeasureTypes, runTransaction
+  onSnapshot, MEASURE_TYPES, convertToBase, loadMeasureTypes, runTransaction,
+  auth, onAuthStateChanged, signInAnonymously
 } from "./firebase-init.js";
 
 function ticketCode(id) { return '#' + (id || '----').slice(-4).toUpperCase(); }
+
+/* ══════════════════════════════════════════════════════════
+   Auth حقيقي (Firebase Anonymous Auth) — مهمة 3+8 (تكملة على الزبون)
+   نفس نمط تطبيق السائق بالضبط: كل جهاز زبون ياخد uid ثابت من Firebase،
+   يُربط بحقل auth_uid على مستند الزبون — أساس قواعد أمان customers الجديدة.
+   ══════════════════════════════════════════════════════════ */
+let _customerAuthPromise = null;
+
+function ensureCustomerAuth() {
+  if (_customerAuthPromise) return _customerAuthPromise;
+  _customerAuthPromise = new Promise((resolve, reject) => {
+    const unsub = onAuthStateChanged(auth, (user) => {
+      if (user) { unsub(); resolve(user.uid); }
+    }, (e) => { console.error('customer auth state error', e); reject(e); });
+    if (!auth.currentUser) {
+      signInAnonymously(auth).catch((e) => { console.error('anonymous sign-in error', e); reject(e); });
+    }
+  });
+  return _customerAuthPromise;
+}
+
+async function linkCustomerAuthUid(customerId) {
+  try {
+    const uid = await ensureCustomerAuth();
+    await updateDoc(doc(db, 'customers', customerId), { auth_uid: uid });
+  } catch (e) {
+    console.error('link customer auth uid error', e);
+  }
+}
 
 /* ══════════════════════════════════════════════════════════
    زر الرجوع الفيزيائي (Android hardware back button) — يشتغل
@@ -1137,9 +1167,10 @@ window.startCustomerSession = async () => {
       return;
     }
 
+    const authUid = await ensureCustomerAuth();
     const newRef = await withTimeout(
       addDoc(collection(db, 'customers'), {
-        name, phone, order_count: 0, is_blocked: false, created_at: serverTimestamp()
+        name, phone, order_count: 0, is_blocked: false, auth_uid: authUid, created_at: serverTimestamp()
       }),
       15000, 'انتهت مهلة الاتصال — تأكد من الإنترنت'
     );
@@ -1224,6 +1255,7 @@ function enterApp() {
   document.getElementById('home-greeting-name').textContent = customerName;
   document.getElementById('acc-name').textContent = customerName;
   document.getElementById('acc-phone').textContent = customerPhone;
+  linkCustomerAuthUid(customerId); // يضمن ربط Auth حتى لجلسات قديمة محفوظة من قبل هالتحديث
   loadInitialData();
   startNotifListeners();
   initPushNotifications();
@@ -1376,8 +1408,20 @@ function refreshHomeLocationWidget() {
   el.innerHTML = def ? `${addressIconFor(def.label)} ${def.label}${def.street ? ' — ' + def.street : ''}` : 'حدد عنوان التوصيل';
 }
 
+/* بتتذكر من وين انفتحت شاشة "عناويني" عشان الرجوع يوديك للمكان الصح:
+   'home' = من القائمة العادية، 'orderConfirm' = من زر "تعديل" بشاشة تأكيد الطلب */
+let addressesScreenReturnTo = 'home';
+
 window.menuOpenAddresses = () => {
   closeCustomerMenu();
+  addressesScreenReturnTo = 'home';
+  openAddressesScreen();
+};
+
+/* فتح شاشة العناوين من داخل شاشة تأكيد الطلب (زر "تعديل" جنب تفاصيل التوصيل) */
+window.editOrderConfirmAddress = () => {
+  addressesScreenReturnTo = 'orderConfirm';
+  document.getElementById('orderConfirmScreen').classList.add('hidden');
   openAddressesScreen();
 };
 
@@ -1387,6 +1431,7 @@ window.openAddressesScreen = async () => {
   document.getElementById('productsScreen').classList.add('hidden');
   document.getElementById('cartScreen').classList.add('hidden');
   document.getElementById('accountScreen').classList.add('hidden');
+  document.getElementById('orderConfirmScreen').classList.add('hidden');
   document.getElementById('bottomNav').classList.add('hidden');
   document.getElementById('addressesScreen').classList.remove('hidden');
   updateCartFab();
@@ -1395,7 +1440,23 @@ window.openAddressesScreen = async () => {
   renderAddressesList();
 };
 
+/* يرجع لشاشة تأكيد الطلب (لو هيك انفتحت شاشة العناوين) مع تحديث تفاصيل
+   التوصيل بالعنوان الجديد بس — بدون تصفير الإكرامية أو كود الخصم اللي
+   كان الزبون مختارهم قبل ما يدوس "تعديل". */
+async function returnToOrderConfirmAfterAddress() {
+  document.getElementById('addressesScreen').classList.add('hidden');
+  document.getElementById('orderConfirmScreen').classList.remove('hidden');
+  updateCartFab();
+  await renderOcDeliveryDetails();
+  computeEstimatedDelivery();
+}
+
 window.closeAddressesScreen = () => {
+  if (addressesScreenReturnTo === 'orderConfirm') {
+    addressesScreenReturnTo = 'home';
+    returnToOrderConfirmAfterAddress();
+    return;
+  }
   document.getElementById('addressesScreen').classList.add('hidden');
   switchScreen('home');
   refreshHomeLocationWidget();
@@ -1480,6 +1541,12 @@ window.setDefaultAddress = async (id) => {
   try {
     await updateDoc(doc(db, 'customers', customerId), { default_address_id: id });
     defaultAddressId = id;
+    if (addressesScreenReturnTo === 'orderConfirm') {
+      showToast('تم تحديث عنوان التوصيل ✅');
+      addressesScreenReturnTo = 'home';
+      await returnToOrderConfirmAfterAddress();
+      return;
+    }
     renderAddressesList();
     refreshHomeLocationWidget();
     showToast('تم تعيين العنوان الافتراضي ✅');
@@ -1630,19 +1697,28 @@ window.saveAddressForm = async () => {
       label, street, building_number: building, floor, apartment_number: apartment, notes,
       lat: pickedLat, lng: pickedLng, updated_at: serverTimestamp()
     };
+    let becameDefault = false;
     if (editingAddressId) {
       await withTimeout(updateDoc(doc(db, 'customers', customerId, 'addresses', editingAddressId), data), 15000, 'انتهت مهلة الحفظ — تأكد من الإنترنت');
+      becameDefault = editingAddressId === defaultAddressId;
     } else {
       data.created_at = serverTimestamp();
       const wasFirst = !addressesCache.length;
       const newRef = await withTimeout(addDoc(collection(db, 'customers', customerId, 'addresses'), data), 15000, 'انتهت مهلة الحفظ — تأكد من الإنترنت');
       if (wasFirst) {
         await updateDoc(doc(db, 'customers', customerId), { default_address_id: newRef.id }).catch(() => {});
+        defaultAddressId = newRef.id;
+        becameDefault = true;
       }
     }
     showToast('تم حفظ العنوان ✅');
     closeAddressForm();
     await loadAddressesData();
+    if (becameDefault && addressesScreenReturnTo === 'orderConfirm') {
+      addressesScreenReturnTo = 'home';
+      await returnToOrderConfirmAfterAddress();
+      return;
+    }
     renderAddressesList();
     refreshHomeLocationWidget();
   } catch(e) {
@@ -2712,7 +2788,7 @@ async function renderOcDeliveryDetails() {
     addressValueEl.innerHTML = `<b>${addressIconFor(a.label)} ${a.label}</b><div style="margin-top:2px;">${line}</div>${a.notes ? `<div style="color:var(--text30);font-weight:500;margin-top:2px;">${a.notes}</div>` : ''}`;
   } else {
     addressValueEl.parentElement.parentElement.innerHTML = `
-      <div class="confirm-address-missing">📍 ما ضفت عنوان توصيل بعد — <a onclick="menuOpenAddresses()">أضف عنوانك الآن</a> قبل ما تنفّذ الطلب</div>`;
+      <div class="confirm-address-missing">📍 ما ضفت عنوان توصيل بعد — <a onclick="editOrderConfirmAddress()">أضف عنوانك الآن</a> قبل ما تنفّذ الطلب</div>`;
   }
 }
 

@@ -74,6 +74,7 @@ service cloud.firestore {
     /* ═══ باقي المجموعات — لسا على وضعها المفتوح الأصلي، بانتظار دورها
        بعد ما نتأكد إنه نمط drivers شغال صح فعلياً. ═══ */
     match /customers/{id} { allow read, write: if true; }
+    match /customers/{id}/addresses/{addressId} { allow read, write: if true; }
     match /stores/{id} { allow read, write: if true; }
     match /orders/{id} { allow read, write: if true; }
     match /admin_notifications/{id} { allow read, write: if true; }

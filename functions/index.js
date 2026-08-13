@@ -23,7 +23,7 @@ const db = admin.firestore();
 const messaging = admin.messaging();
 
 // مدة عرض الطلب على كل سائق بالدور (ثواني) — لازم تطابق العدّاد بواجهة السائق (akleto-driver-home.html)
-const OFFER_WINDOW_SECONDS = 5;
+const OFFER_WINDOW_SECONDS = 10;
 
 // المنطقة الأقرب جغرافياً (أوروبا) — عدّلها لو حابب منطقة تانية
 setGlobalOptions({ region: "europe-west1", maxInstances: 10 });
@@ -124,7 +124,7 @@ exports.onOrderCreated = onDocumentCreated("orders/{orderId}", async (event) => 
    4) طلب صار "جاهز" (ready) بدون سائق بعد → توزيع بالدور
       بدل ما نبعت الطلب لكل السائقين المتاحين مرة وحدة، نعرضه
       على أقرب سائق متاح (وغير مشغول بطلب نشط) بمفرده لمدة
-      OFFER_WINDOW_SECONDS (5 ثواني). لو ما قبِله خلال المهلة،
+      OFFER_WINDOW_SECONDS (10 ثواني). لو ما قبِله خلال المهلة،
       يتدوّر تلقائياً لأقرب سائق تالي، وهكذا. لو خلصت قائمة
       السائقين المتاحين بدون قبول، يرجع الطلب "مفتوح للجميع"
       (broadcast) كخط أمان عشان ما يعلق بدون سائق نهائياً.
@@ -217,7 +217,7 @@ async function offerOrderToNextDriver(orderId, order, triedIds) {
   await sendPush(
     next.fcm_token,
     "طلب جديد إلك 🚴",
-    "عندك 5 ثواني لقبول الطلب — افتح التطبيق.",
+    "عندك 10 ثواني لقبول الطلب — افتح التطبيق.",
     { type: "order_offer", order_id: orderId },
     true
   );
@@ -234,12 +234,12 @@ function sleep(ms) {
    التنفيذ، بدون أي Cloud Tasks Queue خارجية (كانت تحتاج إعداد إضافي
    على مستوى المشروع بـGoogle Cloud فشل تفعيله رغم كل المحاولات —
    هالحل أبسط وما بيحتاج أي بنية تحتية خارجية إطلاقاً).
-   حد أقصى 10 محاولات تدوير كخط أمان (10 × 5 ثواني = 50 ثانية،
-   ضمن مهلة الدالة القصوى المحددة 120 ثانية). ══════════════════ */
+   حد أقصى 10 محاولات تدوير كخط أمان (10 × 10 ثواني = 100 ثانية،
+   ضمن مهلة الدالة القصوى المحددة 180 ثانية). ══════════════════ */
 const MAX_ROTATIONS = 10;
 
 exports.onOrderReady = onDocumentUpdated(
-  { document: "orders/{orderId}", timeoutSeconds: 120, minInstances: 1 },
+  { document: "orders/{orderId}", timeoutSeconds: 180, minInstances: 1 },
   async (event) => {
     const before = event.data.before.data();
     const after = event.data.after.data();

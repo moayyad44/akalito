@@ -319,7 +319,7 @@
   .legend-row:last-child { margin-bottom:0; }
   .legend-dot { width:10px; height:10px; border-radius:50%; flex-shrink:0; }
 
-  /* ═══ حاوية "طلب جديد" — تظهر فوق الخريطة، 5 ثواني بس ═══ */
+  /* ═══ حاوية "طلب جديد" — تظهر فوق الخريطة، مهلة عد تنازلي قبل ما تختفي ═══ */
   .noc-wrap {
     position:fixed; left:14px; right:14px; bottom:calc(76px + env(safe-area-inset-bottom) + 16px);
     z-index:70; display:flex; justify-content:center;
@@ -821,7 +821,7 @@ function refreshLegend() {
 watchAvailableOrders(session.id, list => setNavBadge('availBadge', list.length));
 watchMyOrders(session.id, list => setNavBadge('myBadge', list.filter(o => o.status === 'delivering').length));
 
-/* ═══ حاوية "طلب جديد" — توزيع بالدور مع عداد 5 ثواني (تختفي تلقائياً وتروح لكابتن تاني لو ما قُبلت) ═══ */
+/* ═══ حاوية "طلب جديد" — توزيع بالدور مع عداد تنازلي (المهلة محسوبة من السيرفر) (تختفي تلقائياً وتروح لكابتن تاني لو ما قُبلت) ═══ */
 let currentOfferId = null;
 let offerAcceptLoading = false;
 

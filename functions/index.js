@@ -239,7 +239,7 @@ function sleep(ms) {
 const MAX_ROTATIONS = 10;
 
 exports.onOrderReady = onDocumentUpdated(
-  { document: "orders/{orderId}", timeoutSeconds: 120 },
+  { document: "orders/{orderId}", timeoutSeconds: 120, minInstances: 1 },
   async (event) => {
     const before = event.data.before.data();
     const after = event.data.after.data();

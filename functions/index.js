@@ -15,10 +15,8 @@
 
 const { onDocumentUpdated } = require("firebase-functions/v2/firestore");
 const { onDocumentCreated } = require("firebase-functions/v2/firestore");
-const { onTaskDispatched } = require("firebase-functions/v2/tasks");
 const { setGlobalOptions } = require("firebase-functions/v2");
 const admin = require("firebase-admin");
-const { getFunctions } = require("firebase-admin/functions");
 
 admin.initializeApp();
 const db = admin.firestore();
@@ -168,7 +166,8 @@ async function pickNextDriver(storeLat, storeLng, triedIds) {
   return best;
 }
 
-/* يعرض الطلب على أقرب سائق تالي، أو يفتحه للجميع (broadcast) لو خلصت قائمة السائقين */
+/* يعرض الطلب على أقرب سائق تالي، أو يفتحه للجميع (broadcast) لو خلصت قائمة السائقين.
+   يرجع id السائق المعروض عليه الطلب، أو null لو ما في سائق تاني (صار broadcast). */
 async function offerOrderToNextDriver(orderId, order, triedIds) {
   let storeLat = null;
   let storeLng = null;
@@ -204,7 +203,7 @@ async function offerOrderToNextDriver(orderId, order, triedIds) {
     } catch (e) {
       console.error("خطأ إرسال إشعار الطلب المفتوح للجميع:", e.message || e);
     }
-    return;
+    return null;
   }
 
   const expiresAt = admin.firestore.Timestamp.fromMillis(Date.now() + OFFER_WINDOW_SECONDS * 1000);
@@ -223,49 +222,56 @@ async function offerOrderToNextDriver(orderId, order, triedIds) {
     true
   );
 
-  // نجدول مهمة تدوير تلقائي لو ما رد السائق خلال المهلة (Cloud Tasks — يتفعّل بمجرد أول نشر)
-  try {
-    const queue = getFunctions().taskQueue("advanceOrderOffer");
-    await queue.enqueue(
-      { orderId, offeredDriverId: next.id, triedIds: [...triedIds, next.id] },
-      { scheduleDelaySeconds: OFFER_WINDOW_SECONDS }
-    );
-  } catch (e) {
-    console.error("فشل جدولة مهمة تدوير العرض:", e.message || e);
-  }
+  return next.id;
 }
 
-exports.onOrderReady = onDocumentUpdated("orders/{orderId}", async (event) => {
-  const before = event.data.before.data();
-  const after = event.data.after.data();
-
-  const becameReady = before.status !== "ready" && after.status === "ready" && !after.driver_id;
-  if (!becameReady) return;
-
-  try {
-    await offerOrderToNextDriver(event.params.orderId, after, []);
-  } catch (e) {
-    console.error("خطأ بدء توزيع الطلب بالدور:", e.message || e);
-  }
-});
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
 
 /* ══════════════════════════════════════════════════════════
-   5) مهمة مجدولة (Cloud Tasks) — تشتغل بعد OFFER_WINDOW_SECONDS
-      من كل عرض. لو السائق قبِل الطلب قبلها، العرض بيكون تغيّر
-      (status ما عاد ready، أو offered_driver_id تغيّر) فما بتعمل شي.
-      غير هيك، بتدوّر الطلب لأقرب سائق تالي.
-   ══════════════════════════════════════════════════════════ */
-/* v2 — إعادة نشر إجباري (12 أغسطس 2026) عشان نضمن محاولة إنشاء Cloud Tasks Queue
-   من جديد بعد تفعيل cloudtasks.googleapis.com؛ أول نشر فشلت فيه الخطوة قبل تفعيل الـAPI،
-   وFirebase CLI كان بيتخطى إعادة النشر لعدم وجود تغيير بالكود فعلياً. */
-exports.advanceOrderOffer = onTaskDispatched(
-  { retryConfig: { maxAttempts: 1 }, rateLimits: { maxConcurrentDispatches: 10 } },
-  async (req) => {
-    const { orderId, offeredDriverId, triedIds } = req.data;
-    const snap = await db.collection("orders").doc(orderId).get();
-    if (!snap.exists) return;
-    const order = snap.data();
-    if (order.status !== "ready" || order.offered_driver_id !== offeredDriverId) return;
-    await offerOrderToNextDriver(orderId, order, triedIds || [offeredDriverId]);
+   الدالة نفسها "تستنى" مدة العرض وتتحقق وتدوّر — كل هذا جوا نفس
+   التنفيذ، بدون أي Cloud Tasks Queue خارجية (كانت تحتاج إعداد إضافي
+   على مستوى المشروع بـGoogle Cloud فشل تفعيله رغم كل المحاولات —
+   هالحل أبسط وما بيحتاج أي بنية تحتية خارجية إطلاقاً).
+   حد أقصى 10 محاولات تدوير كخط أمان (10 × 5 ثواني = 50 ثانية،
+   ضمن مهلة الدالة القصوى المحددة 120 ثانية). ══════════════════ */
+const MAX_ROTATIONS = 10;
+
+exports.onOrderReady = onDocumentUpdated(
+  { document: "orders/{orderId}", timeoutSeconds: 120 },
+  async (event) => {
+    const before = event.data.before.data();
+    const after = event.data.after.data();
+
+    const becameReady = before.status !== "ready" && after.status === "ready" && !after.driver_id;
+    if (!becameReady) return;
+
+    const orderId = event.params.orderId;
+    let triedIds = [];
+
+    try {
+      for (let attempt = 0; attempt < MAX_ROTATIONS; attempt++) {
+        const orderSnap = await db.collection("orders").doc(orderId).get();
+        if (!orderSnap.exists) return;
+        const currentOrder = orderSnap.data();
+        if (currentOrder.status !== "ready" || currentOrder.driver_id) return; // اتقبل أو اتلغى
+
+        const offeredId = await offerOrderToNextDriver(orderId, currentOrder, triedIds);
+        if (!offeredId) return; // صار broadcast — خلصت قائمة السائقين
+
+        await sleep(OFFER_WINDOW_SECONDS * 1000);
+
+        const afterWaitSnap = await db.collection("orders").doc(orderId).get();
+        if (!afterWaitSnap.exists) return;
+        const afterWaitOrder = afterWaitSnap.data();
+        // لو السائق قبِل الطلب خلال المهلة، status ما عاد ready — نوقف هون
+        if (afterWaitOrder.status !== "ready" || afterWaitOrder.offered_driver_id !== offeredId) return;
+
+        triedIds = [...triedIds, offeredId];
+      }
+    } catch (e) {
+      console.error("خطأ توزيع الطلب بالدور:", e.message || e);
+    }
   }
 );

@@ -6,13 +6,12 @@ rules_version = '2';
 // ⚠️ هالملف صار مُدار بالريبو من اليوم (11 أغسطس 2026) — قبل هيك كانت
 // القواعد تُدار يدوياً من Firebase Console بدون تتبّع تاريخي بـ Git.
 //
-// الحالة الحالية: أول خطوة بمسار "تفعيل Auth حقيقي" (مهمة 3+8 بـcontext.md).
-// كل المجموعات لسا على وضعها المفتوح الأصلي (allow read, write: if true)
-// **ما عدا drivers** اللي صارت أول مجموعة تجريبية تعتمد فعلياً على
-// Firebase Anonymous Auth + حقل auth_uid المرتبط بكل سائق.
+// الحالة الحالية: مسار "تفعيل Auth حقيقي" (مهمة 3+8 بـcontext.md) — قيد التنفيذ.
+// drivers وcustomers صارت مجموعتين مقيّدتين فعلياً بناءً على Firebase
+// Anonymous Auth + حقل auth_uid. باقي كل المجموعات لسا على وضعها المفتوح
+// الأصلي (allow read, write: if true) بانتظار دورها.
 //
-// بعد ما نتأكد إنه نمط drivers شغال صح بالتجربة الفعلية، رح نطبّق نفس
-// النمط تدريجياً على customers ثم stores ثم orders (الأعقد، فيها 3 أطراف).
+// الدور القادم: stores، وأخيراً orders (الأعقد، فيها 3 أطراف).
 // ══════════════════════════════════════════════════════════
 
 service cloud.firestore {
@@ -25,6 +24,18 @@ service cloud.firestore {
     function isAdmin() {
       return request.auth != null
         && exists(/databases/$(database)/documents/admins/$(request.auth.uid));
+    }
+
+    /* تتحقق إنه صاحب الطلب Auth هو نفسه صاحب مستند العميل (customerId)، أو إنه
+       المستند لسا قديم ما انربط بعد (نافذة انتقالية) — تُستخدم لمجموعات فرعية
+       زي customers/{id}/addresses اللي ما فيها هي نفسها حقل auth_uid. */
+    function isOwnerCustomer(customerId) {
+      let cust = get(/databases/$(database)/documents/customers/$(customerId)).data;
+      return request.auth != null && (
+        cust.auth_uid == request.auth.uid ||
+        !('auth_uid' in cust) ||
+        cust.auth_uid == null
+      );
     }
 
     /* مجموعة قائمة الأدمنز نفسها — قراءة بس لأي حد مسجّل دخول (عشان
@@ -71,10 +82,44 @@ service cloud.firestore {
       );
     }
 
+    /* ═══ customers — ثاني مجموعة مقيّدة فعلياً (نفس نمط drivers) ═══
+       - القراءة تضل عامة: تستخدمها لوحة الأدمن (قائمة الزبائن).
+       - الإنشاء: لازم Auth (حتى Anonymous) + auth_uid يطابق هوية المُنشئ.
+       - التعديل: مسموح للأدمن دايماً، أو لصاحب المستند (auth_uid يطابق،
+         أو المستند قديم وبعده ما انربط — نافذة انتقالية). ممنوع الزبون
+         يلمس is_blocked (حظر/إلغاء حظر الحساب قرار أدمن حصري من
+         akleto-admin-customers.html).
+       - الحذف: أدمن، أو الزبون نفسه (ميزة حذف الحساب موجودة أصلاً). */
+    match /customers/{customerId} {
+      allow read: if true;
+
+      allow create: if request.auth != null
+        && request.resource.data.auth_uid == request.auth.uid;
+
+      allow update: if isAdmin() || (
+        request.auth != null &&
+        (
+          resource.data.auth_uid == request.auth.uid ||
+          !('auth_uid' in resource.data) ||
+          resource.data.auth_uid == null
+        ) &&
+        request.resource.data.is_blocked == resource.data.is_blocked
+      );
+
+      allow delete: if isAdmin() || (
+        request.auth != null && resource.data.auth_uid == request.auth.uid
+      );
+    }
+
+    /* عناوين توصيل الزبون — مجموعة فرعية، لازم قاعدة منفصلة (Firestore ما
+       بتورّث قواعد المستند الأب للمجموعات الفرعية تلقائياً). صاحب العنوان
+       بس (أو الأدمن) يقدر يقرأ/يعدّل/يحذف. */
+    match /customers/{customerId}/addresses/{addressId} {
+      allow read, write: if isAdmin() || isOwnerCustomer(customerId);
+    }
+
     /* ═══ باقي المجموعات — لسا على وضعها المفتوح الأصلي، بانتظار دورها
-       بعد ما نتأكد إنه نمط drivers شغال صح فعلياً. ═══ */
-    match /customers/{id} { allow read, write: if true; }
-    match /customers/{id}/addresses/{addressId} { allow read, write: if true; }
+       بعد ما نتأكد إنه نمط drivers وcustomers شغالين صح فعلياً. ═══ */
     match /stores/{id} { allow read, write: if true; }
     match /orders/{id} { allow read, write: if true; }
     match /admin_notifications/{id} { allow read, write: if true; }

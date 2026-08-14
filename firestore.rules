@@ -6,12 +6,15 @@ rules_version = '2';
 // ⚠️ هالملف صار مُدار بالريبو من اليوم (11 أغسطس 2026) — قبل هيك كانت
 // القواعد تُدار يدوياً من Firebase Console بدون تتبّع تاريخي بـ Git.
 //
-// الحالة الحالية: مسار "تفعيل Auth حقيقي" (مهمة 3+8 بـcontext.md) — قيد التنفيذ.
-// drivers وcustomers وstores (+ store_employees) صارت مجموعات مقيّدة فعلياً
-// بناءً على Firebase Anonymous Auth. باقي كل المجموعات لسا على وضعها المفتوح
-// الأصلي (allow read, write: if true) بانتظار دورها.
+// الحالة الحالية: مسار "تفعيل Auth حقيقي" (مهمة 3+8 بـcontext.md) — المرحلة
+// الأساسية اكتملت. drivers وcustomers وstores (+ store_employees) وorders
+// صارت كلها مجموعات مقيّدة فعلياً بناءً على Firebase Anonymous Auth.
+// باقي المجموعات (تشغيلية/مالية داخلية، بدون تعرّض مباشر من تطبيق طرف
+// ثالث غير موثوق) لسا على وضعها المفتوح الأصلي (allow read, write: if true).
 //
-// الدور القادم: orders (الأعقد — 3 أطراف: زبون/متجر/سائق).
+// 🐛 تم إصلاح باغ بنفس هالتحديث: store_employees كانت معرّفة مرتين (قاعدة
+// مقيّدة + قاعدة مفتوحة بالأسفل) — بما إنه Firestore بتطبّق OR بين كل
+// match تطابق نفس المسار، القاعدة المفتوحة كانت عملياً تُلغي القيود.
 // ══════════════════════════════════════════════════════════
 
 service cloud.firestore {
@@ -36,6 +39,32 @@ service cloud.firestore {
         !('auth_uid' in cust) ||
         cust.auth_uid == null
       );
+    }
+
+    /* تتحقق إنه صاحب الطلب Auth هو نفسه صاحب مستند السائق (driverId)، أو إنه
+       المستند لسا قديم ما انربط بعد (نافذة انتقالية) — تُستخدم لتأمين تحديثات
+       orders من طرف السائق (الاستلام، مراحل التوصيل، التقييم). */
+    function isOwnerDriver(driverId) {
+      return driverId != null &&
+        exists(/databases/$(database)/documents/drivers/$(driverId)) &&
+        request.auth != null && (
+          get(/databases/$(database)/documents/drivers/$(driverId)).data.auth_uid == request.auth.uid ||
+          !('auth_uid' in get(/databases/$(database)/documents/drivers/$(driverId)).data) ||
+          get(/databases/$(database)/documents/drivers/$(driverId)).data.auth_uid == null
+        );
+    }
+
+    /* تتحقق إنه صاحب الطلب Auth موظف مصرّح له بنفس المتجر (storeId) —
+       نفس منطق authorized_uids المستخدم بمجموعة stores. */
+    function isStoreEmployee(storeId) {
+      let store = get(/databases/$(database)/documents/stores/$(storeId)).data;
+      return storeId != null &&
+        exists(/databases/$(database)/documents/stores/$(storeId)) &&
+        request.auth != null && (
+          request.auth.uid in store.authorized_uids ||
+          !('authorized_uids' in store) ||
+          store.authorized_uids.size() == 0
+        );
     }
 
     /* مجموعة قائمة الأدمنز نفسها — قراءة بس لأي حد مسجّل دخول (عشان
@@ -170,9 +199,68 @@ service cloud.firestore {
       allow delete: if isAdmin();
     }
 
-    /* ═══ باقي المجموعات — لسا على وضعها المفتوح الأصلي، بانتظار دورها
-       بعد ما نتأكد إنه نمط drivers وcustomers وstores شغالين صح فعلياً. ═══ */
-    match /orders/{id} { allow read, write: if true; }
+    /* ═══ orders — رابعة وآخر مجموعة بمهمة 3+8 (الأعقد: 3 أطراف) ═══
+       - القراءة تضل عامة: يستخدمها الزبون (طلباته)، المتجر (طلباته)،
+         السائق (تصفّح المتاح + طلباته)، ولوحة الأدمن (كل الطلبات) —
+         نفس نمط باقي المجموعات، تقييد القراءة لكل طرف لحاله معقّد
+         (يحتاج فلترة على مستوى الاستعلام نفسه مش بس القاعدة) ومو
+         أولوية حالياً بما إنه لا بيانات دفع حساسة (بطاقات) مخزّنة هون.
+       - الإنشاء: حصراً من تطبيق الزبون — لازم Auth + customer_id
+         بالمستند الجديد يطابق حساب الزبون المسجّل دخول (isOwnerCustomer).
+       - التعديل: 4 مسارات مسموحة (OR بينهم):
+         1) الأدمن: أي تعديل بأي وقت (لوحة akleto-admin-orders.html).
+         2) المتجر: بس لو storeId بالطلب يطابق متجره (موظف مصرّح له)،
+            وممنوع يغيّر customer_id/store_id/driver_id/السعر الإجمالي —
+            يعني يقدر يحدّث الحالة لـready + حقول loaded_by/ready_at بس.
+         3) سائق يستلم طلب جاهز (ready→delivering): لازم driver_id
+            الجديد يطابق حسابه هو (isOwnerDriver)، وممنوع يغيّر
+            customer_id/store_id/السعر.
+         4) سائق أصلاً مستلم الطلب (driver_id موجود ويطابقه): يقدر
+            يكمل مراحل التوصيل (driver_flow_stage، status→done،
+            driver_rating...) بس ممنوع يغيّر customer_id/store_id/
+            driver_id/السعر بعد الاستلام.
+         ⚠️ ملاحظة: Cloud Functions (onOrderReady, onOrderUpdated...)
+         بتستخدم Admin SDK اللي أصلاً بيتجاوز كل قواعد الأمان هاي —
+         مو محتاجة استثناء صريح هون.
+       - الحذف: أدمن بس (لا يوجد حذف طلبات من أي تطبيق حالياً). */
+    match /orders/{orderId} {
+      allow read: if true;
+
+      allow create: if request.auth != null
+        && 'customer_id' in request.resource.data
+        && isOwnerCustomer(request.resource.data.customer_id);
+
+      allow update: if isAdmin() || (
+        request.auth != null &&
+        resource.data.store_id != null &&
+        isStoreEmployee(resource.data.store_id) &&
+        request.resource.data.customer_id == resource.data.customer_id &&
+        request.resource.data.store_id == resource.data.store_id &&
+        request.resource.data.driver_id == resource.data.driver_id &&
+        request.resource.data.total_estimated_price == resource.data.total_estimated_price
+      ) || (
+        request.auth != null &&
+        resource.data.status == 'ready' &&
+        request.resource.data.status == 'delivering' &&
+        isOwnerDriver(request.resource.data.driver_id) &&
+        request.resource.data.customer_id == resource.data.customer_id &&
+        request.resource.data.store_id == resource.data.store_id &&
+        request.resource.data.total_estimated_price == resource.data.total_estimated_price
+      ) || (
+        request.auth != null &&
+        resource.data.driver_id != null &&
+        isOwnerDriver(resource.data.driver_id) &&
+        request.resource.data.driver_id == resource.data.driver_id &&
+        request.resource.data.customer_id == resource.data.customer_id &&
+        request.resource.data.store_id == resource.data.store_id &&
+        request.resource.data.total_estimated_price == resource.data.total_estimated_price
+      );
+
+      allow delete: if isAdmin();
+    }
+
+    /* ═══ باقي المجموعات — لسا على وضعها المفتوح الأصلي (بانتظار دور
+       لاحق لو احتجنا)، عدا store_employees اللي اتصحّح تكرارها هون. ═══ */
     match /admin_notifications/{id} { allow read, write: if true; }
     match /user_notifications/{id} { allow read, write: if true; }
     match /app_settings/{id} { allow read, write: if true; }
@@ -184,10 +272,10 @@ service cloud.firestore {
     match /counters/{id} { allow read, write: if true; }
     match /driver_shifts/{id} { allow read, write: if true; }
     match /driver_balance_transactions/{id} { allow read, write: if true; }
-    match /store_employees/{id} { allow read, write: if true; }
     match /store_ingredients/{id} { allow read, write: if true; }
     match /store_work_sessions/{id} { allow read, write: if true; }
     match /store_commission_requests/{id} { allow read, write: if true; }
     match /users/{id} { allow read, write: if true; }
   }
 }
+

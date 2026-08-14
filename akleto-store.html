@@ -609,8 +609,42 @@ if ("serviceWorker" in navigator) {
 <script type="module">
 import {
   db, collection, getDocs, addDoc, doc, updateDoc, setDoc, query, where, serverTimestamp, withTimeout,
-  onSnapshot
+  onSnapshot, arrayUnion, auth, onAuthStateChanged, signInAnonymously
 } from "./firebase-init.js";
+
+/* ══════════════════════════════════════════════════════════
+   Auth حقيقي (Firebase Anonymous Auth) — مهمة 3+8 (تكملة على المتجر)
+   خصوصية تطبيق المتجر: أكتر من موظف ممكن يسجّلوا دخول لنفس المتجر
+   (كلهم بنفس رمز PIN)، فبدل ما نربط auth_uid واحد بمستند المتجر،
+   منجمع كل الأجهزة/الموظفين المصرّح لهم بمصفوفة authorized_uids على
+   مستند المتجر نفسه — وهاي أساس قواعد أمان stores الجديدة.
+   ══════════════════════════════════════════════════════════ */
+let _storeAuthPromise = null;
+
+function ensureStoreAuth() {
+  if (_storeAuthPromise) return _storeAuthPromise;
+  _storeAuthPromise = new Promise((resolve, reject) => {
+    const unsub = onAuthStateChanged(auth, (user) => {
+      if (user) { unsub(); resolve(user.uid); }
+    }, (e) => { console.error('store auth state error', e); reject(e); });
+    if (!auth.currentUser) {
+      signInAnonymously(auth).catch((e) => { console.error('anonymous sign-in error', e); reject(e); });
+    }
+  });
+  return _storeAuthPromise;
+}
+
+/* يضيف الجهاز/الموظف الحالي لقائمة المصرّح لهم بتعديل مستند هالمتجر */
+async function linkStoreAuthUid(storeId) {
+  try {
+    const uid = await ensureStoreAuth();
+    await updateDoc(doc(db, 'stores', storeId), { authorized_uids: arrayUnion(uid) });
+    return uid;
+  } catch (e) {
+    console.error('link store auth uid error', e);
+    return null;
+  }
+}
 
 /* ══════════════════════════════════════════════════════════
    إشعارات الدفع (Push Notifications) — تعمل فقط جوا تطبيق
@@ -815,6 +849,7 @@ window.loginAsStore = async () => {
     }
 
     // ابحث عن سجل موظف موجود بنفس الرقم بهذا المتجر، وإلا أنشئ سجل جديد
+    const authUid = await ensureStoreAuth();
     const empSnap = await withTimeout(
       getDocs(query(collection(db, 'store_employees'),
         where('store_id', '==', storeDoc.id), where('phone', '==', phone))),
@@ -823,11 +858,14 @@ window.loginAsStore = async () => {
     if (empSnap.empty) {
       await withTimeout(
         addDoc(collection(db, 'store_employees'), {
-          store_id: storeDoc.id, name, phone, created_at: serverTimestamp()
+          store_id: storeDoc.id, name, phone, auth_uid: authUid, created_at: serverTimestamp()
         }),
         15000, 'انتهت مهلة الاتصال — تأكد من الإنترنت'
       );
+    } else {
+      await updateDoc(doc(db, 'store_employees', empSnap.docs[0].id), { auth_uid: authUid }).catch(() => {});
     }
+    await updateDoc(doc(db, 'stores', storeDoc.id), { authorized_uids: arrayUnion(authUid) }).catch(() => {});
 
     storeId = storeDoc.id;
     storeName = storeData.name || 'متجر';
@@ -1754,6 +1792,7 @@ window.addEventListener('DOMContentLoaded', () => {
     storeEmpPhone = localStorage.getItem(STORE_EMP_PHONE_KEY) || '';
     document.getElementById('storeLoginScreen').classList.add('hidden');
     document.getElementById('appShell').classList.remove('hidden');
+    linkStoreAuthUid(storeId); // يضمن ربط Auth حتى لجلسات محفوظة من قبل هالتحديث
     enterStoreMode();
   }
 });

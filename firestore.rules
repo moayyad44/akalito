@@ -7,11 +7,11 @@ rules_version = '2';
 // القواعد تُدار يدوياً من Firebase Console بدون تتبّع تاريخي بـ Git.
 //
 // الحالة الحالية: مسار "تفعيل Auth حقيقي" (مهمة 3+8 بـcontext.md) — قيد التنفيذ.
-// drivers وcustomers صارت مجموعتين مقيّدتين فعلياً بناءً على Firebase
-// Anonymous Auth + حقل auth_uid. باقي كل المجموعات لسا على وضعها المفتوح
+// drivers وcustomers وstores (+ store_employees) صارت مجموعات مقيّدة فعلياً
+// بناءً على Firebase Anonymous Auth. باقي كل المجموعات لسا على وضعها المفتوح
 // الأصلي (allow read, write: if true) بانتظار دورها.
 //
-// الدور القادم: stores، وأخيراً orders (الأعقد، فيها 3 أطراف).
+// الدور القادم: orders (الأعقد — 3 أطراف: زبون/متجر/سائق).
 // ══════════════════════════════════════════════════════════
 
 service cloud.firestore {
@@ -118,9 +118,60 @@ service cloud.firestore {
       allow read, write: if isAdmin() || isOwnerCustomer(customerId);
     }
 
+    /* ═══ stores — ثالث مجموعة مقيّدة فعلياً (نموذج مختلف عن drivers/customers) ═══
+       خصوصية المتجر: أكتر من موظف ممكن يسجّلوا دخول لنفس المتجر بنفس رمز
+       PIN (كل واحد من جهازه). فبدل ما نربط auth_uid واحد بالمستند، منجمع
+       كل الأجهزة المصرّح لها بمصفوفة authorized_uids على مستند المتجر نفسه.
+       - القراءة تضل عامة: تصفّح المتاجر من تطبيق الزبون + البحث بالـPIN
+         وقت تسجيل الدخول (قبل ما يصير أي Auth مرتبط أصلاً بالمتجر).
+       - الإنشاء: أدمن بس (المتاجر تُنشأ من لوحة التحكم حصراً، ما في تسجيل
+         ذاتي للمتاجر الجديدة).
+       - التعديل: الأدمن دايماً، أو أي موظف مصرّح له (uid موجود بـ
+         authorized_uids)، أو لو المتجر قديم وما فيه authorized_uids بعد
+         (نافذة انتقالية — ⚠️ أوسع شوي من درايفرز/كستمرز لأنه أي حد
+         مسجّل Auth مجهول يقدر "يتبنى" متجر ما اتلمس بعد، بس التأثير
+         العملي محدود لأنه المتجر أصلاً بدون هالخطوة ما بيقدر يسوي شي
+         حساس — بس الدخول الفعلي للتطبيق نفسه محمي بالـPIN). ممنوع غير
+         الأدمن يلمس is_active أو pin (قرارات أدمن حصراً).
+       - الحذف: أدمن بس (لا يوجد حذف ذاتي من تطبيق المتجر). */
+    match /stores/{storeId} {
+      allow read: if true;
+
+      allow create: if isAdmin();
+
+      allow update: if isAdmin() || (
+        request.auth != null &&
+        (
+          request.auth.uid in resource.data.authorized_uids ||
+          !('authorized_uids' in resource.data) ||
+          resource.data.authorized_uids.size() == 0
+        ) &&
+        request.resource.data.is_active == resource.data.is_active &&
+        request.resource.data.pin == resource.data.pin
+      );
+
+      allow delete: if isAdmin();
+    }
+
+    /* موظفو المتاجر — سجل كل شخص سجّل دخول بمتجر معيّن (اسم/هاتف/متجر).
+       القراءة عامة (تستخدمها لوحة الأدمن لعرض كل الموظفين + منطق تسجيل
+       الدخول نفسه للتحقق من موظف موجود مسبقاً بغض النظر عن جهازه).
+       الكتابة: تسجيل موظف جديد لازم Auth، والتعديل بس لصاحب السجل. */
+    match /store_employees/{empId} {
+      allow read: if true;
+      allow create: if request.auth != null;
+      allow update: if isAdmin() || (
+        request.auth != null && (
+          resource.data.auth_uid == request.auth.uid ||
+          !('auth_uid' in resource.data) ||
+          resource.data.auth_uid == null
+        )
+      );
+      allow delete: if isAdmin();
+    }
+
     /* ═══ باقي المجموعات — لسا على وضعها المفتوح الأصلي، بانتظار دورها
-       بعد ما نتأكد إنه نمط drivers وcustomers شغالين صح فعلياً. ═══ */
-    match /stores/{id} { allow read, write: if true; }
+       بعد ما نتأكد إنه نمط drivers وcustomers وstores شغالين صح فعلياً. ═══ */
     match /orders/{id} { allow read, write: if true; }
     match /admin_notifications/{id} { allow read, write: if true; }
     match /user_notifications/{id} { allow read, write: if true; }

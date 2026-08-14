@@ -6,7 +6,7 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/fireba
 import {
   getFirestore, initializeFirestore, collection, getDocs, getDoc, query,
   orderBy, limit, where, onSnapshot, addDoc, setDoc, updateDoc, deleteDoc, writeBatch,
-  doc, serverTimestamp, getDocFromServer, runTransaction
+  doc, serverTimestamp, getDocFromServer, runTransaction, arrayUnion
 } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 import {
   getAuth, onAuthStateChanged, signInWithEmailAndPassword, signOut, signInAnonymously
@@ -32,7 +32,7 @@ export const storage = getStorage(app);
 export {
   collection, getDocs, getDoc, query, orderBy, limit, where, onSnapshot,
   addDoc, setDoc, updateDoc, deleteDoc, writeBatch, doc, serverTimestamp, getDocFromServer,
-  runTransaction,
+  runTransaction, arrayUnion,
   onAuthStateChanged, signInWithEmailAndPassword, signOut, signInAnonymously,
   storageRef, uploadBytes, getDownloadURL
 };

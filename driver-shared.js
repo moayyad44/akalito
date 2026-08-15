@@ -11,9 +11,20 @@ import {
 
 /* ══════════════════════════════════════════════════════════
    نغمة تنبيه "طلب جديد" — 15 أغسطس 2026 (مهمة #1 بالbacklog)
-   بنولّد الصوت مباشرة عبر Web Audio API (نغمتين متبادلتين "دينغ-دونغ"
-   لمدة 10 ثواني كاملة) بدل تحميل ملف mp3 خارجي — أسرع، بدون طلب شبكة،
-   وما بيحتاج نستضيف أي أصل صوتي بالريبو أو نعدّل إعدادات Capacitor.
+   → طُوّرت لاحقاً بنفس اليوم لتصير "بصمة صوتية" مميّزة خاصة بأكليتو
+     بدل نمط "دينغ-دونغ" عام، بناءً على طلب مؤيد.
+   بنولّد الصوت بالكامل من الصفر عبر Web Audio API — بدون أي ملف mp3
+   أو عيّنة (sample) خارجية، فما فيها أي حقوق ملكية لأي طرف تالت.
+   لهيك سريعة (بدون طلب شبكة) وما بتحتاج نستضيف أي أصل صوتي بالريبو
+   ولا نعدّل إعدادات Capacitor.
+
+   البصمة الصوتية (Akalito Sound Signature):
+   عبارة لحنية صاعدة من 4 نغمات قصيرة تنتهي بنغمة رابعة أطول وأبرز
+   ("تن-تن-تن-تِـن!") — إحساس إيجابي/متفائل (فرصة ربح جديدة وصلت)،
+   بطبقة صوت جرسية (bell-like) عبر دمج موجة مثلثية (triangle) كأساس
+   + توافقي (harmonic) موجة جيبية أعلى بأوكتاف بحجم أخف، بدل نغمة
+   جيبية بسيطة — هاد اللي يعطيها طابع مميّز وليس صوت تنبيه عام.
+   تتكرر العبارة كل 1.4 ثانية تقريباً (~7 مرات) لتغطي 10 ثواني كاملة.
    ملاحظة متصفحات الموبايل: AudioContext ما بيشتغل قبل أول تفاعل مستخدم
    حقيقي (autoplay policy) — لهيك لازم نستدعي unlockNewOrderAlertAudio()
    مرة وحدة داخل معالج ضغطة زر حقيقي (استُدعيت من toggleAvailability
@@ -33,22 +44,55 @@ export function unlockNewOrderAlertAudio() {
   } catch (e) { console.error('unlockNewOrderAlertAudio error', e); }
 }
 
-function _noaBeep(ctx, startAt, freq, durationSec) {
-  const osc = ctx.createOscillator();
-  const gain = ctx.createGain();
-  osc.type = 'sine';
-  osc.frequency.value = freq;
-  gain.gain.setValueAtTime(0, startAt);
-  gain.gain.linearRampToValueAtTime(0.35, startAt + 0.02);
-  gain.gain.setValueAtTime(0.35, startAt + durationSec - 0.04);
-  gain.gain.linearRampToValueAtTime(0, startAt + durationSec);
-  osc.connect(gain);
-  gain.connect(ctx.destination);
-  osc.start(startAt);
-  osc.stop(startAt + durationSec);
+/* نغمة جرسية (bell-like) واحدة: أساس مثلثي + توافقي جيبي بأوكتاف أعلى
+   بحجم أخف — هاد المزيج هو اللي يعطي طابع "أكليتو" المميّز بدل نغمة
+   جيبية عادية مسطّحة. peakGain يتحكم بمدى بروز النغمة (نستخدمه لجعل
+   آخر نغمة بالعبارة أعلى صوت شوي من الثلاث اللي قبلها). */
+function _noaNote(ctx, startAt, freq, durationSec, peakGain = 0.32) {
+  const fundamental = ctx.createOscillator();
+  const harmonic = ctx.createOscillator();
+  const fundGain = ctx.createGain();
+  const harmGain = ctx.createGain();
+  const master = ctx.createGain();
+
+  fundamental.type = 'triangle';
+  fundamental.frequency.value = freq;
+  harmonic.type = 'sine';
+  harmonic.frequency.value = freq * 2; // أوكتاف أعلى — يعطي لمعان جرسي خفيف
+
+  fundGain.gain.value = 1;
+  harmGain.gain.value = 0.28;
+
+  // انطلاقة سريعة (attack) وخبوّ طبيعي (decay) — إحساس "نقرة جرس" مش نغمة مسطّحة
+  master.gain.setValueAtTime(0, startAt);
+  master.gain.linearRampToValueAtTime(peakGain, startAt + 0.015);
+  master.gain.exponentialRampToValueAtTime(Math.max(peakGain * 0.15, 0.001), startAt + durationSec * 0.7);
+  master.gain.linearRampToValueAtTime(0, startAt + durationSec);
+
+  fundamental.connect(fundGain); fundGain.connect(master);
+  harmonic.connect(harmGain); harmGain.connect(master);
+  master.connect(ctx.destination);
+
+  fundamental.start(startAt); fundamental.stop(startAt + durationSec);
+  harmonic.start(startAt); harmonic.stop(startAt + durationSec);
 }
 
-/* بتشغّل نمط "دينغ-دونغ" متكرر لمدة 10 ثواني بالضبط، وبترجع دالة توقيف
+/* العبارة اللحنية الصاعدة الموحّدة — "تن-تن-تن-تِـن!" */
+const AKALITO_ALERT_MOTIF = [
+  { freq: 659.25, offset: 0.00, duration: 0.16, peakGain: 0.28 }, // E5
+  { freq: 783.99, offset: 0.13, duration: 0.16, peakGain: 0.28 }, // G5
+  { freq: 987.77, offset: 0.26, duration: 0.16, peakGain: 0.30 }, // B5
+  { freq: 1318.51, offset: 0.40, duration: 0.38, peakGain: 0.38 }, // E6 — النغمة الختامية البارزة
+];
+const AKALITO_ALERT_MOTIF_CYCLE_SEC = 1.4; // مدة العبارة + فترة صمت قبل التكرار
+
+function _noaPlayMotifAt(ctx, motifStartAt) {
+  AKALITO_ALERT_MOTIF.forEach(note => {
+    _noaNote(ctx, motifStartAt + note.offset, note.freq, note.duration, note.peakGain);
+  });
+}
+
+/* بتشغّل البصمة الصوتية متكررة لمدة 10 ثواني بالضبط، وبترجع دالة توقيف
    فورية (نستخدمها لو قُبل الطلب أو اختفى العرض قبل ما تخلص العشر ثواني). */
 export function playNewOrderAlertSound() {
   try {
@@ -56,15 +100,13 @@ export function playNewOrderAlertSound() {
     unlockNewOrderAlertAudio(); // بيفتح context جديد بما إنه القديم انقفل بالسطر فوق
     if (!_noaCtx) return () => {};
     const ctx = _noaCtx;
-    const totalMs = 10000;
-    const cycleMs = 900; // دينغ-دونغ كل 0.9 ثانية تقريباً
-    const cycles = Math.floor(totalMs / cycleMs);
+    const totalSec = 10;
+    const cycles = Math.ceil(totalSec / AKALITO_ALERT_MOTIF_CYCLE_SEC);
     for (let i = 0; i < cycles; i++) {
-      const t = ctx.currentTime + (i * cycleMs) / 1000;
-      _noaBeep(ctx, t, 988, 0.16);        // دينغ (نغمة أعلى)
-      _noaBeep(ctx, t + 0.18, 740, 0.20); // دونغ (نغمة أخفض)
+      const motifStartAt = ctx.currentTime + i * AKALITO_ALERT_MOTIF_CYCLE_SEC;
+      if (i * AKALITO_ALERT_MOTIF_CYCLE_SEC < totalSec) _noaPlayMotifAt(ctx, motifStartAt);
     }
-    const timer = setTimeout(() => { _noaActiveTimers = _noaActiveTimers.filter(t => t !== timer); }, totalMs + 100);
+    const timer = setTimeout(() => { _noaActiveTimers = _noaActiveTimers.filter(t => t !== timer); }, totalSec * 1000 + 100);
     _noaActiveTimers.push(timer);
     return stopNewOrderAlertSound;
   } catch (e) { console.error('playNewOrderAlertSound error', e); return () => {}; }

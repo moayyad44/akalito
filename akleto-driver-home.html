@@ -497,6 +497,7 @@ import {
   watchMyOrderOffer, claimOrderTransaction, haversineKm,
   setDriverAvailability, updateDriverLocation, setNavBadge, logoutDriver,
   startShift, endShift, mountActiveOrderGuard, initDriverPushNotifications,
+  unlockNewOrderAlertAudio, playNewOrderAlertSound, stopNewOrderAlertSound,
   DRIVER_AVAIL_KEY, DRIVER_SHIFT_ID_KEY, DRIVER_NOTIF_SEEN_KEY
 } from "./driver-shared.js";
 
@@ -667,6 +668,7 @@ window.toggleAvailability = async () => {
   const next = !isAvailable;
   if (next) {
     if (!navigator.geolocation) { showToast('المتصفح ما بيدعم تحديد الموقع — ما نقدر نفعّل التوفر'); return; }
+    unlockNewOrderAlertAudio(); // تفاعل مستخدم حقيقي (ضغطة الزر) — يفتح الطريق لتشغيل صوت التنبيه لاحقاً تلقائياً بدون تفاعل مباشر
     setAvailLoading(true, 'جاري تحديد موقعك...');
     navigator.geolocation.getCurrentPosition(async pos => {
       const coords = { lat: pos.coords.latitude, lng: pos.coords.longitude };
@@ -838,6 +840,7 @@ function renderOrderOffer(order) {
   if (!order) {
     wrap.classList.add('hidden');
     document.getElementById('nocProgressBar').classList.remove('animate');
+    if (currentOfferId) stopNewOrderAlertSound(); // الطلب اختفى (انقبل من كابتن تاني أو انتهت مهلته) — نوقف النغمة فوراً لو لسا شغالة
     currentOfferId = null;
     return;
   }
@@ -859,7 +862,7 @@ function renderOrderOffer(order) {
 
   wrap.classList.remove('hidden');
 
-  // نشغّل أنيميشن الشريط بس أول مرة يظهر فيها هالطلب بالذات (مش كل تحديث لايف عادي)
+  // نشغّل أنيميشن الشريط + نغمة التنبيه بس أول مرة يظهر فيها هالطلب بالذات (مش كل تحديث لايف عادي)
   if (order.id !== currentOfferId) {
     currentOfferId = order.id;
     const bar = document.getElementById('nocProgressBar');
@@ -869,12 +872,14 @@ function renderOrderOffer(order) {
     const remainingMs = expiresAtMs ? Math.max(500, expiresAtMs - Date.now()) : 5000;
     bar.style.animationDuration = `${remainingMs}ms`;
     bar.classList.add('animate');
+    playNewOrderAlertSound(); // نغمة تنبيه 10 ثواني (مهمة #1 بالbacklog)
   }
 }
 
 window.acceptOrderOffer = async () => {
   if (!currentOfferId || offerAcceptLoading) return;
   offerAcceptLoading = true;
+  stopNewOrderAlertSound(); // الكابتن قبل الطلب — نوقف النغمة فوراً بدون ننتظر تخلص العشر ثواني
   const btn = document.getElementById('nocAcceptBtn');
   btn.disabled = true;
   try {

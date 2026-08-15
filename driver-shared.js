@@ -9,6 +9,78 @@ import {
   auth, onAuthStateChanged, signInAnonymously
 } from "./firebase-init.js";
 
+/* ══════════════════════════════════════════════════════════
+   نغمة تنبيه "طلب جديد" — 15 أغسطس 2026 (مهمة #1 بالbacklog)
+   بنولّد الصوت مباشرة عبر Web Audio API (نغمتين متبادلتين "دينغ-دونغ"
+   لمدة 10 ثواني كاملة) بدل تحميل ملف mp3 خارجي — أسرع، بدون طلب شبكة،
+   وما بيحتاج نستضيف أي أصل صوتي بالريبو أو نعدّل إعدادات Capacitor.
+   ملاحظة متصفحات الموبايل: AudioContext ما بيشتغل قبل أول تفاعل مستخدم
+   حقيقي (autoplay policy) — لهيك لازم نستدعي unlockNewOrderAlertAudio()
+   مرة وحدة داخل معالج ضغطة زر حقيقي (استُدعيت من toggleAvailability
+   بصفحة الخريطة) قبل ما نحاول نشغّل الصوت لاحقاً بدون تفاعل مباشر
+   (لما يوصل عرض طلب عبر Firestore listener). ══════════════════════ */
+let _noaCtx = null;
+let _noaActiveTimers = [];
+
+export function unlockNewOrderAlertAudio() {
+  try {
+    if (!_noaCtx) {
+      const AC = window.AudioContext || window.webkitAudioContext;
+      if (!AC) return;
+      _noaCtx = new AC();
+    }
+    if (_noaCtx.state === 'suspended') _noaCtx.resume();
+  } catch (e) { console.error('unlockNewOrderAlertAudio error', e); }
+}
+
+function _noaBeep(ctx, startAt, freq, durationSec) {
+  const osc = ctx.createOscillator();
+  const gain = ctx.createGain();
+  osc.type = 'sine';
+  osc.frequency.value = freq;
+  gain.gain.setValueAtTime(0, startAt);
+  gain.gain.linearRampToValueAtTime(0.35, startAt + 0.02);
+  gain.gain.setValueAtTime(0.35, startAt + durationSec - 0.04);
+  gain.gain.linearRampToValueAtTime(0, startAt + durationSec);
+  osc.connect(gain);
+  gain.connect(ctx.destination);
+  osc.start(startAt);
+  osc.stop(startAt + durationSec);
+}
+
+/* بتشغّل نمط "دينغ-دونغ" متكرر لمدة 10 ثواني بالضبط، وبترجع دالة توقيف
+   فورية (نستخدمها لو قُبل الطلب أو اختفى العرض قبل ما تخلص العشر ثواني). */
+export function playNewOrderAlertSound() {
+  try {
+    stopNewOrderAlertSound(); // نضمن ما في نغمة سابقة لسا شغالة فوق بعضها (بيقفل أي context قديم)
+    unlockNewOrderAlertAudio(); // بيفتح context جديد بما إنه القديم انقفل بالسطر فوق
+    if (!_noaCtx) return () => {};
+    const ctx = _noaCtx;
+    const totalMs = 10000;
+    const cycleMs = 900; // دينغ-دونغ كل 0.9 ثانية تقريباً
+    const cycles = Math.floor(totalMs / cycleMs);
+    for (let i = 0; i < cycles; i++) {
+      const t = ctx.currentTime + (i * cycleMs) / 1000;
+      _noaBeep(ctx, t, 988, 0.16);        // دينغ (نغمة أعلى)
+      _noaBeep(ctx, t + 0.18, 740, 0.20); // دونغ (نغمة أخفض)
+    }
+    const timer = setTimeout(() => { _noaActiveTimers = _noaActiveTimers.filter(t => t !== timer); }, totalMs + 100);
+    _noaActiveTimers.push(timer);
+    return stopNewOrderAlertSound;
+  } catch (e) { console.error('playNewOrderAlertSound error', e); return () => {}; }
+}
+
+export function stopNewOrderAlertSound() {
+  _noaActiveTimers.forEach(t => clearTimeout(t));
+  _noaActiveTimers = [];
+  // ما نقدر نلغي oscillators مجدولة مسبقاً بمنتصف تشغيلها بسهولة بـWeb Audio API،
+  // فبنقفل ونفتح الـcontext نفسه لقطع أي صوت شغال فوراً (طريقة موثوقة ومباشرة).
+  if (_noaCtx) {
+    try { _noaCtx.close(); } catch (e) {}
+    _noaCtx = null;
+  }
+}
+
 export const DRIVER_STORAGE_KEY = 'akleto_driver_id';
 export const DRIVER_NAME_KEY = 'akleto_driver_name';
 export const DRIVER_PHONE_KEY = 'akleto_driver_phone';

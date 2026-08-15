@@ -16,6 +16,21 @@
 <meta name="mobile-web-app-capable" content="yes">
 <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;900&family=Tajawal:wght@400;500;700;800&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="admin-style.css?v=6">
+<style>
+  .ing-row-wrap { margin-bottom:8px; }
+  .ing-alt-toggle {
+    border:1px solid var(--border,#333); background:transparent; color:inherit;
+    border-radius:8px; width:34px; height:34px; font-size:15px; cursor:pointer; flex:none;
+  }
+  .ing-alt-toggle.active { background:var(--orange,#F5A65B); color:#130609; border-color:var(--orange,#F5A65B); }
+  .ing-alt-panel {
+    display:flex; gap:8px; flex-wrap:wrap; align-items:center;
+    margin-top:6px; padding:8px; border-radius:8px;
+    background:rgba(245,166,91,0.08); border:1px dashed var(--orange,#F5A65B);
+  }
+  .ing-alt-panel input[type="text"] { flex:1; min-width:140px; }
+  .ing-alt-default-label { display:flex; align-items:center; gap:6px; font-size:13px; white-space:nowrap; }
+</style>
 <script type="module">
 import {
   watchUnreadNotifications,
@@ -164,7 +179,11 @@ window.addEventListener('DOMContentLoaded', () => {
         linkId: d.id,
         ingredientId: d.data().ingredient_id,
         recipeUnit: d.data().recipe_unit,
-        recipeQty: d.data().recipe_qty
+        recipeQty: d.data().recipe_qty,
+        altGroup: d.data().alt_group || null,
+        altBrand: d.data().alt_brand || '',
+        isDefaultBrand: !!d.data().is_default_brand,
+        _altOpen: !!d.data().alt_group
       }));
     } catch(e) {
       console.error('load meal_ingredients error', e);
@@ -220,9 +239,48 @@ window.addEventListener('DOMContentLoaded', () => {
     const firstIng = ingredientsCache[0];
     const mt = MEASURE_TYPES[firstIng.measure_type];
     const defaultUnit = mt ? Object.keys(mt.recipeUnits)[0] : '';
-    mealIngredientRows.push({ ingredientId: firstIng.id, recipeUnit: defaultUnit, recipeQty: 1 });
+    mealIngredientRows.push({ ingredientId: firstIng.id, recipeUnit: defaultUnit, recipeQty: 1, altGroup: null, altBrand: '', isDefaultBrand: false, _altOpen: false });
     renderIngredientRows();
   };
+
+  /* ══════════════ بدائل المكونات (نوع/حجم) — مهمة #5 ══════════════ */
+  window.toggleAltPanel = (idx) => {
+    const row = mealIngredientRows[idx];
+    if (!row) return;
+    row._altOpen = !row._altOpen;
+    if (!row._altOpen) {
+      // طوى بدون بيانات = مكوّن عادي (مسح أي بيانات بديل جزئية)
+      if (!row.altGroup) { row.altBrand = ''; row.isDefaultBrand = false; }
+    }
+    renderIngredientRows();
+  };
+
+  window.updateAltField = (idx, field, value) => {
+    const row = mealIngredientRows[idx];
+    if (!row) return;
+    if (field === 'isDefaultBrand') {
+      const groupKey = (row.altGroup || '').trim();
+      if (value && groupKey) {
+        // افتراضي واحد بس لكل نوع (alt_brand) داخل نفس المجموعة، وبكل المجموعة نوع افتراضي واحد
+        mealIngredientRows.forEach(r => {
+          if ((r.altGroup || '').trim() === groupKey) {
+            r.isDefaultBrand = (r.altBrand || '') === (row.altBrand || '');
+          }
+        });
+      } else {
+        row.isDefaultBrand = false;
+      }
+      renderIngredientRows();
+      return;
+    }
+    row[field] = value;
+    if (field === 'altGroup') renderIngredientRows();
+  };
+
+  function altGroupsDatalistHtml() {
+    const groups = [...new Set(mealIngredientRows.map(r => (r.altGroup || '').trim()).filter(Boolean))];
+    return groups.map(g => `<option value="${g}"></option>`).join('');
+  }
 
   window.removeIngredientRow = (idx) => {
     mealIngredientRows.splice(idx, 1);
@@ -268,6 +326,7 @@ window.addEventListener('DOMContentLoaded', () => {
       wrap.innerHTML = `<div class="empty-state" style="padding:14px 0;">ما ضفت مكونات بعد — دوس "➕ ضيف مكوّن"</div>`;
       return;
     }
+    const altGroupsOptions = altGroupsDatalistHtml();
     wrap.innerHTML = mealIngredientRows.map((row, idx) => {
       const ing = ingredientsCache.find(i => i.id === row.ingredientId) || {};
       const mt = MEASURE_TYPES[ing.measure_type];
@@ -275,16 +334,39 @@ window.addEventListener('DOMContentLoaded', () => {
       const unitOptions = units.length
         ? units.map(u => `<option value="${u}"${u === row.recipeUnit ? ' selected' : ''}>${u}</option>`).join('')
         : '<option value="">—</option>';
+      const hasAlt = !!(row.altGroup && row.altGroup.trim());
+      const altPanel = row._altOpen ? `
+        <div class="ing-alt-panel">
+          <input type="text" list="altGroupsList" placeholder="مجموعة البديل (مثال: لحمة-برغر)"
+                 value="${row.altGroup || ''}" oninput="updateAltField(${idx},'altGroup',this.value)" />
+          <input type="text" placeholder="اسم النوع (مثال: سنيورة) — اختياري لبديل الحجم فقط"
+                 value="${row.altBrand || ''}" oninput="updateAltField(${idx},'altBrand',this.value)" />
+          <label class="ing-alt-default-label">
+            <input type="checkbox" ${row.isDefaultBrand ? 'checked' : ''} onchange="updateAltField(${idx},'isDefaultBrand',this.checked)" />
+            افتراضي ⭐
+          </label>
+        </div>` : '';
       return `
-        <div class="ing-row">
-          <input type="text" list="ingredientNamesList" value="${ing.name_ar || ''}" placeholder="اكتب اسم المكوّن..."
-                 oninput="updateIngredientRowByName(${idx}, this.value)" />
-          <input type="number" min="0" step="0.25" value="${row.recipeQty}" placeholder="الكمية"
-                 onchange="updateIngredientRow(${idx},'recipeQty',this.value)" />
-          <select id="ing-unit-${idx}" ${units.length ? '' : 'disabled'} onchange="updateIngredientRow(${idx},'recipeUnit',this.value)">${unitOptions}</select>
-          <button type="button" class="ing-remove" onclick="removeIngredientRow(${idx})">✕</button>
+        <div class="ing-row-wrap">
+          <div class="ing-row">
+            <input type="text" list="ingredientNamesList" value="${ing.name_ar || ''}" placeholder="اكتب اسم المكوّن..."
+                   oninput="updateIngredientRowByName(${idx}, this.value)" />
+            <input type="number" min="0" step="0.25" value="${row.recipeQty}" placeholder="الكمية"
+                   onchange="updateIngredientRow(${idx},'recipeQty',this.value)" />
+            <select id="ing-unit-${idx}" ${units.length ? '' : 'disabled'} onchange="updateIngredientRow(${idx},'recipeUnit',this.value)">${unitOptions}</select>
+            <button type="button" class="ing-alt-toggle${hasAlt ? ' active' : ''}" title="بديل (نوع/حجم)" onclick="toggleAltPanel(${idx})">⇄</button>
+            <button type="button" class="ing-remove" onclick="removeIngredientRow(${idx})">✕</button>
+          </div>
+          ${altPanel}
         </div>`;
     }).join('');
+    let altDl = document.getElementById('altGroupsList');
+    if (!altDl) {
+      altDl = document.createElement('datalist');
+      altDl.id = 'altGroupsList';
+      wrap.parentNode.appendChild(altDl);
+    }
+    altDl.innerHTML = altGroupsOptions;
   }
 
   window.deleteCurrentMeal = async () => {
@@ -317,6 +399,37 @@ window.addEventListener('DOMContentLoaded', () => {
     }
   };
 
+  function buildMealIngredientLinkData(mealId, row) {
+    const data = { meal_id: mealId, ingredient_id: row.ingredientId, recipe_unit: row.recipeUnit, recipe_qty: row.recipeQty };
+    const groupKey = (row.altGroup || '').trim();
+    if (groupKey) {
+      data.alt_group = groupKey;
+      if (row.altBrand && row.altBrand.trim()) data.alt_brand = row.altBrand.trim();
+      data.is_default_brand = !!row.isDefaultBrand;
+    }
+    return data;
+  }
+
+  function validateAltGroups() {
+    // كل alt_group فيه أكتر من alt_brand واحد لازم يكون في نوع افتراضي واحد محدد
+    const byGroup = {};
+    mealIngredientRows.forEach(row => {
+      const g = (row.altGroup || '').trim();
+      if (!g) return;
+      byGroup[g] = byGroup[g] || { brands: new Set(), hasDefault: false };
+      byGroup[g].brands.add((row.altBrand || '').trim());
+      if (row.isDefaultBrand) byGroup[g].hasDefault = true;
+    });
+    for (const g in byGroup) {
+      const info = byGroup[g];
+      const realBrands = [...info.brands].filter(Boolean);
+      if (realBrands.length > 1 && !info.hasDefault) {
+        return `مجموعة البديل "${g}" فيها أكتر من نوع (${realBrands.join('، ')}) — لازم تحدد نوع افتراضي ⭐ واحد قبل الحفظ`;
+      }
+    }
+    return null;
+  }
+
   window.saveMeal = async (ev) => {
     ev.preventDefault();
     if (isSavingMeal) return;
@@ -337,6 +450,12 @@ window.addEventListener('DOMContentLoaded', () => {
     }
     if (!mealIngredientRows.length || mealIngredientRows[0].loading) {
       errBox.textContent = 'لازم تضيف مكوّن واحد على الأقل';
+      errBox.style.display = 'block';
+      return;
+    }
+    const altError = validateAltGroups();
+    if (altError) {
+      errBox.textContent = altError;
       errBox.style.display = 'block';
       return;
     }
@@ -369,7 +488,7 @@ window.addEventListener('DOMContentLoaded', () => {
         oldLinksSnap.docs.forEach(d => batch.delete(d.ref));
         mealIngredientRows.forEach(row => {
           const linkRef = doc(collection(db, 'meal_ingredients'));
-          batch.set(linkRef, { meal_id: mealId, ingredient_id: row.ingredientId, recipe_unit: row.recipeUnit, recipe_qty: row.recipeQty });
+          batch.set(linkRef, buildMealIngredientLinkData(mealId, row));
         });
         await withTimeout(batch.commit(), 20000, 'انتهت مهلة الحفظ — تأكد من الإنترنت');
 
@@ -385,7 +504,7 @@ window.addEventListener('DOMContentLoaded', () => {
         const batch = writeBatch(db);
         mealIngredientRows.forEach(row => {
           const linkRef = doc(collection(db, 'meal_ingredients'));
-          batch.set(linkRef, { meal_id: mealId, ingredient_id: row.ingredientId, recipe_unit: row.recipeUnit, recipe_qty: row.recipeQty });
+          batch.set(linkRef, buildMealIngredientLinkData(mealId, row));
         });
         await withTimeout(batch.commit(), 20000, 'انتهت مهلة الحفظ — تأكد من الإنترنت');
         mealsCache.push({ id: mealId, ...mealData, order_count: 0 });
@@ -573,7 +692,7 @@ if ("serviceWorker" in navigator) {
           <div class="ing-actions-row">
             <button type="button" class="btn-add-ing" onclick="addIngredientRow()">➕ ضيف مكوّن</button>
           </div>
-          <div class="field-hint">مثال: ملح — رشة × 1. زيت — معلقة كبيرة × 2. وحدات المقدار بتتغير تلقائياً حسب نوع قياس المكوّن.</div>
+          <div class="field-hint">مثال: ملح — رشة × 1. زيت — معلقة كبيرة × 2. وحدات المقدار بتتغير تلقائياً حسب نوع قياس المكوّن.<br>🔀 لعمل بدائل (نوع مثل سنيورة/نبيل، أو أحجام مختلفة لنفس المنتج): دوس زر ⇄ بجانب المكوّن، واكتب نفس "مجموعة البديل" بكل الصفوف اللي بدك تربطها ببعض. لو بديل "نوع"، حدد الافتراضي ⭐ يدوياً؛ لو بديل "حجم" لنفس النوع اترك بدون تحديد افتراضي (التطبيق بيحسب الأنسب تلقائياً).</div>
         </div>
 
       </div>

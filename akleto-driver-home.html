@@ -498,6 +498,7 @@ import {
   setDriverAvailability, updateDriverLocation, setNavBadge, logoutDriver,
   startShift, endShift, mountActiveOrderGuard, initDriverPushNotifications,
   unlockNewOrderAlertAudio, playNewOrderAlertSound, stopNewOrderAlertSound,
+  startAvailabilityForegroundNotification, stopAvailabilityForegroundNotification,
   DRIVER_AVAIL_KEY, DRIVER_SHIFT_ID_KEY, DRIVER_NOTIF_SEEN_KEY
 } from "./driver-shared.js";
 
@@ -540,6 +541,10 @@ const AMMAN = { lat: 31.9539, lng: 35.9106 };
 let map = null;
 let myMarker = null;
 let isAvailable = localStorage.getItem(DRIVER_AVAIL_KEY) === '1';
+// لو التطبيق انفتح وهو أصلاً متاح من جلسة سابقة (مثلاً النظام قتل العملية بالخلفية)،
+// نعيد تشغيل الإشعار الثابت صراحة — Foreground Service ما بيكمّل لحاله عبر إعادة فتح
+// التطبيق، فلازم JS يطلبها من جديد بوضوح (نفس فلسفة START_NOT_STICKY بالخدمة).
+if (isAvailable) startAvailabilityForegroundNotification();
 let currentShiftId = localStorage.getItem(DRIVER_SHIFT_ID_KEY) || null;
 let currentShiftDistanceKm = 0;
 let lastDistanceCoords = null;
@@ -683,6 +688,7 @@ window.toggleAvailability = async () => {
         currentShiftId = await startShift(session.id);
         if (currentShiftId) localStorage.setItem(DRIVER_SHIFT_ID_KEY, currentShiftId);
         startLocationWatch();
+        startAvailabilityForegroundNotification(); // إشعار ثابت (مهمة #4) — يضل بشريط الإشعارات لحد ما يوقف يدوياً
         showToast('✅ صرت متاح لاستلام الطلبات');
       } catch (e) { console.error(e); showToast('صار خطأ — جرب مرة ثانية'); }
       finally { setAvailLoading(false); }
@@ -694,6 +700,7 @@ window.toggleAvailability = async () => {
       isAvailable = false;
       localStorage.setItem(DRIVER_AVAIL_KEY, '0');
       stopLocationWatch();
+      stopAvailabilityForegroundNotification(); // إيقاف الإشعار الثابت (مهمة #4) فوراً مع تحويل الحالة لغير متاح
       if (currentShiftId) {
         await endShift(currentShiftId, currentShiftDistanceKm);
         currentShiftId = null;

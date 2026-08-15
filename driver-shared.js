@@ -308,6 +308,7 @@ export function saveDriverSession(id, name, phone) {
 }
 
 export function logoutDriver() {
+  stopAvailabilityForegroundNotification(); // احتياط: تفادي إشعار "متاح" عالق لو سجّل خروج بدون ما يوقف التوفر يدوياً أول
   localStorage.removeItem(DRIVER_STORAGE_KEY);
   localStorage.removeItem(DRIVER_NAME_KEY);
   localStorage.removeItem(DRIVER_PHONE_KEY);
@@ -366,6 +367,31 @@ export async function initDriverPushNotifications(driverId) {
   } catch (e) {
     console.error('خطأ بتهيئة إشعارات الدفع للسائق', e);
   }
+}
+
+/* ══════════════════════════════════════════════════════════
+   الإشعار الثابت لحالة "متاح للطلبات" (مهمة #4 بالbacklog، 15 أغسطس 2026)
+   يشتغل فقط داخل تطبيق أندرويد (نفس شرط إشعارات الدفع فوق) — عبر
+   Foreground Service حقيقي بمستوى نظام التشغيل (AvailabilityService.java +
+   DriverAvailabilityPlugin.java)، مش مجرد إشعار محلي عادي، عشان يضل
+   "ثابت" (Ongoing) وما ينمسح بالسحب لحد ما الكابتن يحوّل حالته يدوياً.
+   الـplugin المخصص بيظهر تلقائياً بـwindow.Capacitor.Plugins.DriverAvailability
+   بمجرد ما يتسجّل بـMainActivity.java — نفس نمط الوصول لباقي الـplugins.
+   ══════════════════════════════════════════════════════════ */
+export function startAvailabilityForegroundNotification() {
+  const Capacitor = window.Capacitor;
+  if (!Capacitor || !Capacitor.isNativePlatform || !Capacitor.isNativePlatform()) return;
+  const plugin = Capacitor.Plugins && Capacitor.Plugins.DriverAvailability;
+  if (!plugin) return; // نسخة APK قديمة قبل إضافة الـplugin — نتجاهل بهدوء بدون ما نكسر شي
+  try { plugin.start(); } catch (e) { console.error('startAvailabilityForegroundNotification error', e); }
+}
+
+export function stopAvailabilityForegroundNotification() {
+  const Capacitor = window.Capacitor;
+  if (!Capacitor || !Capacitor.isNativePlatform || !Capacitor.isNativePlatform()) return;
+  const plugin = Capacitor.Plugins && Capacitor.Plugins.DriverAvailability;
+  if (!plugin) return;
+  try { plugin.stop(); } catch (e) { console.error('stopAvailabilityForegroundNotification error', e); }
 }
 
 /* ═══ عرض ═══ */

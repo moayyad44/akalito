@@ -504,6 +504,10 @@
     position:fixed; bottom: calc(76px + env(safe-area-inset-bottom) + 70px); right:50%; transform:translateX(50%) translateY(20px);
     background: var(--text); color:#fff; padding: 12px 22px; border-radius: 30px;
     font-size:13.5px; font-weight:600; opacity:0; transition: all .25s; z-index: 300; white-space:nowrap;
+    pointer-events: none; /* باغ مصلّح: كان يعترض الضغطات حتى وهو مخفي (opacity:0)،
+      لأنه position:fixed بموضع ثابت فوق منطقة زر "تنفيذ الطلب" بالضبط — كان يبلع
+      الضغطة إذا وقعت بالضبط بمكانه (نص الزر)، وتمر عادي إذا وقعت على أطراف الزر
+      (خارج مربع الـtoast). هاي كانت سبب باغ "الكلمة ما بتجاوب بس الحاوية بتجاوب". */
   }
   .toast.show { opacity:1; transform:translateX(50%) translateY(0); }
 
@@ -3272,3 +3276,4 @@ window.addEventListener('DOMContentLoaded', () => {
 </script>
 </body>
 </html>
+

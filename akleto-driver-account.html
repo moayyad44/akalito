@@ -255,6 +255,8 @@
     background: var(--text); color:#fff; padding: 12px 22px; border-radius: 30px;
     font-size:13.5px; font-weight:600; opacity:0; transition: all .25s; z-index: 300; white-space:nowrap;
     max-width: 90vw; text-align:center;
+  
+    pointer-events: none; /* باغ مصلّح: كان يعترض الضغطات وهو مخفي (opacity:0) فوق أزرار بنفس المنطقة */
   }
   .toast.show { opacity:1; transform:translateX(50%) translateY(0); }
 

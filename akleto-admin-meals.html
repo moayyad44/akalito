@@ -24,12 +24,25 @@
   }
   .ing-alt-toggle.active { background:var(--orange,#F5A65B); color:#130609; border-color:var(--orange,#F5A65B); }
   .ing-alt-panel {
-    display:flex; gap:8px; flex-wrap:wrap; align-items:center;
-    margin-top:6px; padding:8px; border-radius:8px;
+    margin-top:6px; padding:10px; border-radius:8px;
     background:rgba(245,166,91,0.08); border:1px dashed var(--orange,#F5A65B);
   }
-  .ing-alt-panel input[type="text"] { flex:1; min-width:140px; }
-  .ing-alt-default-label { display:flex; align-items:center; gap:6px; font-size:13px; white-space:nowrap; }
+  .ing-alt-panel-label { font-size:13px; font-weight:600; margin-bottom:8px; }
+  .ing-alt-search {
+    width:100%; margin-bottom:8px; box-sizing:border-box;
+  }
+  .ing-alt-picker { max-height:220px; overflow-y:auto; display:flex; flex-direction:column; gap:4px; }
+  .ing-alt-pick-item {
+    display:flex; align-items:center; gap:8px; flex-wrap:wrap;
+    padding:6px 8px; border-radius:6px; background:rgba(255,255,255,0.03);
+  }
+  .ing-alt-pick-check { display:flex; align-items:center; gap:6px; font-size:13.5px; cursor:pointer; flex:1; min-width:110px; }
+  .ing-alt-brand-input { flex:1; min-width:110px; font-size:12.5px; padding:4px 8px; }
+  .ing-alt-star {
+    border:none; background:transparent; cursor:pointer; font-size:16px; opacity:.35; flex:none;
+  }
+  .ing-alt-star.active { opacity:1; }
+  .ing-alt-empty { font-size:13px; opacity:.6; padding:6px 0; }
 </style>
 <script type="module">
 import {
@@ -248,38 +261,98 @@ window.addEventListener('DOMContentLoaded', () => {
     const row = mealIngredientRows[idx];
     if (!row) return;
     row._altOpen = !row._altOpen;
-    if (!row._altOpen) {
-      // طوى بدون بيانات = مكوّن عادي (مسح أي بيانات بديل جزئية)
-      if (!row.altGroup) { row.altBrand = ''; row.isDefaultBrand = false; }
+    row._altSearch = '';
+    renderIngredientRows();
+  };
+
+  // يرجّع مفتاح المجموعة الحقيقي لصف معيّن (بس لو فيه أكتر من عضو فعلي)
+  function altGroupCounts() {
+    const counts = {};
+    mealIngredientRows.forEach(r => {
+      if (r.altGroup) counts[r.altGroup] = (counts[r.altGroup] || 0) + 1;
+    });
+    return counts;
+  }
+
+  window.toggleAltMember = (idx, ingredientId) => {
+    const row = mealIngredientRows[idx];
+    if (!row) return;
+    if (!row.altGroup) row.altGroup = 'grp_' + Date.now().toString(36) + '_' + idx;
+    const groupKey = row.altGroup;
+    const memberIdx = mealIngredientRows.findIndex(r => r.ingredientId === ingredientId && r.altGroup === groupKey);
+    if (memberIdx > -1) {
+      // إلغاء التحديد: يرجع مكوّن عادي مستقل (بياناته ما بتنحذف)
+      mealIngredientRows[memberIdx].altGroup = null;
+      mealIngredientRows[memberIdx].altBrand = '';
+      mealIngredientRows[memberIdx].isDefaultBrand = false;
+    } else {
+      const existingIdx = mealIngredientRows.findIndex(r => r.ingredientId === ingredientId);
+      if (existingIdx > -1) {
+        mealIngredientRows[existingIdx].altGroup = groupKey;
+      } else {
+        const ing = ingredientsCache.find(i => i.id === ingredientId);
+        const mt = MEASURE_TYPES[ing?.measure_type];
+        const defaultUnit = mt ? Object.keys(mt.recipeUnits)[0] : '';
+        mealIngredientRows.push({
+          ingredientId, recipeUnit: defaultUnit, recipeQty: row.recipeQty || 1,
+          altGroup: groupKey, altBrand: '', isDefaultBrand: false, _altOpen: false
+        });
+      }
     }
     renderIngredientRows();
   };
 
-  window.updateAltField = (idx, field, value) => {
+  window.updateAltMemberField = (idx, ingredientId, field, value) => {
     const row = mealIngredientRows[idx];
-    if (!row) return;
+    if (!row || !row.altGroup) return;
+    const memberIdx = mealIngredientRows.findIndex(r => r.ingredientId === ingredientId && r.altGroup === row.altGroup);
+    if (memberIdx === -1) return;
     if (field === 'isDefaultBrand') {
-      const groupKey = (row.altGroup || '').trim();
-      if (value && groupKey) {
-        // افتراضي واحد بس لكل نوع (alt_brand) داخل نفس المجموعة، وبكل المجموعة نوع افتراضي واحد
-        mealIngredientRows.forEach(r => {
-          if ((r.altGroup || '').trim() === groupKey) {
-            r.isDefaultBrand = (r.altBrand || '') === (row.altBrand || '');
-          }
-        });
-      } else {
-        row.isDefaultBrand = false;
-      }
-      renderIngredientRows();
-      return;
+      mealIngredientRows.forEach(r => { if (r.altGroup === row.altGroup) r.isDefaultBrand = false; });
+      mealIngredientRows[memberIdx].isDefaultBrand = true;
+    } else {
+      mealIngredientRows[memberIdx][field] = value;
     }
-    row[field] = value;
-    if (field === 'altGroup') renderIngredientRows();
+    renderIngredientRows();
   };
 
-  function altGroupsDatalistHtml() {
-    const groups = [...new Set(mealIngredientRows.map(r => (r.altGroup || '').trim()).filter(Boolean))];
-    return groups.map(g => `<option value="${g}"></option>`).join('');
+  window.filterAltPicker = (idx, value) => {
+    if (!mealIngredientRows[idx]) return;
+    mealIngredientRows[idx]._altSearch = value;
+    renderAltPicker(idx); // تحديث القائمة بس، بدون إعادة رسم كامل الصفوف (يحافظ على التركيز أثناء الكتابة)
+  };
+
+  function altPickerItemHtml(row, idx, ing) {
+    const memberIdx = row.altGroup ? mealIngredientRows.findIndex(r => r.ingredientId === ing.id && r.altGroup === row.altGroup) : -1;
+    const checked = memberIdx > -1;
+    const memberRow = checked ? mealIngredientRows[memberIdx] : null;
+    return `
+      <div class="ing-alt-pick-item">
+        <label class="ing-alt-pick-check">
+          <input type="checkbox" ${checked ? 'checked' : ''} onchange="toggleAltMember(${idx}, '${ing.id}')" />
+          <span>${ing.name_ar || ''}</span>
+        </label>
+        ${checked ? `
+          <input type="text" class="ing-alt-brand-input" placeholder="اسم النوع (اختياري)"
+                 value="${memberRow.altBrand || ''}" oninput="updateAltMemberField(${idx}, '${ing.id}', 'altBrand', this.value)" />
+          <button type="button" class="ing-alt-star${memberRow.isDefaultBrand ? ' active' : ''}" title="اجعله الافتراضي"
+                  onclick="updateAltMemberField(${idx}, '${ing.id}', 'isDefaultBrand', true)">⭐</button>
+        ` : ''}
+      </div>`;
+  }
+
+  function altPickerListHtml(idx) {
+    const row = mealIngredientRows[idx];
+    const search = (row._altSearch || '').trim();
+    let list = ingredientsCache.filter(ing => ing.id !== row.ingredientId);
+    if (search) list = list.filter(ing => (ing.name_ar || '').includes(search));
+    if (!list.length) return `<div class="ing-alt-empty">ما في نتائج</div>`;
+    return list.map(ing => altPickerItemHtml(row, idx, ing)).join('');
+  }
+
+  function renderAltPicker(idx) {
+    const el = document.getElementById('alt-picker-' + idx);
+    if (el) el.innerHTML = altPickerListHtml(idx);
   }
 
   window.removeIngredientRow = (idx) => {
@@ -326,7 +399,6 @@ window.addEventListener('DOMContentLoaded', () => {
       wrap.innerHTML = `<div class="empty-state" style="padding:14px 0;">ما ضفت مكونات بعد — دوس "➕ ضيف مكوّن"</div>`;
       return;
     }
-    const altGroupsOptions = altGroupsDatalistHtml();
     wrap.innerHTML = mealIngredientRows.map((row, idx) => {
       const ing = ingredientsCache.find(i => i.id === row.ingredientId) || {};
       const mt = MEASURE_TYPES[ing.measure_type];
@@ -334,17 +406,14 @@ window.addEventListener('DOMContentLoaded', () => {
       const unitOptions = units.length
         ? units.map(u => `<option value="${u}"${u === row.recipeUnit ? ' selected' : ''}>${u}</option>`).join('')
         : '<option value="">—</option>';
-      const hasAlt = !!(row.altGroup && row.altGroup.trim());
+      const memberCount = row.altGroup ? mealIngredientRows.filter(r => r.altGroup === row.altGroup).length : 0;
+      const hasAlt = memberCount > 1;
       const altPanel = row._altOpen ? `
         <div class="ing-alt-panel">
-          <input type="text" list="altGroupsList" placeholder="مجموعة البديل (مثال: لحمة-برغر)"
-                 value="${row.altGroup || ''}" oninput="updateAltField(${idx},'altGroup',this.value)" />
-          <input type="text" placeholder="اسم النوع (مثال: سنيورة) — اختياري لبديل الحجم فقط"
-                 value="${row.altBrand || ''}" oninput="updateAltField(${idx},'altBrand',this.value)" />
-          <label class="ing-alt-default-label">
-            <input type="checkbox" ${row.isDefaultBrand ? 'checked' : ''} onchange="updateAltField(${idx},'isDefaultBrand',this.checked)" />
-            افتراضي ⭐
-          </label>
+          <div class="ing-alt-panel-label">🔀 اختر المكونات البديلة لـ "${ing.name_ar || 'هذا المكوّن'}"</div>
+          <input type="text" class="ing-alt-search" placeholder="دور على مكوّن..."
+                 value="${row._altSearch || ''}" oninput="filterAltPicker(${idx}, this.value)" />
+          <div class="ing-alt-picker" id="alt-picker-${idx}">${altPickerListHtml(idx)}</div>
         </div>` : '';
       return `
         <div class="ing-row-wrap">
@@ -354,19 +423,12 @@ window.addEventListener('DOMContentLoaded', () => {
             <input type="number" min="0" step="0.25" value="${row.recipeQty}" placeholder="الكمية"
                    onchange="updateIngredientRow(${idx},'recipeQty',this.value)" />
             <select id="ing-unit-${idx}" ${units.length ? '' : 'disabled'} onchange="updateIngredientRow(${idx},'recipeUnit',this.value)">${unitOptions}</select>
-            <button type="button" class="ing-alt-toggle${hasAlt ? ' active' : ''}" title="بديل (نوع/حجم)" onclick="toggleAltPanel(${idx})">⇄</button>
+            <button type="button" class="ing-alt-toggle${hasAlt ? ' active' : ''}" title="بدائل هذا المكوّن" onclick="toggleAltPanel(${idx})">⇄</button>
             <button type="button" class="ing-remove" onclick="removeIngredientRow(${idx})">✕</button>
           </div>
           ${altPanel}
         </div>`;
     }).join('');
-    let altDl = document.getElementById('altGroupsList');
-    if (!altDl) {
-      altDl = document.createElement('datalist');
-      altDl.id = 'altGroupsList';
-      wrap.parentNode.appendChild(altDl);
-    }
-    altDl.innerHTML = altGroupsOptions;
   }
 
   window.deleteCurrentMeal = async () => {
@@ -399,35 +461,16 @@ window.addEventListener('DOMContentLoaded', () => {
     }
   };
 
-  function buildMealIngredientLinkData(mealId, row) {
+  function buildMealIngredientLinkData(mealId, row, groupCounts) {
     const data = { meal_id: mealId, ingredient_id: row.ingredientId, recipe_unit: row.recipeUnit, recipe_qty: row.recipeQty };
-    const groupKey = (row.altGroup || '').trim();
-    if (groupKey) {
+    const groupKey = row.altGroup;
+    // مجموعة "بديل" حقيقية لازم عضوين ع الأقل — غير هيك يُعامل كمكوّن عادي مستقل
+    if (groupKey && groupCounts[groupKey] > 1) {
       data.alt_group = groupKey;
       if (row.altBrand && row.altBrand.trim()) data.alt_brand = row.altBrand.trim();
       data.is_default_brand = !!row.isDefaultBrand;
     }
     return data;
-  }
-
-  function validateAltGroups() {
-    // كل alt_group فيه أكتر من alt_brand واحد لازم يكون في نوع افتراضي واحد محدد
-    const byGroup = {};
-    mealIngredientRows.forEach(row => {
-      const g = (row.altGroup || '').trim();
-      if (!g) return;
-      byGroup[g] = byGroup[g] || { brands: new Set(), hasDefault: false };
-      byGroup[g].brands.add((row.altBrand || '').trim());
-      if (row.isDefaultBrand) byGroup[g].hasDefault = true;
-    });
-    for (const g in byGroup) {
-      const info = byGroup[g];
-      const realBrands = [...info.brands].filter(Boolean);
-      if (realBrands.length > 1 && !info.hasDefault) {
-        return `مجموعة البديل "${g}" فيها أكتر من نوع (${realBrands.join('، ')}) — لازم تحدد نوع افتراضي ⭐ واحد قبل الحفظ`;
-      }
-    }
-    return null;
   }
 
   window.saveMeal = async (ev) => {
@@ -453,12 +496,6 @@ window.addEventListener('DOMContentLoaded', () => {
       errBox.style.display = 'block';
       return;
     }
-    const altError = validateAltGroups();
-    if (altError) {
-      errBox.textContent = altError;
-      errBox.style.display = 'block';
-      return;
-    }
 
     const saveBtn = document.getElementById('mf-save-btn');
     isSavingMeal = true;
@@ -479,6 +516,7 @@ window.addEventListener('DOMContentLoaded', () => {
       };
 
       let mealId = currentEditingMealId;
+      const groupCounts = altGroupCounts();
 
       if (mealId) {
         // ═══ وضع التعديل: حدّث الوجبة، واحذف روابط المكونات القديمة وأضف الجديدة بدفعة واحدة ═══
@@ -488,7 +526,7 @@ window.addEventListener('DOMContentLoaded', () => {
         oldLinksSnap.docs.forEach(d => batch.delete(d.ref));
         mealIngredientRows.forEach(row => {
           const linkRef = doc(collection(db, 'meal_ingredients'));
-          batch.set(linkRef, buildMealIngredientLinkData(mealId, row));
+          batch.set(linkRef, buildMealIngredientLinkData(mealId, row, groupCounts));
         });
         await withTimeout(batch.commit(), 20000, 'انتهت مهلة الحفظ — تأكد من الإنترنت');
 
@@ -504,7 +542,7 @@ window.addEventListener('DOMContentLoaded', () => {
         const batch = writeBatch(db);
         mealIngredientRows.forEach(row => {
           const linkRef = doc(collection(db, 'meal_ingredients'));
-          batch.set(linkRef, buildMealIngredientLinkData(mealId, row));
+          batch.set(linkRef, buildMealIngredientLinkData(mealId, row, groupCounts));
         });
         await withTimeout(batch.commit(), 20000, 'انتهت مهلة الحفظ — تأكد من الإنترنت');
         mealsCache.push({ id: mealId, ...mealData, order_count: 0 });
@@ -692,7 +730,7 @@ if ("serviceWorker" in navigator) {
           <div class="ing-actions-row">
             <button type="button" class="btn-add-ing" onclick="addIngredientRow()">➕ ضيف مكوّن</button>
           </div>
-          <div class="field-hint">مثال: ملح — رشة × 1. زيت — معلقة كبيرة × 2. وحدات المقدار بتتغير تلقائياً حسب نوع قياس المكوّن.<br>🔀 لعمل بدائل (نوع مثل سنيورة/نبيل، أو أحجام مختلفة لنفس المنتج): دوس زر ⇄ بجانب المكوّن، واكتب نفس "مجموعة البديل" بكل الصفوف اللي بدك تربطها ببعض. لو بديل "نوع"، حدد الافتراضي ⭐ يدوياً؛ لو بديل "حجم" لنفس النوع اترك بدون تحديد افتراضي (التطبيق بيحسب الأنسب تلقائياً).</div>
+          <div class="field-hint">مثال: ملح — رشة × 1. زيت — معلقة كبيرة × 2. وحدات المقدار بتتغير تلقائياً حسب نوع قياس المكوّن.<br>🔀 لعمل بدائل (نوع مثل سنيورة/نبيل، أو أحجام مختلفة): دوس زر ⇄ بجانب المكوّن، ودوس ✔ على كل مكوّن بديل من القائمة (تنضاف تلقائياً لو مش موجودة بالقائمة أصلاً). حدد ⭐ على الخيار الافتراضي لو حابب.</div>
         </div>
 
       </div>

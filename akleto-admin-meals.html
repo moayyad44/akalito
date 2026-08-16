@@ -37,6 +37,10 @@
     padding:6px 8px; border-radius:6px; background:rgba(255,255,255,0.03);
   }
   .ing-alt-pick-check { display:flex; align-items:center; gap:6px; font-size:13.5px; cursor:pointer; flex:1; min-width:110px; }
+  .ing-alt-pick-thumb {
+    width:28px; height:28px; border-radius:6px; object-fit:cover; flex-shrink:0;
+    background:rgba(255,255,255,0.06); display:flex; align-items:center; justify-content:center; font-size:14px;
+  }
   .ing-alt-brand-input { flex:1; min-width:110px; font-size:12.5px; padding:4px 8px; }
   .ing-alt-star {
     border:none; background:transparent; cursor:pointer; font-size:16px; opacity:.35; flex:none;
@@ -326,14 +330,18 @@ window.addEventListener('DOMContentLoaded', () => {
     const memberIdx = row.altGroup ? mealIngredientRows.findIndex(r => r.ingredientId === ing.id && r.altGroup === row.altGroup) : -1;
     const checked = memberIdx > -1;
     const memberRow = checked ? mealIngredientRows[memberIdx] : null;
+    const thumb = ing.image_url
+      ? `<img class="ing-alt-pick-thumb" src="${ing.image_url}" />`
+      : `<div class="ing-alt-pick-thumb">📦</div>`;
     return `
       <div class="ing-alt-pick-item">
         <label class="ing-alt-pick-check">
           <input type="checkbox" ${checked ? 'checked' : ''} onchange="toggleAltMember(${idx}, '${ing.id}')" />
+          ${thumb}
           <span>${ing.name_ar || ''}</span>
         </label>
         ${checked ? `
-          <input type="text" class="ing-alt-brand-input" placeholder="اسم النوع (اختياري)"
+          <input type="text" class="ing-alt-brand-input" placeholder="اسم الماركة (اختياري)"
                  value="${memberRow.altBrand || ''}" oninput="updateAltMemberField(${idx}, '${ing.id}', 'altBrand', this.value)" />
           <button type="button" class="ing-alt-star${memberRow.isDefaultBrand ? ' active' : ''}" title="اجعله الافتراضي"
                   onclick="updateAltMemberField(${idx}, '${ing.id}', 'isDefaultBrand', true)">⭐</button>
@@ -730,7 +738,7 @@ if ("serviceWorker" in navigator) {
           <div class="ing-actions-row">
             <button type="button" class="btn-add-ing" onclick="addIngredientRow()">➕ ضيف مكوّن</button>
           </div>
-          <div class="field-hint">مثال: ملح — رشة × 1. زيت — معلقة كبيرة × 2. وحدات المقدار بتتغير تلقائياً حسب نوع قياس المكوّن.<br>🔀 لعمل بدائل (نوع مثل سنيورة/نبيل، أو أحجام مختلفة): دوس زر ⇄ بجانب المكوّن، ودوس ✔ على كل مكوّن بديل من القائمة (تنضاف تلقائياً لو مش موجودة بالقائمة أصلاً). حدد ⭐ على الخيار الافتراضي لو حابب.</div>
+          <div class="field-hint">مثال: ملح — رشة × 1. زيت — معلقة كبيرة × 2. وحدات المقدار بتتغير تلقائياً حسب نوع قياس المكوّن.<br>🔀 لعمل بدائل (ماركة مثل سنيورة/نبيل، أو أحجام مختلفة): دوس زر ⇄ بجانب المكوّن، ودوس ✔ على كل مكوّن بديل من القائمة (تنضاف تلقائياً لو مش موجودة بالقائمة أصلاً). حدد ⭐ على الخيار الافتراضي لو حابب.</div>
         </div>
 
       </div>

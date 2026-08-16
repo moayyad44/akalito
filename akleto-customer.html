@@ -2311,6 +2311,12 @@ function renderAltOptionsSheet() {
     const isSelected = sel && sel.ingredientId === o.ingredientId;
     const isBest = o.ingredientId === bestInTab.ingredientId && shown.length > 1;
     const total = o.recipeQtyPerPerson * currentSheetServings;
+    const baseTotal = o.baseQtyPerPerson * currentSheetServings;
+    let purchaseNote = '';
+    if (o.packageLabel && o.packageQty > 0) {
+      const purchaseQty = Math.max(1, Math.ceil(baseTotal / o.packageQty));
+      purchaseNote = `<div class="ing-preview-purchase">🛍️ رح تشتري: ${purchaseQty} ${o.packageLabel}</div>`;
+    }
     const thumb = o.imageUrl
       ? `<img class="ing-thumb-sm" src="${o.imageUrl}" onclick="event.stopPropagation();openProductSheet('${o.ingredientId}')" />`
       : `<div class="ing-thumb-sm" onclick="event.stopPropagation();openProductSheet('${o.ingredientId}')">📦</div>`;
@@ -2321,6 +2327,7 @@ function renderAltOptionsSheet() {
           <div>
             <div class="alt-option-name">${o.name}${isBest ? ' <span class="alt-badge best">✨ الأنسب</span>' : ''}</div>
             <div class="alt-option-need">يحتاج ${formatQty(total)} ${o.recipeUnit}</div>
+            ${purchaseNote}
           </div>
         </div>
         <div class="alt-option-check">${isSelected ? '✓' : ''}</div>
@@ -2458,6 +2465,12 @@ function altRowHtml(row) {
   const sel = currentSheetAltSelections[row.altGroup];
   const selectedOpt = row.options.find(o => o.ingredientId === sel.ingredientId) || row.options[0];
   const total = selectedOpt.recipeQtyPerPerson * currentSheetServings;
+  const baseTotal = selectedOpt.baseQtyPerPerson * currentSheetServings;
+  let purchaseNote = '';
+  if (selectedOpt.packageLabel && selectedOpt.packageQty > 0) {
+    const purchaseQty = Math.max(1, Math.ceil(baseTotal / selectedOpt.packageQty));
+    purchaseNote = `<div class="ing-preview-purchase">🛍️ رح تشتري: ${purchaseQty} ${selectedOpt.packageLabel}</div>`;
+  }
   const brandCandidates = sel.brand ? row.options.filter(o => o.altBrand === sel.brand) : row.options;
   const bestSize = computeBestSizeOption(brandCandidates.length ? brandCandidates : row.options, currentSheetServings);
   const isBestSize = bestSize.ingredientId === selectedOpt.ingredientId && brandCandidates.length > 1;
@@ -2481,6 +2494,7 @@ function altRowHtml(row) {
             <div style="min-width:0;">
               <div>${selectedOpt.name} <span class="alt-swap-icon">⇄</span></div>
               <div style="margin-top:3px;">${sel.brand ? `<span class="alt-badge">${sel.brand}</span>` : ''}${isBestSize ? '<span class="alt-badge best">✨ الأنسب</span>' : ''}</div>
+              ${purchaseNote}
             </div>
           </div>
           <span class="amt">يحتاج ${formatQty(total)} ${selectedOpt.recipeUnit}</span>

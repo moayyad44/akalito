@@ -378,15 +378,39 @@ export async function initDriverPushNotifications(driverId) {
    الـplugin المخصص بيظهر تلقائياً بـwindow.Capacitor.Plugins.DriverAvailability
    بمجرد ما يتسجّل بـMainActivity.java — نفس نمط الوصول لباقي الـplugins.
    ══════════════════════════════════════════════════════════ */
-export function startAvailabilityForegroundNotification() {
+let _availTokenRefreshTimer = null;
+
+export async function startAvailabilityForegroundNotification(driverId) {
   const Capacitor = window.Capacitor;
   if (!Capacitor || !Capacitor.isNativePlatform || !Capacitor.isNativePlatform()) return;
   const plugin = Capacitor.Plugins && Capacitor.Plugins.DriverAvailability;
   if (!plugin) return; // نسخة APK قديمة قبل إضافة الـplugin — نتجاهل بهدوء بدون ما نكسر شي
-  try { plugin.start(); } catch (e) { console.error('startAvailabilityForegroundNotification error', e); }
+  try {
+    let idToken = '';
+    // 16 أغسطس 2026 (مهمة #4 — تتبّع موقع أصلي حقيقي): نمرر Firebase ID Token
+    // للخدمة الأصلية عشان تقدر تكتب موقع السائق مباشرة لـFirestore بدون
+    // الاعتماد على جافاسكربت شغّال (اللي بيتوقف أصلاً لما التطبيق بالخلفية).
+    if (auth.currentUser) { try { idToken = await auth.currentUser.getIdToken(); } catch (e) { console.error('getIdToken error', e); } }
+    await plugin.start({ driverId: driverId || '', idToken });
+  } catch (e) { console.error('startAvailabilityForegroundNotification error', e); }
+
+  // نجدّد التوكن دورياً (صلاحيته ساعة وحدة) طول ما التطبيق بالمقدمة — لو راح
+  // للخلفية أكتر من ساعة بدون ما يرجع يفتح، تحديثات الموقع الأصلية بتتوقف
+  // بصمت لحد ما يرجع يفتح التطبيق (قيد معروف، موثّق بـcontext.md).
+  clearInterval(_availTokenRefreshTimer);
+  _availTokenRefreshTimer = setInterval(async () => {
+    try {
+      if (!auth.currentUser) return;
+      const fresh = await auth.currentUser.getIdToken(true);
+      const p = window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.DriverAvailability;
+      if (p && p.refreshToken) await p.refreshToken({ idToken: fresh });
+    } catch (e) { console.error('refresh availability token error', e); }
+  }, 45 * 60 * 1000); // كل 45 دقيقة
 }
 
 export function stopAvailabilityForegroundNotification() {
+  clearInterval(_availTokenRefreshTimer);
+  _availTokenRefreshTimer = null;
   const Capacitor = window.Capacitor;
   if (!Capacitor || !Capacitor.isNativePlatform || !Capacitor.isNativePlatform()) return;
   const plugin = Capacitor.Plugins && Capacitor.Plugins.DriverAvailability;

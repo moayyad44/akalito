@@ -544,6 +544,20 @@
   .store-pick-chev { font-size:18px; color: var(--text30); flex-shrink:0; }
   .products-store-bar-name { font-size:15px; font-weight:800; color: var(--text); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 
+  /* ═══ بانر "خطط لمونتك الشهرية" (اختيار متجر أول، بعدين فلترة الوجبات المتوافقة معه) ═══ */
+  .monthly-plan-banner {
+    display:flex; align-items:center; gap:12px; cursor:pointer;
+    margin: 4px 18px 16px; padding:14px 16px; border-radius:16px;
+    background: linear-gradient(100deg, var(--primary), #C24E59);
+    box-shadow: 0 6px 16px rgba(162,62,72,.25);
+  }
+  .monthly-plan-banner:active { transform: scale(.98); }
+  .monthly-plan-banner-icon { font-size:26px; flex-shrink:0; }
+  .monthly-plan-banner-text { flex:1; min-width:0; color:#fff; }
+  .monthly-plan-banner-title { font-weight:800; font-size:14.5px; margin-bottom:2px; }
+  .monthly-plan-banner-sub { font-size:11.5px; opacity:.85; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .monthly-plan-banner-chev { font-size:18px; color:#fff; opacity:.85; flex-shrink:0; }
+
   .toast {
     position:fixed; bottom: calc(76px + env(safe-area-inset-bottom) + 70px); right:50%; transform:translateX(50%) translateY(20px);
     background: var(--text); color:#fff; padding: 12px 22px; border-radius: 30px;
@@ -656,6 +670,15 @@ if ("serviceWorker" in navigator) {
     </div>
 
     <div class="cat-chips-row" id="catChipsRow"></div>
+
+    <div class="monthly-plan-banner" id="monthlyPlanBanner" onclick="openMonthlyPlanFlow()">
+      <div class="monthly-plan-banner-icon">📅</div>
+      <div class="monthly-plan-banner-text">
+        <div class="monthly-plan-banner-title">خطط لمونتك الشهرية</div>
+        <div class="monthly-plan-banner-sub" id="monthlyPlanBannerSub">اختار متجرك وشوف بس الوجبات المتوفرة عنده</div>
+      </div>
+      <div class="monthly-plan-banner-chev">›</div>
+    </div>
 
     <div class="section-title" id="homeSectionTitle">🍲 وجبات متوفرة</div>
     <div class="meals-scroll-grid" id="mealsGrid"></div>
@@ -1045,6 +1068,20 @@ if ("serviceWorker" in navigator) {
   </div>
 </div>
 
+<!-- ═══ شيت: اختيار متجر لخطة المونة الشهرية ═══ -->
+<div class="sheet-overlay" id="planStoreSheet">
+  <div class="sheet-card">
+    <div style="position:relative;">
+      <button class="sheet-close" onclick="closePlanStoreSheet()">✕</button>
+    </div>
+    <div class="sheet-body">
+      <div class="sheet-title">📅 خطط لمونتك الشهرية</div>
+      <div class="sheet-desc">اختار المتجر يلي بدك تشتري منه، وبنعرضلك بس الوجبات يلي مكوناتها متوفرة كاملة عنده.</div>
+      <div id="planStoreList"></div>
+    </div>
+  </div>
+</div>
+
 <div class="toast" id="toast"></div>
 
 <script type="module">
@@ -1114,6 +1151,7 @@ function setupHardwareBackButton() {
     // (٢) النوافذ المنبثقة (sheets)
     if (isOpen('mealSheet', true)) { window.closeMealSheet(); return; }
     if (isOpen('altOptionsSheet', true)) { window.closeAltOptionsSheet(); return; }
+    if (isOpen('planStoreSheet', true)) { window.closePlanStoreSheet(); return; }
     if (isOpen('productSheet', true)) { window.closeProductSheet(); return; }
     if (isOpen('ingredientPickerSheet', true)) { window.closeIngredientPicker(); return; }
     if (isOpen('notifSheet', true)) { window.closeNotifSheet(); return; }
@@ -1906,7 +1944,22 @@ function getFilteredMeals() {
   return mealsCache.filter(m => {
     const matchesCategory = homeSelectedCategory === 'الكل' || m.category === homeSelectedCategory;
     const matchesSearch = !homeSearchQuery || (m.name_ar || '').includes(homeSearchQuery);
-    return matchesCategory && matchesSearch;
+    // خطة المونة الشهرية: لو في متجر مقفول على السلة، نخفي أي وجبة مش متوفرة مكوناتها كاملة عنده
+    const matchesStore = !cartLockedStore || isMealCompatibleWithStore(m.id, lockedStorePriceMap);
+    return matchesCategory && matchesSearch && matchesStore;
+  });
+}
+
+/* وجبة "متوافقة" مع متجر معيّن = كل مكوّن مستقل فيها لازم يكون متوفر عند هداك المتجر،
+   وكل مجموعة بدائل لازم يكون فيها خيار واحد ع الأقل متوفر (بديل النوع/الحجم بيكفي أي وحد منهم) */
+function isMealCompatibleWithStore(mealId, storeMap) {
+  if (!storeMap) return true;
+  const ings = getMealIngredients(mealId);
+  if (!ings.length) return true; // وجبة بدون مكونات مسجّلة بعد — ما نخفيها بسبب نقص بيانات
+  const rows = buildMealDisplayRows(ings);
+  return rows.every(row => {
+    if (row.type === 'single') return storeMap.has(row.ing.ingredientId);
+    return row.options.some(o => storeMap.has(o.ingredientId));
   });
 }
 
@@ -1952,7 +2005,92 @@ function renderMealsGrid() {
   }).join('');
 }
 
-function updateCartFab() {
+/* ═══════════ خطة المونة الشهرية: اختيار متجر أول، بعدين فلترة الوجبات المتوافقة معه ═══════════ */
+let planStoresListCache = [];
+
+window.openMonthlyPlanFlow = async () => {
+  // لو أصلاً في سلة مرتبطة بمتجر (سواء من هاي الخطة أو من التوجيه التلقائي العادي)، لازم نأكد قبل ما نفضيها
+  if (cartLockedStore && Object.keys(getFinalCartIngredients()).length) {
+    const ok = confirm(`سلتك الحالية مرتبطة بمتجر "${cartLockedStore.name}". بدك تفضّي السلة وتختار متجر جديد للتخطيط؟`);
+    if (!ok) return;
+    selectedMeals = [];
+    cartOverrides = {};
+    cartLockedStore = null;
+    lockedStorePriceMap = null;
+    updateCartBadge();
+  }
+  document.getElementById('planStoreSheet').classList.add('open');
+  const box = document.getElementById('planStoreList');
+  box.innerHTML = `<div class="empty-state-c"><div class="emoji">⏳</div>جاري تحميل المتاجر...</div>`;
+  try {
+    planStoresListCache = await loadActiveStoresForPicker();
+  } catch (e) {
+    console.error('openMonthlyPlanFlow error', e);
+    box.innerHTML = `<div class="empty-state-c"><div class="emoji">⚠️</div>صار خطأ بتحميل المتاجر — جرب مرة ثانية</div>`;
+    return;
+  }
+  renderPlanStoreList();
+};
+
+function renderPlanStoreList() {
+  const box = document.getElementById('planStoreList');
+  if (!planStoresListCache.length) {
+    box.innerHTML = `<div class="empty-state-c"><div class="emoji">🏪</div>ما في متاجر شريكة متوفرة حالياً</div>`;
+    return;
+  }
+  box.innerHTML = planStoresListCache.map((s, idx) => `
+    <div class="store-pick-card" onclick="choosePlanStore(${idx})">
+      <div class="store-pick-icon">🏪</div>
+      <div class="store-pick-info">
+        <div class="store-pick-name">${s.name || 'متجر'}</div>
+        <div class="store-pick-meta">${storePickMeta(s)}</div>
+      </div>
+      <div class="store-pick-chev">‹</div>
+    </div>
+  `).join('');
+}
+
+window.choosePlanStore = async (idx) => {
+  const s = planStoresListCache[idx];
+  if (!s) return;
+  const box = document.getElementById('planStoreList');
+  box.innerHTML = `<div class="empty-state-c"><div class="emoji">⏳</div>جاري تجهيز القائمة...</div>`;
+  try {
+    lockedStorePriceMap = await loadStoreProductsMap(s.id);
+  } catch (e) {
+    console.error('choosePlanStore error', e);
+    showToast('صار خطأ بتحميل منتجات المتجر — جرب مرة ثانية');
+    renderPlanStoreList();
+    return;
+  }
+  cartLockedStore = { id: s.id, name: s.name || 'متجر', lat: s.lat, lng: s.lng };
+  window.closePlanStoreSheet();
+  updateMonthlyPlanBanner();
+  homeSelectedCategory = 'الكل';
+  renderCategoryChips();
+  renderMealsGrid();
+  showToast(`✅ صرت تخطط من متجر "${cartLockedStore.name}"`);
+};
+
+window.closePlanStoreSheet = () => {
+  document.getElementById('planStoreSheet').classList.remove('open');
+};
+
+function updateMonthlyPlanBanner() {
+  const banner = document.getElementById('monthlyPlanBanner');
+  const sub = document.getElementById('monthlyPlanBannerSub');
+  if (!banner || !sub) return;
+  const titleEl = banner.querySelector('.monthly-plan-banner-title');
+  if (cartLockedStore) {
+    if (titleEl) titleEl.textContent = `📅 بتخطط من متجر "${cartLockedStore.name}"`;
+    sub.textContent = 'دوس لتغيير المتجر';
+  } else {
+    if (titleEl) titleEl.textContent = '📅 خطط لمونتك الشهرية';
+    sub.textContent = 'اختار متجرك وشوف بس الوجبات المتوفرة عنده';
+  }
+}
+
+
   const fab = document.getElementById('cartFab');
   if (!fab) return;
   const homeVisible = !document.getElementById('homeScreen').classList.contains('hidden');
@@ -2626,6 +2764,7 @@ function updateCartBadge() {
   if (count) { badge.textContent = count; badge.classList.remove('hidden'); }
   else { badge.classList.add('hidden'); }
   updateCartFab();
+  updateMonthlyPlanBanner();
 }
 
 /* ═══════════ شاشة السلة + الدمج الذكي ═══════════ */

@@ -544,7 +544,7 @@ let isAvailable = localStorage.getItem(DRIVER_AVAIL_KEY) === '1';
 // لو التطبيق انفتح وهو أصلاً متاح من جلسة سابقة (مثلاً النظام قتل العملية بالخلفية)،
 // نعيد تشغيل الإشعار الثابت صراحة — Foreground Service ما بيكمّل لحاله عبر إعادة فتح
 // التطبيق، فلازم JS يطلبها من جديد بوضوح (نفس فلسفة START_NOT_STICKY بالخدمة).
-if (isAvailable) startAvailabilityForegroundNotification();
+if (isAvailable) startAvailabilityForegroundNotification(session.id);
 let currentShiftId = localStorage.getItem(DRIVER_SHIFT_ID_KEY) || null;
 let currentShiftDistanceKm = 0;
 let lastDistanceCoords = null;
@@ -688,7 +688,7 @@ window.toggleAvailability = async () => {
         currentShiftId = await startShift(session.id);
         if (currentShiftId) localStorage.setItem(DRIVER_SHIFT_ID_KEY, currentShiftId);
         startLocationWatch();
-        startAvailabilityForegroundNotification(); // إشعار ثابت (مهمة #4) — يضل بشريط الإشعارات لحد ما يوقف يدوياً
+        await startAvailabilityForegroundNotification(session.id); // إشعار ثابت + تتبّع موقع أصلي (مهمة #4) — يضل بشريط الإشعارات وشغّال بالخلفية لحد ما يوقف يدوياً
         showToast('✅ صرت متاح لاستلام الطلبات');
       } catch (e) { console.error(e); showToast('صار خطأ — جرب مرة ثانية'); }
       finally { setAvailLoading(false); }

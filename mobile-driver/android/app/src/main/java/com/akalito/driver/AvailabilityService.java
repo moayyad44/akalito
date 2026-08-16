@@ -10,12 +10,27 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.content.pm.ServiceInfo;
+import android.location.Location;
+import android.location.LocationListener;
+import android.location.LocationManager;
 import android.os.Build;
+import android.os.Bundle;
 import android.os.IBinder;
 import androidx.annotation.Nullable;
 import androidx.core.app.NotificationCompat;
 import androidx.core.app.ServiceCompat;
 import androidx.core.content.ContextCompat;
+
+import java.text.SimpleDateFormat;
+import java.util.Date;
+import java.util.Locale;
+import java.util.TimeZone;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+
+import javax.net.ssl.HttpsURLConnection;
+
+import org.json.JSONObject;
 
 /**
  * AvailabilityService — Foreground Service حقيقي بمستوى نظام أندرويد (مهمة #4
@@ -40,15 +55,47 @@ import androidx.core.content.ContextCompat;
  * عمداً عشان نظام أندرويد ما يعيد تشغيلها لحاله من غير ما JS يطلب هيك صراحة
  * (لو التطبيق انقتل بالكامل من النظام، أفضل نعتمد على JS يعيد تشغيلها بوضوح
  * وقت ما يفتح التطبيق من جديد ولاقى isAvailable=true، بدل سلوك ضمني غامض).
+ *
+ * ⚠️ 16 أغسطس 2026 — إضافة جوهرية: تتبّع موقع أصلي حقيقي (native).
+ * اكتُشف إنه navigator.geolocation.watchPosition بجافاسكربت (جوا الـWebView)
+ * بيتوقف تماماً لما التطبيق يروح للخلفية — أندرويد بيجمّد تنفيذ الجافاسكربت
+ * بغض النظر عن أي إشعار ثابت شغّال. الحل: الخدمة نفسها هلق بتطلب تحديثات
+ * الموقع مباشرة من نظام أندرويد (LocationManager) وبتكتبها لـFirestore عبر
+ * REST API مباشرة (بدون أي مكتبة Firebase إضافية) — بدون الاعتماد على أي
+ * جافاسكربت شغّال. بما إنها خدمة Foreground حقيقية بنوع "location" مُعلَن،
+ * ما بتحتاج صلاحية ACCESS_BACKGROUND_LOCATION الحساسة (القيد هاد خاص بطلب
+ * الموقع من تطبيق بالخلفية بدون Foreground Service أصلاً — مش حالتنا).
+ * التوثيق (auth): قواعد أمان Firestore (drivers/{id}.update) بتتطلب
+ * request.auth.uid يطابق auth_uid السائق — فبنستخدم Firebase ID Token
+ * (JWT قصير الصلاحية، ساعة وحدة) اللي JS بيولّده من نفس جلسة Anonymous Auth
+ * الموجودة أصلاً، وبيمرره للخدمة عند التفعيل + يجدده دورياً (refreshToken)
+ * طول ما التطبيق بالمقدمة. لو التوكن انتهت صلاحيته والتطبيق ضل بالخلفية
+ * أكتر من ساعة بدون ما يرجع يفتح، تحديثات الموقع الأصلية بتتوقف بصمت لحد
+ * ما يرجع يفتح التطبيق ويتجدد التوكن — قيد معروف وموثّق بـcontext.md.
  */
 public class AvailabilityService extends Service {
 
     public static final String ACTION_START = "com.akalito.driver.action.START_AVAILABILITY";
     public static final String ACTION_STOP = "com.akalito.driver.action.STOP_AVAILABILITY";
+    public static final String ACTION_REFRESH_TOKEN = "com.akalito.driver.action.REFRESH_AVAILABILITY_TOKEN";
+
+    public static final String EXTRA_DRIVER_ID = "driver_id";
+    public static final String EXTRA_ID_TOKEN = "id_token";
 
     private static final String CHANNEL_ID = "driver_availability_status";
     private static final String CHANNEL_NAME = "حالة التوفر للطلبات";
     private static final int NOTIF_ID = 7301;
+
+    // مشروع Firebase (akleto-prod) — نفس project_id بـgoogle-services.json
+    private static final String FIRESTORE_PROJECT_ID = "akleto-prod";
+    private static final long LOCATION_MIN_TIME_MS = 12000; // نفس فاصلة تحديث الموقع القديمة بـJS (~12 ثانية)
+
+    private volatile String driverId;
+    private volatile String idToken;
+
+    private LocationManager locationManager;
+    private LocationListener locationListener;
+    private ExecutorService writeExecutor;
 
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
@@ -56,7 +103,19 @@ public class AvailabilityService extends Service {
             stopSelf();
             return START_NOT_STICKY;
         }
+        if (intent != null && ACTION_REFRESH_TOKEN.equals(intent.getAction())) {
+            String newToken = intent.getStringExtra(EXTRA_ID_TOKEN);
+            if (newToken != null && !newToken.isEmpty()) idToken = newToken;
+            return START_NOT_STICKY; // بس تحديث التوكن — بدون لمس الإشعار أو إعادة تسجيل الموقع
+        }
+        if (intent != null) {
+            String d = intent.getStringExtra(EXTRA_DRIVER_ID);
+            String t = intent.getStringExtra(EXTRA_ID_TOKEN);
+            if (d != null && !d.isEmpty()) driverId = d;
+            if (t != null && !t.isEmpty()) idToken = t;
+        }
         startInForeground();
+        startLocationUpdates();
         return START_NOT_STICKY;
     }
 
@@ -134,8 +193,101 @@ public class AvailabilityService extends Service {
 
     @Override
     public void onDestroy() {
+        stopLocationUpdates();
         ServiceCompat.stopForeground(this, ServiceCompat.STOP_FOREGROUND_REMOVE);
         super.onDestroy();
+    }
+
+    /* ══════════ تتبّع الموقع الأصلي (native) — يشتغل حتى لو التطبيق بالخلفية تماماً ══════════ */
+
+    private void startLocationUpdates() {
+        if (locationManager != null) return; // أصلاً شغّالة (onStartCommand ممكن يُستدعى أكتر من مرة)
+        boolean hasLocationPermission =
+                ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
+                || ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED;
+        if (!hasLocationPermission) return; // بدون إذن، بيضل بس الإشعار شغال بدون تتبّع
+
+        writeExecutor = Executors.newSingleThreadExecutor();
+        locationManager = (LocationManager) getSystemService(Context.LOCATION_SERVICE);
+        if (locationManager == null) return;
+
+        locationListener = new LocationListener() {
+            @Override public void onLocationChanged(Location location) {
+                pushLocationToFirestore(location.getLatitude(), location.getLongitude());
+            }
+            @Override public void onStatusChanged(String provider, int status, Bundle extras) {}
+            @Override public void onProviderEnabled(String provider) {}
+            @Override public void onProviderDisabled(String provider) {}
+        };
+
+        try {
+            if (locationManager.isProviderEnabled(LocationManager.GPS_PROVIDER)) {
+                locationManager.requestLocationUpdates(LocationManager.GPS_PROVIDER, LOCATION_MIN_TIME_MS, 0f, locationListener);
+            }
+            if (locationManager.isProviderEnabled(LocationManager.NETWORK_PROVIDER)) {
+                locationManager.requestLocationUpdates(LocationManager.NETWORK_PROVIDER, LOCATION_MIN_TIME_MS, 0f, locationListener);
+            }
+        } catch (SecurityException e) {
+            // إذن اتلغى بلحظة نادرة بين الفحص والاستدعاء — نتجاهل بهدوء، الإشعار يضل شغال برضه
+        }
+    }
+
+    private void stopLocationUpdates() {
+        if (locationManager != null && locationListener != null) {
+            try { locationManager.removeUpdates(locationListener); } catch (SecurityException ignored) {}
+        }
+        locationManager = null;
+        locationListener = null;
+        if (writeExecutor != null) {
+            writeExecutor.shutdownNow();
+            writeExecutor = null;
+        }
+    }
+
+    /** يكتب الموقع الجديد مباشرة لـFirestore عبر REST API — بدون أي مكتبة Firebase إضافية،
+     *  على Thread منفصل (ممنوع أي I/O شبكة على الـMain Thread). */
+    private void pushLocationToFirestore(double lat, double lng) {
+        final String dId = driverId;
+        final String token = idToken;
+        final ExecutorService exec = writeExecutor;
+        if (dId == null || dId.isEmpty() || token == null || token.isEmpty() || exec == null) return;
+
+        exec.execute(() -> {
+            HttpsURLConnection conn = null;
+            try {
+                String urlStr = "https://firestore.googleapis.com/v1/projects/" + FIRESTORE_PROJECT_ID
+                        + "/databases/(default)/documents/drivers/" + dId
+                        + "?updateMask.fieldPaths=lat&updateMask.fieldPaths=lng&updateMask.fieldPaths=location_updated_at";
+                java.net.URL url = new java.net.URL(urlStr);
+                conn = (HttpsURLConnection) url.openConnection();
+                conn.setRequestMethod("PATCH");
+                conn.setRequestProperty("Authorization", "Bearer " + token);
+                conn.setRequestProperty("Content-Type", "application/json");
+                conn.setConnectTimeout(10000);
+                conn.setReadTimeout(10000);
+                conn.setDoOutput(true);
+
+                SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'", Locale.US);
+                sdf.setTimeZone(TimeZone.getTimeZone("UTC"));
+                String nowIso = sdf.format(new Date());
+
+                JSONObject fields = new JSONObject();
+                fields.put("lat", new JSONObject().put("doubleValue", lat));
+                fields.put("lng", new JSONObject().put("doubleValue", lng));
+                fields.put("location_updated_at", new JSONObject().put("timestampValue", nowIso));
+                JSONObject body = new JSONObject();
+                body.put("fields", fields);
+
+                byte[] out = body.toString().getBytes("UTF-8");
+                conn.getOutputStream().write(out);
+                conn.getOutputStream().flush();
+                conn.getResponseCode(); // بس لضمان إنه الطلب اتنفّذ فعلياً — نتجاهل الفشل (توكن منتهي مثلاً)، رح تجي محاولة تانية بالتحديث القادم
+            } catch (Exception e) {
+                // فشل شبكة/توكن عابر — نتجاهل بهدوء، رح تجي محاولة تانية مع تحديث الموقع القادم
+            } finally {
+                if (conn != null) conn.disconnect();
+            }
+        });
     }
 
     @Nullable

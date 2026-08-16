@@ -316,22 +316,22 @@
   .ing-clickable { display:flex; align-items:center; gap:10px; cursor:pointer; min-width:0; }
 
   /* ══════ بدائل المكونات (نوع/حجم) — مهمة #5 ══════ */
-  .ing-alt-row { flex-direction:column; align-items:stretch; gap:6px; }
-  .alt-row-top { display:flex; justify-content:space-between; align-items:flex-start; gap:10px; }
+  .ing-alt-row { flex-direction:column; align-items:stretch; gap:6px; position:relative; overflow:hidden; }
+  .alt-slide-track {
+    touch-action:pan-y; user-select:none; -webkit-user-select:none; cursor:grab;
+  }
+  .alt-slide-track:active { cursor:grabbing; }
+  .alt-row-top { display:flex; justify-content:space-between; align-items:flex-start; gap:10px; pointer-events:none; }
   .alt-swap-icon { font-size:11px; color:var(--secondary); margin-right:4px; }
   .alt-badge {
     display:inline-block; font-size:10.5px; font-weight:700; padding:2px 7px; border-radius:20px;
     margin-right:5px; background:rgba(162,62,72,.09); color:var(--primary); white-space:nowrap;
   }
   .alt-badge.best { background:rgba(101,116,58,.12); color:var(--olive); }
-  .alt-row-controls { display:flex; align-items:center; gap:8px; }
-  .alt-nav-btn {
-    width:24px; height:24px; border-radius:50%; border:1.5px solid var(--border); background:var(--surface);
-    color:var(--primary); font-size:14px; font-weight:800; line-height:1; flex-shrink:0; cursor:pointer;
-  }
   .alt-dots-row { display:flex; justify-content:center; gap:5px; padding:2px 0 10px; }
   .alt-dot { width:5px; height:5px; border-radius:50%; background:var(--border); }
   .alt-dot.active { background:var(--secondary); width:14px; border-radius:4px; }
+
 
   .alt-tabs-row { display:flex; gap:8px; overflow-x:auto; padding:2px 0 14px; }
   .alt-tab {
@@ -2203,14 +2203,72 @@ function ensureAltSelections(rows) {
   });
 }
 
-window.cycleAltOption = (altGroup, dir) => {
+// ══ تفاعل الصف: سحب بالإصبع للتنقّل بين البدائل، تاب بسيط لفتح صفحة المنتج، ضغطة مطوّلة لشيت الاختيار الكامل ══
+let altDragState = null;
+
+window.altRowPointerDown = (ev, altGroup) => {
   const ings = getMealIngredients(currentSheetMealId);
   const options = ings.filter(o => o.altGroup === altGroup);
   const sel = currentSheetAltSelections[altGroup];
-  const curIdx = Math.max(0, options.findIndex(o => o.ingredientId === (sel && sel.ingredientId)));
-  const next = options[(curIdx + dir + options.length) % options.length];
-  currentSheetAltSelections[altGroup] = { ingredientId: next.ingredientId, brand: next.altBrand || null, brandManual: true, sizeManual: true };
-  renderSheetServings();
+  const curIndex = Math.max(0, options.findIndex(o => o.ingredientId === (sel && sel.ingredientId)));
+  const track = ev.currentTarget;
+  altDragState = { altGroup, options, curIndex, dx: 0, dragging: false, longPressFired: false, startX: ev.clientX, track };
+  altDragState.timer = setTimeout(() => {
+    if (altDragState && !altDragState.dragging) {
+      altDragState.longPressFired = true;
+      openAltOptionsSheet(altGroup);
+    }
+  }, 480);
+};
+
+window.altRowPointerMove = (ev) => {
+  if (!altDragState) return;
+  const dx = ev.clientX - altDragState.startX;
+  altDragState.dx = dx;
+  if (!altDragState.dragging && Math.abs(dx) > 8) {
+    altDragState.dragging = true;
+    clearTimeout(altDragState.timer);
+  }
+  if (altDragState.dragging && altDragState.track) {
+    altDragState.track.style.transition = 'none';
+    altDragState.track.style.transform = `translateX(${dx}px)`;
+  }
+};
+
+window.altRowPointerUp = () => {
+  if (!altDragState) return;
+  clearTimeout(altDragState.timer);
+  const { altGroup, options, curIndex, dx, dragging, longPressFired, track } = altDragState;
+  if (track) {
+    track.style.transition = 'transform .2s ease';
+    track.style.transform = 'translateX(0)';
+  }
+  if (longPressFired) { altDragState = null; return; }
+  if (dragging) {
+    const threshold = 40;
+    if (Math.abs(dx) > threshold && options.length > 1) {
+      const dir = dx < 0 ? 1 : -1; // سحب لليسار → التالي، سحب لليمين → السابق
+      const next = options[(curIndex + dir + options.length) % options.length];
+      currentSheetAltSelections[altGroup] = { ingredientId: next.ingredientId, brand: next.altBrand || null, brandManual: true, sizeManual: true };
+      renderSheetServings();
+    }
+  } else {
+    // تاب بسيط (بدون سحب ولا ضغطة مطوّلة) → افتح صفحة المنتج للخيار المختار حالياً
+    const sel = currentSheetAltSelections[altGroup];
+    const opt = options.find(o => o.ingredientId === (sel && sel.ingredientId)) || options[0];
+    openProductSheet(opt.ingredientId);
+  }
+  altDragState = null;
+};
+
+window.altRowPointerLeave = () => {
+  if (!altDragState) return;
+  clearTimeout(altDragState.timer);
+  if (altDragState.track) {
+    altDragState.track.style.transition = 'transform .2s ease';
+    altDragState.track.style.transform = 'translateX(0)';
+  }
+  altDragState = null;
 };
 
 window.openAltOptionsSheet = (altGroup) => {
@@ -2253,11 +2311,17 @@ function renderAltOptionsSheet() {
     const isSelected = sel && sel.ingredientId === o.ingredientId;
     const isBest = o.ingredientId === bestInTab.ingredientId && shown.length > 1;
     const total = o.recipeQtyPerPerson * currentSheetServings;
+    const thumb = o.imageUrl
+      ? `<img class="ing-thumb-sm" src="${o.imageUrl}" onclick="event.stopPropagation();openProductSheet('${o.ingredientId}')" />`
+      : `<div class="ing-thumb-sm" onclick="event.stopPropagation();openProductSheet('${o.ingredientId}')">📦</div>`;
     return `
       <div class="alt-option-row${isSelected ? ' selected' : ''}" onclick="pickAltOption('${o.ingredientId}')">
-        <div>
-          <div class="alt-option-name">${o.name}${isBest ? ' <span class="alt-badge best">✨ الأنسب</span>' : ''}</div>
-          <div class="alt-option-need">يحتاج ${formatQty(total)} ${o.recipeUnit}</div>
+        <div class="ing-clickable" style="cursor:pointer;">
+          ${thumb}
+          <div>
+            <div class="alt-option-name">${o.name}${isBest ? ' <span class="alt-badge best">✨ الأنسب</span>' : ''}</div>
+            <div class="alt-option-need">يحتاج ${formatQty(total)} ${o.recipeUnit}</div>
+          </div>
         </div>
         <div class="alt-option-check">${isSelected ? '✓' : ''}</div>
       </div>`;
@@ -2398,25 +2462,28 @@ function altRowHtml(row) {
   const bestSize = computeBestSizeOption(brandCandidates.length ? brandCandidates : row.options, currentSheetServings);
   const isBestSize = bestSize.ingredientId === selectedOpt.ingredientId && brandCandidates.length > 1;
   const thumb = selectedOpt.imageUrl
-    ? `<img class="ing-thumb-sm" src="${selectedOpt.imageUrl}" onclick="openAltOptionsSheet('${row.altGroup}')" />`
-    : `<div class="ing-thumb-sm" onclick="openAltOptionsSheet('${row.altGroup}')">📦</div>`;
+    ? `<img class="ing-thumb-sm" src="${selectedOpt.imageUrl}" />`
+    : `<div class="ing-thumb-sm">📦</div>`;
   const dots = row.options.length > 1
     ? `<div class="alt-dots-row">${row.options.map(o => `<span class="alt-dot${o.ingredientId === selectedOpt.ingredientId ? ' active' : ''}"></span>`).join('')}</div>`
     : '';
   return `
     <div class="ing-preview-item ing-alt-row">
-      <div class="alt-row-top">
-        <div class="ing-clickable" onclick="openAltOptionsSheet('${row.altGroup}')">
-          ${thumb}
-          <div style="min-width:0;">
-            <div>${selectedOpt.name} <span class="alt-swap-icon">⇄</span></div>
-            <div style="margin-top:3px;">${sel.brand ? `<span class="alt-badge">${sel.brand}</span>` : ''}${isBestSize ? '<span class="alt-badge best">✨ الأنسب</span>' : ''}</div>
+      <div class="alt-slide-track"
+           onpointerdown="altRowPointerDown(event,'${row.altGroup}')"
+           onpointermove="altRowPointerMove(event)"
+           onpointerup="altRowPointerUp(event)"
+           onpointerleave="altRowPointerLeave(event)"
+           onpointercancel="altRowPointerLeave(event)">
+        <div class="alt-row-top">
+          <div class="ing-clickable" style="cursor:grab;">
+            ${thumb}
+            <div style="min-width:0;">
+              <div>${selectedOpt.name} <span class="alt-swap-icon">⇄</span></div>
+              <div style="margin-top:3px;">${sel.brand ? `<span class="alt-badge">${sel.brand}</span>` : ''}${isBestSize ? '<span class="alt-badge best">✨ الأنسب</span>' : ''}</div>
+            </div>
           </div>
-        </div>
-        <div class="alt-row-controls">
-          <button type="button" class="alt-nav-btn" onclick="cycleAltOption('${row.altGroup}', -1)">‹</button>
           <span class="amt">يحتاج ${formatQty(total)} ${selectedOpt.recipeUnit}</span>
-          <button type="button" class="alt-nav-btn" onclick="cycleAltOption('${row.altGroup}', 1)">›</button>
         </div>
       </div>
       ${dots}

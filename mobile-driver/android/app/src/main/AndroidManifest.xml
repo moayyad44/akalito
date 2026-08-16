@@ -42,11 +42,14 @@
         </service>
         <!-- Foreground Service للإشعار الثابت وقت "متاح للطلبات" (مهمة #4، 15 أغسطس 2026).
              foregroundServiceType="location" لأنه فعلياً هاد اللي عم يصير أثناء التوفر
-             (تتبّع موقع السائق اللايف) — تصنيف صادق ومطابق للسلوك الفعلي. -->
+             (تتبّع موقع السائق اللايف) — تصنيف صادق ومطابق للسلوك الفعلي.
+             نوع "dataSync" مضاف كـfallback (16 أغسطس 2026، إصلاح باغ الإشعار القابل
+             للسحب): يُستخدم بس لو إذن الموقع الأصلي (نظام أندرويد) مش ممنوح بعد وقت
+             تشغيل الخدمة — راجع AvailabilityService.java للتفاصيل. -->
         <service
             android:name=".AvailabilityService"
             android:exported="false"
-            android:foregroundServiceType="location" />
+            android:foregroundServiceType="location|dataSync" />
 
     </application>
 
@@ -60,4 +63,5 @@
     <uses-permission android:name="android.permission.VIBRATE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_LOCATION" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
 </manifest>

@@ -1,5 +1,6 @@
 package com.akalito.driver;
 
+import android.Manifest;
 import android.app.Notification;
 import android.app.NotificationChannel;
 import android.app.NotificationManager;
@@ -7,12 +8,14 @@ import android.app.PendingIntent;
 import android.app.Service;
 import android.content.Context;
 import android.content.Intent;
+import android.content.pm.PackageManager;
 import android.content.pm.ServiceInfo;
 import android.os.Build;
 import android.os.IBinder;
 import androidx.annotation.Nullable;
 import androidx.core.app.NotificationCompat;
 import androidx.core.app.ServiceCompat;
+import androidx.core.content.ContextCompat;
 
 /**
  * AvailabilityService — Foreground Service حقيقي بمستوى نظام أندرويد (مهمة #4
@@ -82,8 +85,8 @@ public class AvailabilityService extends Service {
 
         Notification notification = new NotificationCompat.Builder(ctx, CHANNEL_ID)
                 .setSmallIcon(R.drawable.ic_stat_order)
-                .setContentTitle("جاري العمل 🟢")
-                .setContentText("أنت متاح لاستلام طلبات جديدة — افتح تطبيق أكليتو كابتن لتغيير حالتك")
+                .setContentTitle("اكليتو")
+                .setContentText("جاي العمل...")
                 .setOngoing(true)                 // بيمنع السحب لإخفاء الإشعار
                 .setAutoCancel(false)              // ما ينمسح بالضغط عليه
                 .setOnlyAlertOnce(true)             // ما يعيد صوت/اهتزاز مع كل تحديث
@@ -93,7 +96,37 @@ public class AvailabilityService extends Service {
                 .build();
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            ServiceCompat.startForeground(this, NOTIF_ID, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_LOCATION);
+            // 16 أغسطس 2026 — إصلاح باغ حقيقي: الإشعار كان يظهر "عادي" (قابل للسحب/الإخفاء)
+            // بدل ثابت فعلياً. السبب المرجّح: بدءاً من أندرويد 14 (targetSdk هون = 36)،
+            // نظام أندرويد يرفض تشغيل Foreground Service بنوع "location" ما لم يكن
+            // إذن الموقع (ACCESS_FINE_LOCATION/COARSE) ممنوح فعلياً بمستوى النظام وقت
+            // الاستدعاء — وبما إنه هالتطبيق يطلب الموقع عبر navigator.geolocation
+            // (JS عادي داخل الـWebView) لا عبر Capacitor plugin أصلي بخطوة صريحة،
+            // فيه احتمال إنه إذن الموقع الأصلي (نظام أندرويد) لسا مش ممنوح لحظة
+            // ما يتفعّل التوفر لأول مرة، فيفشل استدعاء startForeground بنوع "location"
+            // بصمت (أو يرمي استثناء)، فيضل الإشعار "يتيم" غير مرتبط فعلياً بخدمة أمامية
+            // شغّالة — وهيك يصير قابل للسحب زي أي إشعار عادي.
+            // الحل: لو إذن الموقع مش ممنوح وقت التشغيل، نبدأ الخدمة بنوع "dataSync"
+            // (مُعلَن بالمانيفست كنوع إضافي) بدل "location" — نفس ضمان الإشعار الثابت
+            // (setOngoing يشتغل بغض النظر عن النوع)، بدون الاصطدام بقيد صلاحية الموقع.
+            // لو الإذن ممنوح، نستخدم "location" الصادق زي ما كان (لمراجعة Google Play).
+            boolean hasLocationPermission =
+                    ContextCompat.checkSelfPermission(ctx, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
+                    || ContextCompat.checkSelfPermission(ctx, Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED;
+            int serviceType = hasLocationPermission
+                    ? ServiceInfo.FOREGROUND_SERVICE_TYPE_LOCATION
+                    : ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC;
+            try {
+                ServiceCompat.startForeground(this, NOTIF_ID, notification, serviceType);
+            } catch (Exception e) {
+                // شبكة أمان أخيرة: أي استثناء غير متوقع (مثلاً OEM مخصّص) — نحاول أضعف نوع ممكن
+                // بدل ما تفشل الخدمة بصمت وتترك إشعار يتيم قابل للسحب.
+                try {
+                    ServiceCompat.startForeground(this, NOTIF_ID, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC);
+                } catch (Exception e2) {
+                    startForeground(NOTIF_ID, notification);
+                }
+            }
         } else {
             startForeground(NOTIF_ID, notification);
         }

@@ -315,6 +315,43 @@
   }
   .ing-clickable { display:flex; align-items:center; gap:10px; cursor:pointer; min-width:0; }
 
+  /* ══════ بدائل المكونات (نوع/حجم) — مهمة #5 ══════ */
+  .ing-alt-row { flex-direction:column; align-items:stretch; gap:6px; }
+  .alt-row-top { display:flex; justify-content:space-between; align-items:flex-start; gap:10px; }
+  .alt-swap-icon { font-size:11px; color:var(--secondary); margin-right:4px; }
+  .alt-badge {
+    display:inline-block; font-size:10.5px; font-weight:700; padding:2px 7px; border-radius:20px;
+    margin-right:5px; background:rgba(162,62,72,.09); color:var(--primary); white-space:nowrap;
+  }
+  .alt-badge.best { background:rgba(101,116,58,.12); color:var(--olive); }
+  .alt-row-controls { display:flex; align-items:center; gap:8px; }
+  .alt-nav-btn {
+    width:24px; height:24px; border-radius:50%; border:1.5px solid var(--border); background:var(--surface);
+    color:var(--primary); font-size:14px; font-weight:800; line-height:1; flex-shrink:0; cursor:pointer;
+  }
+  .alt-dots-row { display:flex; justify-content:center; gap:5px; padding:2px 0 10px; }
+  .alt-dot { width:5px; height:5px; border-radius:50%; background:var(--border); }
+  .alt-dot.active { background:var(--secondary); width:14px; border-radius:4px; }
+
+  .alt-tabs-row { display:flex; gap:8px; overflow-x:auto; padding:2px 0 14px; }
+  .alt-tab {
+    flex-shrink:0; padding:8px 16px; border-radius:20px; border:1.5px solid var(--border);
+    background:var(--surface); font-size:13px; font-weight:700; color:var(--text); cursor:pointer; white-space:nowrap;
+  }
+  .alt-tab.active { background:var(--primary); border-color:var(--primary); color:#fff; }
+  .alt-option-row {
+    display:flex; justify-content:space-between; align-items:center; gap:10px;
+    padding:12px 14px; border-radius:12px; border:1.5px solid var(--border); margin-bottom:8px; cursor:pointer;
+  }
+  .alt-option-row.selected { border-color:var(--primary); background:rgba(162,62,72,.05); }
+  .alt-option-name { font-size:13.5px; font-weight:700; }
+  .alt-option-need { font-size:11.5px; color:var(--text30); margin-top:2px; }
+  .alt-option-check {
+    width:20px; height:20px; border-radius:50%; border:1.5px solid var(--border); flex-shrink:0;
+    display:flex; align-items:center; justify-content:center; font-size:11px; color:#fff;
+  }
+  .alt-option-row.selected .alt-option-check { background:var(--primary); border-color:var(--primary); }
+
   .cart-ing-row {
     display:flex; align-items:center; gap:8px;
     padding: 12px 0; border-bottom: 1px solid var(--border);
@@ -987,6 +1024,20 @@ if ("serviceWorker" in navigator) {
   </div>
 </div>
 
+<!-- ═══ شيت: خيارات بديل مكوّن (نوع/حجم) — مهمة #5 ═══ -->
+<div class="sheet-overlay" id="altOptionsSheet">
+  <div class="sheet-card">
+    <div style="position:relative;">
+      <button class="sheet-close" onclick="closeAltOptionsSheet()">✕</button>
+    </div>
+    <div class="sheet-body">
+      <div class="sheet-title" id="alt-sheet-title">اختر البديل</div>
+      <div class="alt-tabs-row" id="alt-sheet-tabs"></div>
+      <div id="alt-sheet-list"></div>
+    </div>
+  </div>
+</div>
+
 <div class="toast" id="toast"></div>
 
 <script type="module">
@@ -1055,6 +1106,7 @@ function setupHardwareBackButton() {
     if (isOpen('orderConfirmScreen')) { window.closeOrderConfirm(); return; }
     // (٢) النوافذ المنبثقة (sheets)
     if (isOpen('mealSheet', true)) { window.closeMealSheet(); return; }
+    if (isOpen('altOptionsSheet', true)) { window.closeAltOptionsSheet(); return; }
     if (isOpen('productSheet', true)) { window.closeProductSheet(); return; }
     if (isOpen('ingredientPickerSheet', true)) { window.closeIngredientPicker(); return; }
     if (isOpen('notifSheet', true)) { window.closeNotifSheet(); return; }
@@ -1091,6 +1143,9 @@ let selectedMeals = []; // {mealId, servings}
 let cartOverrides = {}; // ingredientId -> عدد العبوات النهائي بعد تعديل الزبون يدوياً (0 = محذوف من السلة)
 let currentSheetMealId = null;
 let currentSheetServings = 2;
+let currentSheetAltSelections = {}; // altGroup -> { ingredientId, brand, brandManual, sizeManual } — مهمة #5
+let altSheetActiveGroup = null;     // altGroup المفتوح حالياً بشيت الاختيار
+let altSheetActiveBrand = null;     // التبويب (النوع) المفعّل حالياً داخل شيت الاختيار
 let customerId = null;
 let customerName = '';
 let customerPhone = '';
@@ -2078,10 +2133,152 @@ function getMealIngredients(mealId) {
       measureType: ing.measure_type,
       recipeUnit, recipeQtyPerPerson, baseQtyPerPerson,
       packageLabel: ing.package_label || '', packageQty: ing.package_qty || 0,
-      pricePerPackage: ing.price_per_package || 0
+      pricePerPackage: ing.price_per_package || 0,
+      altGroup: l.alt_group || null,
+      altBrand: l.alt_brand || null,
+      isDefaultBrand: !!l.is_default_brand
     };
   });
 }
+
+/* ══════════════ بدائل المكونات (نوع/حجم) — مهمة #5 ══════════════ */
+
+// يبني ترتيب صفوف العرض: مكونات مستقلة + صف واحد موحّد لكل مجموعة بديل (بدل تكرار كل عضو كصف منفصل)
+function buildMealDisplayRows(ings) {
+  const rows = [];
+  const seenGroups = new Set();
+  ings.forEach(ing => {
+    if (ing.altGroup) {
+      if (seenGroups.has(ing.altGroup)) return;
+      seenGroups.add(ing.altGroup);
+      rows.push({ type: 'alt', altGroup: ing.altGroup, options: ings.filter(x => x.altGroup === ing.altGroup) });
+    } else {
+      rows.push({ type: 'single', ing });
+    }
+  });
+  return rows;
+}
+
+// أفضل "حجم" اقتصادياً من مجموعة خيارات لتغطية الكمية المطلوبة (الأرخص إجمالاً) — حسب عدد الأشخاص الحالي
+function computeBestSizeOption(options, servings) {
+  let best = null, bestCost = Infinity;
+  options.forEach(o => {
+    const neededBase = o.baseQtyPerPerson * servings;
+    const purchaseQty = o.packageQty > 0 ? Math.max(1, Math.ceil(neededBase / o.packageQty)) : 1;
+    const cost = purchaseQty * o.pricePerPackage;
+    if (cost < bestCost) { bestCost = cost; best = o; }
+  });
+  return best || options[0];
+}
+
+// الاختيار الافتراضي لمجموعة بديل: النوع الافتراضي يحدده الأدمن، والحجم الأنسب يُحسب تلقائياً
+function computeGroupDefault(options, servings) {
+  const brands = [...new Set(options.map(o => o.altBrand).filter(Boolean))];
+  let brand = null, candidates = options;
+  if (brands.length > 1) {
+    const defOpt = options.find(o => o.isDefaultBrand && o.altBrand);
+    brand = defOpt ? defOpt.altBrand : brands[0];
+    candidates = options.filter(o => o.altBrand === brand);
+  } else if (brands.length === 1) {
+    brand = brands[0];
+  }
+  const best = computeBestSizeOption(candidates.length ? candidates : options, servings);
+  return { ingredientId: best.ingredientId, brand, brandManual: false, sizeManual: false };
+}
+
+// يتأكد إنه كل مجموعات بدائل الوجبة الحالية عندها اختيار محدد، وبيحدّث "الحجم الأنسب" تلقائياً
+// كل ما تغيّر عدد الأشخاص — إلا لو الزبون بدّل الحجم يدوياً بنفسه (sizeManual)
+function ensureAltSelections(rows) {
+  rows.forEach(row => {
+    if (row.type !== 'alt') return;
+    let sel = currentSheetAltSelections[row.altGroup];
+    if (!sel) {
+      sel = computeGroupDefault(row.options, currentSheetServings);
+      currentSheetAltSelections[row.altGroup] = sel;
+    } else if (!sel.sizeManual) {
+      const candidates = sel.brand ? row.options.filter(o => o.altBrand === sel.brand) : row.options;
+      const best = computeBestSizeOption(candidates.length ? candidates : row.options, currentSheetServings);
+      sel.ingredientId = best.ingredientId;
+    }
+  });
+}
+
+window.cycleAltOption = (altGroup, dir) => {
+  const ings = getMealIngredients(currentSheetMealId);
+  const options = ings.filter(o => o.altGroup === altGroup);
+  const sel = currentSheetAltSelections[altGroup];
+  const curIdx = Math.max(0, options.findIndex(o => o.ingredientId === (sel && sel.ingredientId)));
+  const next = options[(curIdx + dir + options.length) % options.length];
+  currentSheetAltSelections[altGroup] = { ingredientId: next.ingredientId, brand: next.altBrand || null, brandManual: true, sizeManual: true };
+  renderSheetServings();
+};
+
+window.openAltOptionsSheet = (altGroup) => {
+  const ings = getMealIngredients(currentSheetMealId);
+  const options = ings.filter(o => o.altGroup === altGroup);
+  if (!options.length) return;
+  altSheetActiveGroup = altGroup;
+  const sel = currentSheetAltSelections[altGroup];
+  const currentOpt = options.find(o => o.ingredientId === (sel && sel.ingredientId)) || options[0];
+  altSheetActiveBrand = currentOpt.altBrand || null;
+  document.getElementById('alt-sheet-title').textContent = `اختر البديل — ${options[0].name === currentOpt.name ? 'الأحجام والأنواع المتوفرة' : 'الخيارات المتوفرة'}`;
+  renderAltOptionsSheet();
+  document.getElementById('altOptionsSheet').classList.add('open');
+};
+
+window.closeAltOptionsSheet = () => {
+  document.getElementById('altOptionsSheet').classList.remove('open');
+  altSheetActiveGroup = null;
+};
+
+function renderAltOptionsSheet() {
+  const ings = getMealIngredients(currentSheetMealId);
+  const options = ings.filter(o => o.altGroup === altSheetActiveGroup);
+  const brands = [...new Set(options.map(o => o.altBrand).filter(Boolean))];
+  const tabsWrap = document.getElementById('alt-sheet-tabs');
+  const sel = currentSheetAltSelections[altSheetActiveGroup];
+
+  if (brands.length > 1) {
+    tabsWrap.innerHTML = brands.map(b => {
+      const isDefault = options.some(o => o.altBrand === b && o.isDefaultBrand);
+      return `<button type="button" class="alt-tab${b === altSheetActiveBrand ? ' active' : ''}" onclick="switchAltSheetBrand('${b.replace(/'/g, "\\'")}')">${b}${isDefault ? ' ⭐' : ''}</button>`;
+    }).join('');
+  } else {
+    tabsWrap.innerHTML = '';
+  }
+
+  const shown = altSheetActiveBrand ? options.filter(o => o.altBrand === altSheetActiveBrand) : options;
+  const bestInTab = computeBestSizeOption(shown, currentSheetServings);
+  document.getElementById('alt-sheet-list').innerHTML = shown.map(o => {
+    const isSelected = sel && sel.ingredientId === o.ingredientId;
+    const isBest = o.ingredientId === bestInTab.ingredientId && shown.length > 1;
+    const total = o.recipeQtyPerPerson * currentSheetServings;
+    return `
+      <div class="alt-option-row${isSelected ? ' selected' : ''}" onclick="pickAltOption('${o.ingredientId}')">
+        <div>
+          <div class="alt-option-name">${o.name}${isBest ? ' <span class="alt-badge best">✨ الأنسب</span>' : ''}</div>
+          <div class="alt-option-need">يحتاج ${formatQty(total)} ${o.recipeUnit}</div>
+        </div>
+        <div class="alt-option-check">${isSelected ? '✓' : ''}</div>
+      </div>`;
+  }).join('');
+}
+
+window.switchAltSheetBrand = (brand) => {
+  altSheetActiveBrand = brand;
+  renderAltOptionsSheet();
+};
+
+window.pickAltOption = (ingredientId) => {
+  const ings = getMealIngredients(currentSheetMealId);
+  const opt = ings.find(o => o.ingredientId === ingredientId && o.altGroup === altSheetActiveGroup);
+  if (!opt) return;
+  currentSheetAltSelections[altSheetActiveGroup] = {
+    ingredientId, brand: opt.altBrand || null, brandManual: true, sizeManual: true
+  };
+  renderSheetServings();
+  closeAltOptionsSheet();
+};
 
 /* ═══════════ شاشة تفاصيل الوجبة ═══════════ */
 window.openMealSheet = (mealId) => {
@@ -2090,6 +2287,8 @@ window.openMealSheet = (mealId) => {
   currentSheetMealId = mealId;
   const existing = selectedMeals.find(s => s.mealId === mealId);
   currentSheetServings = existing ? existing.servings : (meal.servings_default || 2);
+  // مهمة #5: رجّع اختيارات البدائل المحفوظة من السلة لو الوجبة أصلاً مضافة، وإلا ابدأ من الصفر (هيتحسب الافتراضي تلقائياً بالرندر)
+  currentSheetAltSelections = existing && existing.altSelections ? JSON.parse(JSON.stringify(existing.altSelections)) : {};
 
   document.getElementById('sheet-title').textContent = meal.name_ar || '';
   document.getElementById('sheet-desc').textContent = meal.description || '';
@@ -2157,30 +2356,71 @@ function renderSheetServings() {
     wrap.innerHTML = `<div class="empty-state-c" style="padding:20px 0;">ما في مكونات مسجّلة لهاي الوجبة بعد</div>`;
     return;
   }
-  const rows = ings.map(ing => {
-    const total = (ing.recipeQtyPerPerson * currentSheetServings);
-    const baseTotal = ing.baseQtyPerPerson * currentSheetServings;
-    let purchaseNote = '';
-    if (ing.packageLabel && ing.packageQty > 0) {
-      const purchaseQty = Math.max(1, Math.ceil(baseTotal / ing.packageQty));
-      purchaseNote = `<div class="ing-preview-purchase">🛍️ رح تشتري: ${purchaseQty} ${ing.packageLabel}</div>`;
-    }
-    const thumb = ing.imageUrl
-      ? `<img class="ing-thumb-sm" src="${ing.imageUrl}" onclick="openProductSheet('${ing.ingredientId}')" />`
-      : `<div class="ing-thumb-sm" onclick="openProductSheet('${ing.ingredientId}')">📦</div>`;
-    return `
-      <div class="ing-preview-item">
-        <div class="ing-clickable" onclick="openProductSheet('${ing.ingredientId}')">
+  const displayRows = buildMealDisplayRows(ings);
+  ensureAltSelections(displayRows);
+
+  const rows = displayRows.map(row => row.type === 'alt' ? altRowHtml(row) : singleRowHtml(row.ing)).join('');
+  wrap.innerHTML = rows;
+  if (document.getElementById('altOptionsSheet').classList.contains('open') && altSheetActiveGroup) {
+    renderAltOptionsSheet(); // خلي شيت الاختيار المفتوح (لو موجود) يعكس تغيّر عدد الأشخاص لحظياً كمان
+  }
+}
+
+function singleRowHtml(ing) {
+  const total = (ing.recipeQtyPerPerson * currentSheetServings);
+  const baseTotal = ing.baseQtyPerPerson * currentSheetServings;
+  let purchaseNote = '';
+  if (ing.packageLabel && ing.packageQty > 0) {
+    const purchaseQty = Math.max(1, Math.ceil(baseTotal / ing.packageQty));
+    purchaseNote = `<div class="ing-preview-purchase">🛍️ رح تشتري: ${purchaseQty} ${ing.packageLabel}</div>`;
+  }
+  const thumb = ing.imageUrl
+    ? `<img class="ing-thumb-sm" src="${ing.imageUrl}" onclick="openProductSheet('${ing.ingredientId}')" />`
+    : `<div class="ing-thumb-sm" onclick="openProductSheet('${ing.ingredientId}')">📦</div>`;
+  return `
+    <div class="ing-preview-item">
+      <div class="ing-clickable" onclick="openProductSheet('${ing.ingredientId}')">
+        ${thumb}
+        <div style="min-width:0;">
+          <div>${ing.name}</div>
+          ${purchaseNote}
+        </div>
+      </div>
+      <span class="amt">يحتاج ${formatQty(total)} ${ing.recipeUnit}</span>
+    </div>`;
+}
+
+function altRowHtml(row) {
+  const sel = currentSheetAltSelections[row.altGroup];
+  const selectedOpt = row.options.find(o => o.ingredientId === sel.ingredientId) || row.options[0];
+  const total = selectedOpt.recipeQtyPerPerson * currentSheetServings;
+  const brandCandidates = sel.brand ? row.options.filter(o => o.altBrand === sel.brand) : row.options;
+  const bestSize = computeBestSizeOption(brandCandidates.length ? brandCandidates : row.options, currentSheetServings);
+  const isBestSize = bestSize.ingredientId === selectedOpt.ingredientId && brandCandidates.length > 1;
+  const thumb = selectedOpt.imageUrl
+    ? `<img class="ing-thumb-sm" src="${selectedOpt.imageUrl}" onclick="openAltOptionsSheet('${row.altGroup}')" />`
+    : `<div class="ing-thumb-sm" onclick="openAltOptionsSheet('${row.altGroup}')">📦</div>`;
+  const dots = row.options.length > 1
+    ? `<div class="alt-dots-row">${row.options.map(o => `<span class="alt-dot${o.ingredientId === selectedOpt.ingredientId ? ' active' : ''}"></span>`).join('')}</div>`
+    : '';
+  return `
+    <div class="ing-preview-item ing-alt-row">
+      <div class="alt-row-top">
+        <div class="ing-clickable" onclick="openAltOptionsSheet('${row.altGroup}')">
           ${thumb}
           <div style="min-width:0;">
-            <div>${ing.name}</div>
-            ${purchaseNote}
+            <div>${selectedOpt.name} <span class="alt-swap-icon">⇄</span></div>
+            <div style="margin-top:3px;">${sel.brand ? `<span class="alt-badge">${sel.brand}</span>` : ''}${isBestSize ? '<span class="alt-badge best">✨ الأنسب</span>' : ''}</div>
           </div>
         </div>
-        <span class="amt">يحتاج ${formatQty(total)} ${ing.recipeUnit}</span>
-      </div>`;
-  }).join('');
-  wrap.innerHTML = rows;
+        <div class="alt-row-controls">
+          <button type="button" class="alt-nav-btn" onclick="cycleAltOption('${row.altGroup}', -1)">‹</button>
+          <span class="amt">يحتاج ${formatQty(total)} ${selectedOpt.recipeUnit}</span>
+          <button type="button" class="alt-nav-btn" onclick="cycleAltOption('${row.altGroup}', 1)">›</button>
+        </div>
+      </div>
+      ${dots}
+    </div>`;
 }
 
 function formatQty(n) {
@@ -2214,7 +2454,9 @@ function playAddToCartToss(fromEl) {
 
 window.confirmAddMealToCart = async () => {
   const mealId = currentSheetMealId;
-  const neededIds = [...new Set(getMealIngredients(mealId).map(x => x.ingredientId))];
+  // مهمة #5: التوفر يُتحقق منه بس على البدائل المختارة فعلياً حالياً، مو كل خيارات كل مجموعة
+  const effectiveIngs = getEffectiveMealIngredients({ mealId, altSelections: currentSheetAltSelections });
+  const neededIds = [...new Set(effectiveIngs.map(x => x.ingredientId))];
   const btn = document.getElementById('sheet-add-btn');
   const prevText = btn.textContent;
 
@@ -2258,8 +2500,9 @@ window.confirmAddMealToCart = async () => {
   }
 
   const idx = selectedMeals.findIndex(s => s.mealId === currentSheetMealId);
-  if (idx > -1) selectedMeals[idx].servings = currentSheetServings;
-  else selectedMeals.push({ mealId: currentSheetMealId, servings: currentSheetServings });
+  const altSelectionsCopy = JSON.parse(JSON.stringify(currentSheetAltSelections));
+  if (idx > -1) { selectedMeals[idx].servings = currentSheetServings; selectedMeals[idx].altSelections = altSelectionsCopy; }
+  else selectedMeals.push({ mealId: currentSheetMealId, servings: currentSheetServings, altSelections: altSelectionsCopy });
   playAddToCartToss(btn);
   updateCartBadge();
   renderMealsGrid();
@@ -2306,10 +2549,22 @@ window.removeMealFromCart = (mealId) => {
   renderMealsGrid();
 };
 
+// اللائحة الفعلية لمكونات وجبة معيّنة بالسلة — بديل واحد مختار فقط بكل مجموعة (مو كل الخيارات) — مهمة #5
+function getEffectiveMealIngredients(sel) {
+  const ings = getMealIngredients(sel.mealId);
+  const rows = buildMealDisplayRows(ings);
+  const altSelections = sel.altSelections || {};
+  return rows.map(row => {
+    if (row.type === 'single') return row.ing;
+    const chosen = altSelections[row.altGroup];
+    return (chosen && row.options.find(o => o.ingredientId === chosen.ingredientId)) || row.options[0];
+  });
+}
+
 function computeMergedIngredients() {
   const merged = {}; // ingredientId -> {name, measureType, packageLabel, packageQty, pricePerPackage, baseQty}
   selectedMeals.forEach(sel => {
-    getMealIngredients(sel.mealId).forEach(ing => {
+    getEffectiveMealIngredients(sel).forEach(ing => {
       const totalBase = ing.baseQtyPerPerson * sel.servings;
       if (!merged[ing.ingredientId]) {
         merged[ing.ingredientId] = {

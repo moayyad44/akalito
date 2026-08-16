@@ -82,8 +82,8 @@ public class AvailabilityService extends Service {
 
         Notification notification = new NotificationCompat.Builder(ctx, CHANNEL_ID)
                 .setSmallIcon(R.drawable.ic_stat_order)
-                .setContentTitle("أنت متاح لاستلام الطلبات 🟢")
-                .setContentText("افتح تطبيق أكليتو كابتن وحوّل حالتك لـ\"غير متاح\" عشان توقف")
+                .setContentTitle("جاري العمل 🟢")
+                .setContentText("أنت متاح لاستلام طلبات جديدة — افتح تطبيق أكليتو كابتن لتغيير حالتك")
                 .setOngoing(true)                 // بيمنع السحب لإخفاء الإشعار
                 .setAutoCancel(false)              // ما ينمسح بالضغط عليه
                 .setOnlyAlertOnce(true)             // ما يعيد صوت/اهتزاز مع كل تحديث

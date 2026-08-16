@@ -330,7 +330,7 @@
   .alt-badge.best { background:rgba(101,116,58,.12); color:var(--olive); }
   .alt-dots-row { display:flex; justify-content:center; gap:5px; padding:2px 0 10px; }
   .alt-dot { width:5px; height:5px; border-radius:50%; background:var(--border); }
-  .alt-dot.active { background:var(--secondary); width:14px; border-radius:4px; }
+  .alt-dot.active { background:var(--secondary); }
 
 
   .alt-tabs-row { display:flex; gap:8px; overflow-x:auto; padding:2px 0 14px; }
@@ -2247,7 +2247,7 @@ window.altRowPointerUp = () => {
   if (dragging) {
     const threshold = 40;
     if (Math.abs(dx) > threshold && options.length > 1) {
-      const dir = dx < 0 ? 1 : -1; // سحب لليسار → التالي، سحب لليمين → السابق
+      const dir = dx < 0 ? -1 : 1; // (تصحيح بطلب مؤيد) عكس الاتجاه عشان يتماشى بصرياً مع اتجاه السحب بواجهة RTL
       const next = options[(curIndex + dir + options.length) % options.length];
       currentSheetAltSelections[altGroup] = { ingredientId: next.ingredientId, brand: next.altBrand || null, brandManual: true, sizeManual: true };
       renderSheetServings();

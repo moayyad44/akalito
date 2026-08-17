@@ -448,6 +448,13 @@ window.addEventListener('DOMContentLoaded', () => {
     const unitOptions = units.length
       ? units.map(u => `<option value="${u}"${u === row.recipeUnit ? ' selected' : ''}>${u}</option>`).join('')
       : '<option value="">—</option>';
+    const altPanel = row._altOpen ? `
+      <div class="ing-alt-panel">
+        <div class="ing-alt-panel-label">🔀 اختر المكونات البديلة لـ "${ing.name_ar || 'هذا المكوّن'}"</div>
+        <input type="text" class="ing-alt-search" placeholder="دور على مكوّن..."
+               value="${row._altSearch || ''}" oninput="filterAltPicker(${idx}, this.value)" />
+        <div class="ing-alt-picker" id="alt-picker-${idx}">${altPickerListHtml(idx)}</div>
+      </div>` : '';
     return `
       <div class="ing-row-wrap">
         <div class="ing-row">
@@ -456,9 +463,10 @@ window.addEventListener('DOMContentLoaded', () => {
           <input type="number" min="0" step="0.25" value="${row.recipeQty}" placeholder="الكمية"
                  onchange="updateIngredientRow(${idx},'recipeQty',this.value)" />
           <select id="ing-unit-${idx}" ${units.length ? '' : 'disabled'} onchange="updateIngredientRow(${idx},'recipeUnit',this.value)">${unitOptions}</select>
-          <button type="button" class="ing-alt-toggle" title="بدائل هذا المكوّن" onclick="toggleAltPanel(${idx})">⇄</button>
+          <button type="button" class="ing-alt-toggle${row._altOpen ? ' active' : ''}" title="بدائل هذا المكوّن" onclick="toggleAltPanel(${idx})">⇄</button>
           <button type="button" class="ing-remove" onclick="removeIngredientRow(${idx})">✕</button>
         </div>
+        ${altPanel}
       </div>`;
   }
 

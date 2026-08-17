@@ -314,10 +314,12 @@ window.addEventListener('DOMContentLoaded', () => {
     if (field === 'isDefaultBrand') {
       mealIngredientRows.forEach(r => { if (r.altGroup === row.altGroup) r.isDefaultBrand = false; });
       mealIngredientRows[memberIdx].isDefaultBrand = true;
+      renderIngredientRows(); // لازم إعادة رسم كاملة هون — بيأثر على ⭐ بعدة عناصر بالقائمة مع بعض
     } else {
+      // حقل نصي (اسم الماركة): نحدّث البيانات بس، بدون أي إعادة رسم — إعادة الرسم كانت
+      // بتفقد تركيز حقل الكتابة بعد كل حرف (المستخدم ما يقدر يكتب أكتر من حرف وحد بمرة)
       mealIngredientRows[memberIdx][field] = value;
     }
-    renderIngredientRows();
   };
 
   window.filterAltPicker = (idx, value) => {

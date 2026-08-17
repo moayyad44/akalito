@@ -42,6 +42,18 @@
     background:rgba(255,255,255,0.06); display:flex; align-items:center; justify-content:center; font-size:14px;
   }
   .ing-alt-brand-input { flex:1; min-width:110px; font-size:12.5px; padding:4px 8px; }
+  .ing-alt-qty-input { width:64px; font-size:12.5px; padding:4px 6px; flex:none; }
+  .ing-alt-unit-select { width:76px; font-size:12.5px; padding:4px 6px; flex:none; }
+
+  /* صف مختصر لمجموعة بدائل (بدل ما يتكرر كل عضو كصف مستقل) */
+  .ing-group-row { align-items:center; flex-wrap:wrap; gap:8px 10px; }
+  .ing-group-name { font-weight:600; flex-shrink:0; }
+  .ing-group-badges { display:flex; flex-wrap:wrap; gap:6px; flex:1; min-width:120px; }
+  .ing-group-badge {
+    font-size:12px; padding:3px 10px; border-radius:20px;
+    background:rgba(255,255,255,0.06); border:1px solid var(--border,#333);
+  }
+  .ing-group-badge.default { background:rgba(245,166,91,0.15); border-color:var(--orange,#F5A65B); }
   .ing-alt-star {
     border:none; background:transparent; cursor:pointer; font-size:16px; opacity:.35; flex:none;
   }
@@ -315,8 +327,10 @@ window.addEventListener('DOMContentLoaded', () => {
       mealIngredientRows.forEach(r => { if (r.altGroup === row.altGroup) r.isDefaultBrand = false; });
       mealIngredientRows[memberIdx].isDefaultBrand = true;
       renderIngredientRows(); // لازم إعادة رسم كاملة هون — بيأثر على ⭐ بعدة عناصر بالقائمة مع بعض
+    } else if (field === 'recipeQty') {
+      mealIngredientRows[memberIdx].recipeQty = parseFloat(value) || 0;
     } else {
-      // حقل نصي (اسم الماركة): نحدّث البيانات بس، بدون أي إعادة رسم — إعادة الرسم كانت
+      // حقل نصي (اسم الماركة) أو الوحدة: نحدّث البيانات بس، بدون أي إعادة رسم — إعادة الرسم كانت
       // بتفقد تركيز حقل الكتابة بعد كل حرف (المستخدم ما يقدر يكتب أكتر من حرف وحد بمرة)
       mealIngredientRows[memberIdx][field] = value;
     }
@@ -335,6 +349,18 @@ window.addEventListener('DOMContentLoaded', () => {
     const thumb = ing.image_url
       ? `<img class="ing-alt-pick-thumb" src="${ing.image_url}" />`
       : `<div class="ing-alt-pick-thumb">📦</div>`;
+    let qtyUnitHtml = '';
+    if (checked) {
+      const mt = MEASURE_TYPES[ing.measure_type];
+      const units = mt ? Object.keys(mt.recipeUnits) : [];
+      const unitOptions = units.length
+        ? units.map(u => `<option value="${u}"${u === memberRow.recipeUnit ? ' selected' : ''}>${u}</option>`).join('')
+        : '<option value="">—</option>';
+      qtyUnitHtml = `
+          <input type="number" min="0" step="0.25" class="ing-alt-qty-input" value="${memberRow.recipeQty}" placeholder="الكمية"
+                 onchange="updateAltMemberField(${idx}, '${ing.id}', 'recipeQty', this.value)" />
+          <select class="ing-alt-unit-select" ${units.length ? '' : 'disabled'} onchange="updateAltMemberField(${idx}, '${ing.id}', 'recipeUnit', this.value)">${unitOptions}</select>`;
+    }
     return `
       <div class="ing-alt-pick-item">
         <label class="ing-alt-pick-check">
@@ -343,6 +369,7 @@ window.addEventListener('DOMContentLoaded', () => {
           <span>${ing.name_ar || ''}</span>
         </label>
         ${checked ? `
+          ${qtyUnitHtml}
           <input type="text" class="ing-alt-brand-input" placeholder="اسم الماركة (اختياري)"
                  value="${memberRow.altBrand || ''}" oninput="updateAltMemberField(${idx}, '${ing.id}', 'altBrand', this.value)" />
           <button type="button" class="ing-alt-star${memberRow.isDefaultBrand ? ' active' : ''}" title="اجعله الافتراضي"
@@ -398,6 +425,78 @@ window.addEventListener('DOMContentLoaded', () => {
     if (dl) dl.innerHTML = ingredientsCache.map(ing => `<option value="${ing.name_ar || ''}"></option>`).join('');
   }
 
+  function buildAdminDisplayRows() {
+    const rows = [];
+    const seenGroups = new Set();
+    mealIngredientRows.forEach((row, idx) => {
+      if (row.altGroup) {
+        if (seenGroups.has(row.altGroup)) return;
+        seenGroups.add(row.altGroup);
+        rows.push({ type: 'alt', repIdx: idx, altGroup: row.altGroup });
+      } else {
+        rows.push({ type: 'single', idx });
+      }
+    });
+    return rows;
+  }
+
+  function singleIngredientRowHtml(idx) {
+    const row = mealIngredientRows[idx];
+    const ing = ingredientsCache.find(i => i.id === row.ingredientId) || {};
+    const mt = MEASURE_TYPES[ing.measure_type];
+    const units = mt ? Object.keys(mt.recipeUnits) : [];
+    const unitOptions = units.length
+      ? units.map(u => `<option value="${u}"${u === row.recipeUnit ? ' selected' : ''}>${u}</option>`).join('')
+      : '<option value="">—</option>';
+    return `
+      <div class="ing-row-wrap">
+        <div class="ing-row">
+          <input type="text" list="ingredientNamesList" value="${ing.name_ar || ''}" placeholder="اكتب اسم المكوّن..."
+                 oninput="updateIngredientRowByName(${idx}, this.value)" />
+          <input type="number" min="0" step="0.25" value="${row.recipeQty}" placeholder="الكمية"
+                 onchange="updateIngredientRow(${idx},'recipeQty',this.value)" />
+          <select id="ing-unit-${idx}" ${units.length ? '' : 'disabled'} onchange="updateIngredientRow(${idx},'recipeUnit',this.value)">${unitOptions}</select>
+          <button type="button" class="ing-alt-toggle" title="بدائل هذا المكوّن" onclick="toggleAltPanel(${idx})">⇄</button>
+          <button type="button" class="ing-remove" onclick="removeIngredientRow(${idx})">✕</button>
+        </div>
+      </div>`;
+  }
+
+  // صف مختصر واحد يمثّل مجموعة بدائل كاملة (بدل ما يتكرر كل عضو كصف مستقل مطابق للشكل) — أنظف بصرياً بكتير
+  function altGroupRowHtml(idx) {
+    const row = mealIngredientRows[idx];
+    const members = mealIngredientRows.filter(r => r.altGroup === row.altGroup);
+    const repIng = ingredientsCache.find(i => i.id === row.ingredientId) || {};
+    const badges = members.map(m => {
+      const mIng = ingredientsCache.find(i => i.id === m.ingredientId) || {};
+      const label = m.altBrand || mIng.name_ar || '؟';
+      return `<span class="ing-group-badge${m.isDefaultBrand ? ' default' : ''}">${label}${m.isDefaultBrand ? ' ⭐' : ''}</span>`;
+    }).join('');
+    const altPanel = row._altOpen ? `
+      <div class="ing-alt-panel">
+        <div class="ing-alt-panel-label">🔀 اختر المكونات البديلة لـ "${repIng.name_ar || 'هذا المكوّن'}"</div>
+        <input type="text" class="ing-alt-search" placeholder="دور على مكوّن..."
+               value="${row._altSearch || ''}" oninput="filterAltPicker(${idx}, this.value)" />
+        <div class="ing-alt-picker" id="alt-picker-${idx}">${altPickerListHtml(idx)}</div>
+      </div>` : '';
+    return `
+      <div class="ing-row-wrap">
+        <div class="ing-row ing-group-row">
+          <div class="ing-group-name">${repIng.name_ar || 'مكوّن'}</div>
+          <div class="ing-group-badges">${badges}</div>
+          <button type="button" class="ing-alt-toggle active" title="بدائل هذا المكوّن" onclick="toggleAltPanel(${idx})">⇄</button>
+          <button type="button" class="ing-remove" title="احذف كل بدائل هالمجموعة" onclick="removeAltGroup('${row.altGroup}')">✕</button>
+        </div>
+        ${altPanel}
+      </div>`;
+  }
+
+  window.removeAltGroup = (groupKey) => {
+    if (!confirm('حذف كل بدائل هالمجموعة من الوجبة؟')) return;
+    mealIngredientRows = mealIngredientRows.filter(r => r.altGroup !== groupKey);
+    renderIngredientRows();
+  };
+
   function renderIngredientRows() {
     const wrap = document.getElementById('ingredientRows');
     populateIngredientNamesDatalist();
@@ -409,36 +508,8 @@ window.addEventListener('DOMContentLoaded', () => {
       wrap.innerHTML = `<div class="empty-state" style="padding:14px 0;">ما ضفت مكونات بعد — دوس "➕ ضيف مكوّن"</div>`;
       return;
     }
-    wrap.innerHTML = mealIngredientRows.map((row, idx) => {
-      const ing = ingredientsCache.find(i => i.id === row.ingredientId) || {};
-      const mt = MEASURE_TYPES[ing.measure_type];
-      const units = mt ? Object.keys(mt.recipeUnits) : [];
-      const unitOptions = units.length
-        ? units.map(u => `<option value="${u}"${u === row.recipeUnit ? ' selected' : ''}>${u}</option>`).join('')
-        : '<option value="">—</option>';
-      const memberCount = row.altGroup ? mealIngredientRows.filter(r => r.altGroup === row.altGroup).length : 0;
-      const hasAlt = memberCount > 1;
-      const altPanel = row._altOpen ? `
-        <div class="ing-alt-panel">
-          <div class="ing-alt-panel-label">🔀 اختر المكونات البديلة لـ "${ing.name_ar || 'هذا المكوّن'}"</div>
-          <input type="text" class="ing-alt-search" placeholder="دور على مكوّن..."
-                 value="${row._altSearch || ''}" oninput="filterAltPicker(${idx}, this.value)" />
-          <div class="ing-alt-picker" id="alt-picker-${idx}">${altPickerListHtml(idx)}</div>
-        </div>` : '';
-      return `
-        <div class="ing-row-wrap">
-          <div class="ing-row">
-            <input type="text" list="ingredientNamesList" value="${ing.name_ar || ''}" placeholder="اكتب اسم المكوّن..."
-                   oninput="updateIngredientRowByName(${idx}, this.value)" />
-            <input type="number" min="0" step="0.25" value="${row.recipeQty}" placeholder="الكمية"
-                   onchange="updateIngredientRow(${idx},'recipeQty',this.value)" />
-            <select id="ing-unit-${idx}" ${units.length ? '' : 'disabled'} onchange="updateIngredientRow(${idx},'recipeUnit',this.value)">${unitOptions}</select>
-            <button type="button" class="ing-alt-toggle${hasAlt ? ' active' : ''}" title="بدائل هذا المكوّن" onclick="toggleAltPanel(${idx})">⇄</button>
-            <button type="button" class="ing-remove" onclick="removeIngredientRow(${idx})">✕</button>
-          </div>
-          ${altPanel}
-        </div>`;
-    }).join('');
+    const displayRows = buildAdminDisplayRows();
+    wrap.innerHTML = displayRows.map(dr => dr.type === 'alt' ? altGroupRowHtml(dr.repIdx) : singleIngredientRowHtml(dr.idx)).join('');
   }
 
   window.deleteCurrentMeal = async () => {

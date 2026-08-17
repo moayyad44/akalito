@@ -2321,15 +2321,16 @@ function computeBestSizeOption(options, servings) {
 function computeGroupDefault(options, servings) {
   const brands = [...new Set(options.map(o => o.altBrand).filter(Boolean))];
   let brand = null, candidates = options;
-  if (brands.length > 1) {
+  if (brands.length >= 1) {
     const defOpt = options.find(o => o.isDefaultBrand && o.altBrand);
     brand = defOpt ? defOpt.altBrand : brands[0];
     candidates = options.filter(o => o.altBrand === brand);
-  } else if (brands.length === 1) {
-    brand = brands[0];
   }
   const best = computeBestSizeOption(candidates.length ? candidates : options, servings);
-  return { ingredientId: best.ingredientId, brand, brandManual: false, sizeManual: false };
+  // مهم: نرجّع "brand" الحقيقي يلي فعلياً يخص الخيار المُختار (best.altBrand) — مش القيمة
+  // المحسوبة مسبقاً يلي ممكن تكون اختلفت عنه (مثلاً لو مكوّن واحد بس بالمجموعة كان
+  // عندو اسم ماركة والباقي فاضي — كان بيصير خلط بين اسم الماركة والمنتج المعروض فعلياً).
+  return { ingredientId: best.ingredientId, brand: best.altBrand || null, brandManual: false, sizeManual: false };
 }
 
 // يتأكد إنه كل مجموعات بدائل الوجبة الحالية عندها اختيار محدد، وبيحدّث "الحجم الأنسب" تلقائياً
@@ -2345,6 +2346,7 @@ function ensureAltSelections(rows) {
       const candidates = sel.brand ? row.options.filter(o => o.altBrand === sel.brand) : row.options;
       const best = computeBestSizeOption(candidates.length ? candidates : row.options, currentSheetServings);
       sel.ingredientId = best.ingredientId;
+      sel.brand = best.altBrand || null; // نفس السبب أعلاه — نضمن تطابق البادج مع المنتج المعروض فعلياً
     }
   });
 }

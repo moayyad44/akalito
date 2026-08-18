@@ -16,6 +16,7 @@ import android.location.LocationManager;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.IBinder;
+import android.util.Log;
 import androidx.annotation.Nullable;
 import androidx.core.app.NotificationCompat;
 import androidx.core.app.ServiceCompat;
@@ -97,15 +98,24 @@ public class AvailabilityService extends Service {
     private LocationListener locationListener;
     private ExecutorService writeExecutor;
 
+    private static final String TAG = "AvailabilityService";
+
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
+        Log.d(TAG, "onStartCommand action=" + (intent != null ? intent.getAction() : "null"));
         if (intent != null && ACTION_STOP.equals(intent.getAction())) {
+            Log.d(TAG, "ACTION_STOP -> stopSelf()");
             stopSelf();
             return START_NOT_STICKY;
         }
         if (intent != null && ACTION_REFRESH_TOKEN.equals(intent.getAction())) {
             String newToken = intent.getStringExtra(EXTRA_ID_TOKEN);
-            if (newToken != null && !newToken.isEmpty()) idToken = newToken;
+            if (newToken != null && !newToken.isEmpty()) {
+                idToken = newToken;
+                Log.d(TAG, "ACTION_REFRESH_TOKEN -> تحديث التوكن، طوله=" + newToken.length());
+            } else {
+                Log.w(TAG, "ACTION_REFRESH_TOKEN بس التوكن الجديد فاضي!");
+            }
             return START_NOT_STICKY; // بس تحديث التوكن — بدون لمس الإشعار أو إعادة تسجيل الموقع
         }
         if (intent != null) {
@@ -113,6 +123,7 @@ public class AvailabilityService extends Service {
             String t = intent.getStringExtra(EXTRA_ID_TOKEN);
             if (d != null && !d.isEmpty()) driverId = d;
             if (t != null && !t.isEmpty()) idToken = t;
+            Log.d(TAG, "driverId=" + driverId + " | idToken موجود=" + (idToken != null && !idToken.isEmpty()) + " (طول=" + (idToken != null ? idToken.length() : 0) + ")");
         }
         startInForeground();
         startLocationUpdates();
@@ -177,13 +188,18 @@ public class AvailabilityService extends Service {
                     : ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC;
             try {
                 ServiceCompat.startForeground(this, NOTIF_ID, notification, serviceType);
+                Log.d(TAG, "startForeground نجح بنوع=" + serviceType);
             } catch (Exception e) {
+                Log.e(TAG, "startForeground فشل بنوع=" + serviceType + " — " + e.getMessage(), e);
                 // شبكة أمان أخيرة: أي استثناء غير متوقع (مثلاً OEM مخصّص) — نحاول أضعف نوع ممكن
                 // بدل ما تفشل الخدمة بصمت وتترك إشعار يتيم قابل للسحب.
                 try {
                     ServiceCompat.startForeground(this, NOTIF_ID, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC);
+                    Log.d(TAG, "startForeground نجح بالـfallback الأول (dataSync)");
                 } catch (Exception e2) {
+                    Log.e(TAG, "startForeground فشل حتى بالـfallback (dataSync) — " + e2.getMessage(), e2);
                     startForeground(NOTIF_ID, notification);
+                    Log.d(TAG, "startForeground نجح بالـfallback الأخير (بدون نوع محدد)");
                 }
             }
         } else {
@@ -193,6 +209,7 @@ public class AvailabilityService extends Service {
 
     @Override
     public void onDestroy() {
+        Log.d(TAG, "onDestroy: الخدمة عم توقف");
         stopLocationUpdates();
         ServiceCompat.stopForeground(this, ServiceCompat.STOP_FOREGROUND_REMOVE);
         super.onDestroy();
@@ -201,18 +218,20 @@ public class AvailabilityService extends Service {
     /* ══════════ تتبّع الموقع الأصلي (native) — يشتغل حتى لو التطبيق بالخلفية تماماً ══════════ */
 
     private void startLocationUpdates() {
-        if (locationManager != null) return; // أصلاً شغّالة (onStartCommand ممكن يُستدعى أكتر من مرة)
+        if (locationManager != null) { Log.d(TAG, "startLocationUpdates: أصلاً شغّالة، تجاهل"); return; }
         boolean hasLocationPermission =
                 ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
                 || ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED;
-        if (!hasLocationPermission) return; // بدون إذن، بيضل بس الإشعار شغال بدون تتبّع
+        Log.d(TAG, "startLocationUpdates: hasLocationPermission=" + hasLocationPermission);
+        if (!hasLocationPermission) { Log.w(TAG, "ما في إذن موقع — التتبع الأصلي ما رح يشتغل!"); return; }
 
         writeExecutor = Executors.newSingleThreadExecutor();
         locationManager = (LocationManager) getSystemService(Context.LOCATION_SERVICE);
-        if (locationManager == null) return;
+        if (locationManager == null) { Log.e(TAG, "LocationManager == null!"); return; }
 
         locationListener = new LocationListener() {
             @Override public void onLocationChanged(Location location) {
+                Log.d(TAG, "onLocationChanged: lat=" + location.getLatitude() + " lng=" + location.getLongitude() + " provider=" + location.getProvider());
                 pushLocationToFirestore(location.getLatitude(), location.getLongitude());
             }
             @Override public void onStatusChanged(String provider, int status, Bundle extras) {}
@@ -220,15 +239,23 @@ public class AvailabilityService extends Service {
             @Override public void onProviderDisabled(String provider) {}
         };
 
+        boolean gpsEnabled = locationManager.isProviderEnabled(LocationManager.GPS_PROVIDER);
+        boolean networkEnabled = locationManager.isProviderEnabled(LocationManager.NETWORK_PROVIDER);
+        Log.d(TAG, "gpsEnabled=" + gpsEnabled + " networkEnabled=" + networkEnabled);
         try {
-            if (locationManager.isProviderEnabled(LocationManager.GPS_PROVIDER)) {
+            if (gpsEnabled) {
                 locationManager.requestLocationUpdates(LocationManager.GPS_PROVIDER, LOCATION_MIN_TIME_MS, 0f, locationListener);
+                Log.d(TAG, "requestLocationUpdates(GPS) تم بنجاح");
             }
-            if (locationManager.isProviderEnabled(LocationManager.NETWORK_PROVIDER)) {
+            if (networkEnabled) {
                 locationManager.requestLocationUpdates(LocationManager.NETWORK_PROVIDER, LOCATION_MIN_TIME_MS, 0f, locationListener);
+                Log.d(TAG, "requestLocationUpdates(NETWORK) تم بنجاح");
+            }
+            if (!gpsEnabled && !networkEnabled) {
+                Log.w(TAG, "ولا provider مفعّل (GPS ولا Network) — تأكد GPS/الموقع مفعّل بإعدادات الجهاز!");
             }
         } catch (SecurityException e) {
-            // إذن اتلغى بلحظة نادرة بين الفحص والاستدعاء — نتجاهل بهدوء، الإشعار يضل شغال برضه
+            Log.e(TAG, "SecurityException بـrequestLocationUpdates: " + e.getMessage(), e);
         }
     }
 
@@ -250,7 +277,10 @@ public class AvailabilityService extends Service {
         final String dId = driverId;
         final String token = idToken;
         final ExecutorService exec = writeExecutor;
-        if (dId == null || dId.isEmpty() || token == null || token.isEmpty() || exec == null) return;
+        if (dId == null || dId.isEmpty() || token == null || token.isEmpty() || exec == null) {
+            Log.w(TAG, "pushLocationToFirestore: تخطي — driverId فاضي=" + (dId == null || dId.isEmpty()) + " idToken فاضي=" + (token == null || token.isEmpty()));
+            return;
+        }
 
         exec.execute(() -> {
             HttpsURLConnection conn = null;
@@ -281,13 +311,33 @@ public class AvailabilityService extends Service {
                 byte[] out = body.toString().getBytes("UTF-8");
                 conn.getOutputStream().write(out);
                 conn.getOutputStream().flush();
-                conn.getResponseCode(); // بس لضمان إنه الطلب اتنفّذ فعلياً — نتجاهل الفشل (توكن منتهي مثلاً)، رح تجي محاولة تانية بالتحديث القادم
+
+                int code = conn.getResponseCode();
+                if (code >= 200 && code < 300) {
+                    Log.d(TAG, "pushLocationToFirestore: نجح (code=" + code + ") lat=" + lat + " lng=" + lng);
+                } else {
+                    String errBody = readStreamSafely(conn.getErrorStream());
+                    Log.e(TAG, "pushLocationToFirestore: فشل! code=" + code + " body=" + errBody);
+                }
             } catch (Exception e) {
-                // فشل شبكة/توكن عابر — نتجاهل بهدوء، رح تجي محاولة تانية مع تحديث الموقع القادم
+                Log.e(TAG, "pushLocationToFirestore: استثناء — " + e.getClass().getSimpleName() + ": " + e.getMessage(), e);
             } finally {
                 if (conn != null) conn.disconnect();
             }
         });
+    }
+
+    private String readStreamSafely(java.io.InputStream is) {
+        if (is == null) return "(بدون تفاصيل)";
+        try {
+            java.io.ByteArrayOutputStream out = new java.io.ByteArrayOutputStream();
+            byte[] buf = new byte[512];
+            int n;
+            while ((n = is.read(buf)) != -1) out.write(buf, 0, n);
+            return out.toString("UTF-8");
+        } catch (Exception e) {
+            return "(فشل قراءة تفاصيل الخطأ)";
+        }
     }
 
     @Nullable

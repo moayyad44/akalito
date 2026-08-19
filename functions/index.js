@@ -103,6 +103,37 @@ exports.onOrderUpdated = onDocumentUpdated("orders/{orderId}", async (event) => 
 /* ══════════════════════════════════════════════════════════
    3) طلب جديد اتسجّل (الزبون أنهى الطلب) → إشعار فوري للمتجر
    ══════════════════════════════════════════════════════════ */
+/* ══════════════════════════════════════════════════════════
+   إشعار دفع فعلي لكل الأدمنز عند أي تنبيه جديد بمجموعة
+   admin_notifications (طلب جديد، طلب جاهز، طلب استُلم، طلب تسليم،
+   تسجيل سائق جديد...). العنوان والنص جاهزين أصلاً بالمستند نفسه
+   (title/message) — بدون أي منطق مخصص لكل نوع هون. يبعت لكل أدمن
+   عنده fcm_token محفوظ بمستند admins/{uid} (يُحفظ من akleto-admin.html
+   بعد تسجيل الدخول).
+   ══════════════════════════════════════════════════════════ */
+exports.onAdminNotificationCreated = onDocumentCreated("admin_notifications/{notifId}", async (event) => {
+  const notif = event.data.data();
+  if (!notif) return;
+  try {
+    const adminsSnap = await db.collection("admins").get();
+    const sends = [];
+    adminsSnap.forEach((docSnap) => {
+      const token = docSnap.data().fcm_token;
+      if (token) {
+        sends.push(sendPush(
+          token,
+          notif.title || "تنبيه جديد 🔔",
+          notif.message || "",
+          { type: notif.type || "general", notif_id: event.params.notifId }
+        ));
+      }
+    });
+    await Promise.all(sends);
+  } catch (e) {
+    console.error("خطأ إرسال إشعار الدفع للأدمن:", e.message || e);
+  }
+});
+
 exports.onOrderCreated = onDocumentCreated("orders/{orderId}", async (event) => {
   const order = event.data.data();
   if (!order.store_id) return;

@@ -20,7 +20,7 @@ import {
   watchUnreadNotifications,
   watchPendingDriversCount,
   db, auth, collection, getDocs, query, orderBy, limit, onSnapshot,
-  addDoc, writeBatch, doc, serverTimestamp, getDocFromServer,
+  addDoc, writeBatch, doc, updateDoc, serverTimestamp, getDocFromServer,
   onAuthStateChanged, signInWithEmailAndPassword, signOut,
   uploadImage, withTimeout, MEASURE_TYPES, loadMeasureTypes
 } from "./firebase-init.js";
@@ -100,8 +100,56 @@ window.addEventListener('DOMContentLoaded', () => {
     } else {
       hideLoginGate();
       loadDashboard();
+      initAdminPushNotifications(user.uid);
     }
   });
+
+  /* ══════════════════════════════════════════════════════════
+     إشعارات الدفع (Push Notifications) لتطبيق الإدارة — تعمل فقط
+     جوا تطبيق أندرويد (APK عبر Capacitor)، وما بتشتغل إطلاقاً بمتصفح
+     عادي (claude.ai أو أي متصفح ويب). نفس نمط الزبون/السائق/المتجر
+     بالضبط، بس التوكن يُحفظ بمستند admins/{uid} (uid حساب Firebase
+     Auth الحقيقي للأدمن، إيميل/باسورد — مو Anonymous Auth زي باقي
+     التطبيقات). Cloud Function (onAdminNotificationCreated) بترسل
+     تلقائياً لكل أدمن عنده توكن محفوظ، لأي تنبيه جديد بـadmin_notifications
+     (طلب جديد، طلب جاهز، تسجيل سائق جديد...الخ).
+     ══════════════════════════════════════════════════════════ */
+  let _adminPushInitDone = false;
+  async function initAdminPushNotifications(adminUid) {
+    if (_adminPushInitDone) return;
+    if (!adminUid) return;
+    const Capacitor = window.Capacitor;
+    if (!Capacitor || !Capacitor.isNativePlatform || !Capacitor.isNativePlatform()) return;
+    const Push = Capacitor.Plugins && Capacitor.Plugins.PushNotifications;
+    if (!Push) return;
+    _adminPushInitDone = true;
+    try {
+      const perm = await Push.requestPermissions();
+      if (perm.receive !== 'granted') return;
+      await Push.register();
+
+      Push.addListener('registration', async (tokenResult) => {
+        try {
+          await updateDoc(doc(db, 'admins', adminUid), {
+            fcm_token: tokenResult.value,
+            fcm_platform: 'android',
+            fcm_updated_at: serverTimestamp()
+          });
+        } catch (e) { console.error('تعذر حفظ توكن إشعارات الأدمن', e); }
+      });
+
+      Push.addListener('registrationError', (err) => {
+        console.error('فشل تسجيل إشعارات الدفع للأدمن', err);
+      });
+
+      // لما يضغط الأدمن على إشعار وصل، وديه لصفحة الإشعارات
+      Push.addListener('pushNotificationActionPerformed', () => {
+        try { window.location.href = 'akleto-admin-notifications.html'; } catch (e) {}
+      });
+    } catch (e) {
+      console.error('خطأ بتهيئة إشعارات الدفع للأدمن', e);
+    }
+  }
 
   window.adminLogin = async () => {
     const email = document.getElementById('gate-email').value.trim();

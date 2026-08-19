@@ -72,7 +72,11 @@ service cloud.firestore {
        يدوياً من Firebase Console حالياً لحد ما نبني صفحة إدارة مخصصة). */
     match /admins/{adminId} {
       allow read: if request.auth != null;
-      allow write: if false;
+      /* استثناء وحيد: الأدمن يقدر يحدّث مستنده الخاص هو بس (مثلاً حفظ
+         fcm_token لإشعارات الدفع) — إنشاء/حذف حساب أدمن جديد يضل ممنوع
+         بالكامل من التطبيق (يُدار يدوياً من Firebase Console). */
+      allow update: if request.auth != null && request.auth.uid == adminId;
+      allow create, delete: if false;
     }
 
     /* ═══ drivers — أول مجموعة مقيّدة فعلياً (تجربة) ═══

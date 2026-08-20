@@ -635,16 +635,34 @@ export function watchDriverBalanceTransactions(driverId, cb) {
 }
 
 export function createSettlementRequest(driverId, driverName, amount) {
+  const amt = Math.round(amount * 100) / 100;
+  addDoc(collection(db, 'admin_notifications'), {
+    type: 'driver_settlement_request',
+    title: `سائق سدّد عمولة أكليتو`,
+    message: `${driverName || 'سائق'} سدّد ${amt.toFixed(2)} د.أ من المستحق عليه — بانتظار التأكيد`,
+    related_id: driverId,
+    created_at: serverTimestamp(),
+    read: false
+  }).catch(e => console.error('admin_notifications write error', e));
   return addDoc(collection(db, 'driver_balance_transactions'), {
     driver_id: driverId, driver_name: driverName || '', type: 'settlement',
-    amount: Math.round(amount * 100) / 100, status: 'pending', created_at: serverTimestamp()
+    amount: amt, status: 'pending', created_at: serverTimestamp()
   });
 }
 
 export function createPayoutRequest(driverId, driverName, amount) {
+  const amt = Math.round(amount * 100) / 100;
+  addDoc(collection(db, 'admin_notifications'), {
+    type: 'driver_payout_request',
+    title: `سائق طالب بتحويل مستحقاته`,
+    message: `${driverName || 'سائق'} طلب تحويل ${amt.toFixed(2)} د.أ من أكليتو`,
+    related_id: driverId,
+    created_at: serverTimestamp(),
+    read: false
+  }).catch(e => console.error('admin_notifications write error', e));
   return addDoc(collection(db, 'driver_balance_transactions'), {
     driver_id: driverId, driver_name: driverName || '', type: 'payout',
-    amount: Math.round(amount * 100) / 100, status: 'pending', created_at: serverTimestamp()
+    amount: amt, status: 'pending', created_at: serverTimestamp()
   });
 }
 

@@ -557,6 +557,12 @@
   .monthly-plan-banner-title { font-weight:800; font-size:14.5px; margin-bottom:2px; }
   .monthly-plan-banner-sub { font-size:11.5px; opacity:.85; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
   .monthly-plan-banner-chev { font-size:18px; color:#fff; opacity:.85; flex-shrink:0; }
+  .monthly-plan-banner-cancel {
+    flex-shrink:0; width:26px; height:26px; border-radius:50%; border:none;
+    background: rgba(255,255,255,.22); color:#fff; font-size:13px; font-weight:800;
+    display:flex; align-items:center; justify-content:center; cursor:pointer;
+  }
+  .monthly-plan-banner-cancel:active { background: rgba(255,255,255,.35); }
 
   .toast {
     position:fixed; bottom: calc(76px + env(safe-area-inset-bottom) + 70px); right:50%; transform:translateX(50%) translateY(20px);
@@ -677,6 +683,7 @@ if ("serviceWorker" in navigator) {
         <div class="monthly-plan-banner-title">خطط لمونتك الشهرية</div>
         <div class="monthly-plan-banner-sub" id="monthlyPlanBannerSub">اختار متجرك وشوف بس الوجبات المتوفرة عنده</div>
       </div>
+      <button class="monthly-plan-banner-cancel hidden" id="monthlyPlanCancelBtn" onclick="event.stopPropagation(); cancelMonthlyPlanStore();" title="إلغاء اختيار المتجر">✕</button>
       <div class="monthly-plan-banner-chev">›</div>
     </div>
 
@@ -2079,16 +2086,39 @@ window.closePlanStoreSheet = () => {
 function updateMonthlyPlanBanner() {
   const banner = document.getElementById('monthlyPlanBanner');
   const sub = document.getElementById('monthlyPlanBannerSub');
+  const cancelBtn = document.getElementById('monthlyPlanCancelBtn');
   if (!banner || !sub) return;
   const titleEl = banner.querySelector('.monthly-plan-banner-title');
   if (cartLockedStore) {
     if (titleEl) titleEl.textContent = `📅 بتخطط من متجر "${cartLockedStore.name}"`;
     sub.textContent = 'دوس لتغيير المتجر';
+    if (cancelBtn) cancelBtn.classList.remove('hidden');
   } else {
     if (titleEl) titleEl.textContent = '📅 خطط لمونتك الشهرية';
     sub.textContent = 'اختار متجرك وشوف بس الوجبات المتوفرة عنده';
+    if (cancelBtn) cancelBtn.classList.add('hidden');
   }
 }
+
+/* يلغي اختيار متجر خطة المونة الشهرية ويرجّع الزبون لتصفح عادي بدون متجر مقفول.
+   لو في أصناف بالسلة مرتبطة بهاد المتجر، بيأكد أول قبل ما يفضّيها. */
+window.cancelMonthlyPlanStore = () => {
+  if (!cartLockedStore) return;
+  if (Object.keys(getFinalCartIngredients()).length) {
+    const ok = confirm(`سلتك فيها أصناف من متجر "${cartLockedStore.name}". بدك تلغي اختيار المتجر وتفضّي السلة؟`);
+    if (!ok) return;
+  }
+  selectedMeals = [];
+  cartOverrides = {};
+  cartLockedStore = null;
+  lockedStorePriceMap = null;
+  updateCartBadge();
+  updateMonthlyPlanBanner();
+  homeSelectedCategory = 'الكل';
+  renderCategoryChips();
+  renderMealsGrid();
+  showToast('✅ تم إلغاء اختيار المتجر');
+};
 
 
 function updateCartFab() {
@@ -3608,15 +3638,6 @@ async function executeOrderSubmit() {
       }),
       20000, 'انتهت مهلة إرسال الطلب — تأكد من الإنترنت'
     );
-
-    addDoc(collection(db, 'admin_notifications'), {
-      type: 'new_order',
-      title: `طلب جديد ${orderDisplayCode({ id: newOrderRef.id, order_number: assignedOrderNumber })}`,
-      message: `${customerName || 'زبون'} طلب من متجر "${routingStoreName}" بقيمة ${Math.round(totalPrice * 100) / 100} د.أ تقريباً`,
-      related_id: newOrderRef.id,
-      created_at: serverTimestamp(),
-      read: false
-    }).catch(e => console.error('admin_notifications write error', e));
 
     document.getElementById('success-store-note').textContent = `رح تشتري من متجر "${routingStoreName}" — رح نجهزلك المكونات ونوصلها أقرب وقت ممكن 🚴`;
     selectedMeals = [];

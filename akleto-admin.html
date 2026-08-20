@@ -703,6 +703,27 @@ if ("serviceWorker" in navigator) {
 </script>
 </head>
 <body>
+<script>
+  /* إخفاء splash الأصلي (Native) لما تخلص الصفحة فعلياً بالتحميل من الإنترنت،
+     مو فور ما الـWebView يبلش بس (كان هذا يسبب شاشة بيضاء فاضية لثواني).
+     يعمل فقط جوا تطبيق أندرويد (Capacitor)، ما بيأثر على المتصفح العادي. */
+  (function () {
+    var hidden = false;
+    function hideSplash() {
+      if (hidden) return;
+      hidden = true;
+      try {
+        var C = window.Capacitor;
+        if (C && C.isNativePlatform && C.isNativePlatform() && C.Plugins && C.Plugins.SplashScreen) {
+          C.Plugins.SplashScreen.hide();
+        }
+      } catch (e) {}
+    }
+    window.addEventListener('load', function () { setTimeout(hideSplash, 150); });
+    setTimeout(hideSplash, 6000); // مهلة أمان قصوى حتى لو تأخر التحميل لأي سبب
+  })();
+</script>
+
 
 <!-- ══════ LOGIN GATE ══════ -->
 <div id="login-gate">

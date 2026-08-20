@@ -105,15 +105,22 @@ exports.onOrderUpdated = onDocumentUpdated("orders/{orderId}", async (event) => 
    ══════════════════════════════════════════════════════════ */
 /* ══════════════════════════════════════════════════════════
    إشعار دفع فعلي لكل الأدمنز عند أي تنبيه جديد بمجموعة
-   admin_notifications (طلب جديد، طلب جاهز، طلب استُلم، طلب تسليم،
-   تسجيل سائق جديد...). العنوان والنص جاهزين أصلاً بالمستند نفسه
-   (title/message) — بدون أي منطق مخصص لكل نوع هون. يبعت لكل أدمن
-   عنده fcm_token محفوظ بمستند admins/{uid} (يُحفظ من akleto-admin.html
-   بعد تسجيل الدخول).
+   admin_notifications — بس فقط الأنواع المتعلقة بالعمولات/الفلوس
+   (بطلب صريح من مؤيد: بدون تنبيهات الطلبات نفسها new_order/order_ready/
+   order_claimed، لأنها كتيرة ومش ضرورية بالإشعار الفوري). باقي الأنواع
+   تنكتب بمجموعة admin_notifications عادي وتظهر بصفحة إشعارات لوحة
+   الإدارة، بس بدون push فعلي عالموبايل.
    ══════════════════════════════════════════════════════════ */
+const ADMIN_PUSH_TYPES = new Set([
+  'store_commission_request',    // متجر طالب تحصيل مستحقاته من أكليتو
+  'driver_settlement_request',   // سائق سدّد/بده يسدد عمولة أكليتو المستحقة عليه
+  'driver_payout_request'        // سائق طالب تحويل مستحقاته من أكليتو
+]);
+
 exports.onAdminNotificationCreated = onDocumentCreated("admin_notifications/{notifId}", async (event) => {
   const notif = event.data.data();
   if (!notif) return;
+  if (!ADMIN_PUSH_TYPES.has(notif.type)) return;
   try {
     const adminsSnap = await db.collection("admins").get();
     const sends = [];

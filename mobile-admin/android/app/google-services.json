@@ -1,0 +1,86 @@
+{
+  "project_info": {
+    "project_number": "739001380275",
+    "project_id": "akleto-prod",
+    "storage_bucket": "akleto-prod.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:739001380275:android:2b0a34df032c4d3df9efc6",
+        "android_client_info": {
+          "package_name": "com.akalito.admin"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDwegbIBj6-cbFWDgL-_xAYYdk60V5qBAM"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:739001380275:android:0b5c173cb361a7c6f9efc6",
+        "android_client_info": {
+          "package_name": "com.akalito.customer"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDwegbIBj6-cbFWDgL-_xAYYdk60V5qBAM"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:739001380275:android:17be86cb248e9069f9efc6",
+        "android_client_info": {
+          "package_name": "com.akalito.driver"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDwegbIBj6-cbFWDgL-_xAYYdk60V5qBAM"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:739001380275:android:346e262d812aeaaaf9efc6",
+        "android_client_info": {
+          "package_name": "com.akalito.store"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDwegbIBj6-cbFWDgL-_xAYYdk60V5qBAM"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

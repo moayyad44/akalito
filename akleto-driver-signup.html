@@ -146,6 +146,22 @@
 
     <button class="btn-main" id="step1-btn" onclick="goToStep2()">التالي</button>
     <div class="error-text" id="err-1"></div>
+    <div id="recaptcha-container-driver"></div>
+  </div>
+
+  <!-- خطوة تحقق: رمز SMS (تسجيل جديد بس، مرة وحدة) -->
+  <div class="panel" id="panel-1v">
+    <div class="panel-title">تحقق من رقمك</div>
+    <div class="panel-sub">بعتنالك رمز مؤلف من 6 أرقام عبر رسالة SMS لرقم <b id="driver-otp-phone-display"></b></div>
+
+    <div class="field-group">
+      <label>رمز التحقق</label>
+      <input type="tel" id="driver-otp-code" placeholder="------" maxlength="6" inputmode="numeric" style="text-align:center; letter-spacing:6px; font-size:20px;">
+    </div>
+
+    <button class="btn-main" id="driver-otp-btn" onclick="confirmDriverOtp()">تأكيد الرمز ✅</button>
+    <div class="error-text" id="err-1v"></div>
+    <p style="margin-top:14px; text-align:center;"><a href="javascript:void(0)" onclick="resendDriverOtp()" style="color:var(--primary); font-weight:700;">إعادة إرسال الرمز</a></p>
   </div>
 
   <!-- خطوة 2أ: الصورة الشخصية -->
@@ -346,7 +362,7 @@ document.getElementById('ill-vlicense').innerHTML = `<div style="text-align:cent
 document.getElementById('ill-clearance').innerHTML = `<div style="text-align:center;">${svgCardFront()}</div>`;
 </script>
 <script type="module">
-import { uploadImage, db, doc, getDoc } from "./firebase-init.js";
+import { uploadImage, db, doc, getDoc, sendOtpCode, otpErrorMessage } from "./firebase-init.js";
 import { findDriverByPhone, createDriverAccount, resubmitDriverAccount } from "./driver-shared.js";
 import { JORDAN_CAR_MODELS } from "./jordan-vehicles.js";
 
@@ -381,7 +397,7 @@ function setStep(n) {
     d.classList.toggle('active', dIdx === idx);
     d.classList.toggle('done', dIdx >= 0 && idx >= 0 && dIdx < idx);
   });
-  const titles = { '1': 'بياناتك ومركبتك', '2a': 'الصورة الشخصية', '2b': 'الهوية الشخصية', '2c': 'رخصة القيادة', '2d': 'رخصة المركبة', '2e': 'شهادة عدم محكومية', '3': 'الحساب البنكي' };
+  const titles = { '1': 'بياناتك ومركبتك', '1v': 'تحقق من رقمك', '2a': 'الصورة الشخصية', '2b': 'الهوية الشخصية', '2c': 'رخصة القيادة', '2d': 'رخصة المركبة', '2e': 'شهادة عدم محكومية', '3': 'الحساب البنكي' };
   document.getElementById('topTitle').textContent = titles[n] || 'تسجيل حساب سائق';
   document.getElementById('stepsBar').style.display = idx >= 0 ? 'flex' : 'none';
   document.getElementById('panel-' + n).classList.add('active');
@@ -441,12 +457,63 @@ window.goToStep2 = async () => {
       }
     }
     window._signupData = { name, phone, vehicle_type: vehicleType, vehicle_make_model: model, plate_number: plate };
-    setStep('2a');
+
+    // إعادة التقديم (resubmit) لحساب موجود أصلاً — تخطي التحقق، مباشرة لرفع الوثائق
+    if (resubmitId) {
+      setStep('2a');
+      return;
+    }
+
+    // تسجيل جديد — تحقق من رقم الهاتف برمز SMS أول (مرة وحدة بس)
+    window._driverConfirmationResult = await sendOtpCode('recaptcha-container-driver', phone);
+    document.getElementById('driver-otp-phone-display').textContent = phone;
+    document.getElementById('driver-otp-code').value = '';
+    document.getElementById('err-1v').style.display = 'none';
+    setStep('1v');
   } catch (e) {
     console.error('phone check error', e);
-    showErr('err-1', 'صار خطأ بالتحقق — جرب مرة ثانية');
+    showErr('err-1', otpErrorMessage(e));
   } finally {
     btn.disabled = false; btn.textContent = 'التالي';
+  }
+};
+
+window.confirmDriverOtp = async () => {
+  const code = document.getElementById('driver-otp-code').value.trim();
+  const errBox = document.getElementById('err-1v');
+  errBox.style.display = 'none';
+  if (!/^\d{6}$/.test(code)) {
+    errBox.textContent = 'اكتب الرمز المكوّن من 6 أرقام كامل';
+    errBox.style.display = 'block';
+    return;
+  }
+  const btn = document.getElementById('driver-otp-btn');
+  btn.disabled = true; btn.textContent = 'جاري التأكيد...';
+  try {
+    const result = await window._driverConfirmationResult.confirm(code);
+    window._signupData.auth_uid = result.user.uid;
+    window._signupData.phone_verified = true;
+    setStep('2a');
+  } catch (e) {
+    console.error('driver otp confirm error', e);
+    errBox.textContent = otpErrorMessage(e);
+    errBox.style.display = 'block';
+  } finally {
+    btn.disabled = false; btn.textContent = 'تأكيد الرمز ✅';
+  }
+};
+
+window.resendDriverOtp = async () => {
+  const errBox = document.getElementById('err-1v');
+  errBox.style.display = 'none';
+  try {
+    window._driverConfirmationResult = await sendOtpCode('recaptcha-container-driver', window._signupData.phone);
+    errBox.textContent = 'تم إرسال رمز جديد ✅';
+    errBox.style.display = 'block';
+  } catch (e) {
+    console.error('resend driver otp error', e);
+    errBox.textContent = otpErrorMessage(e);
+    errBox.style.display = 'block';
   }
 };
 

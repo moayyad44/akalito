@@ -2463,3 +2463,37 @@ firebase functions:delete advanceOrderOffer --region europe-west1
 لكل تطبيق من الأربعة: `git pull` → `npm install` (لتثبيت `@capacitor/splash-screen`) → `npx cap sync android` → بناء APK جديد وتجربته (يفترض تشوف شاشة splash بلون البراند بدل الأبيض، وتضل ظاهرة لحد ما الصفحة تحمّل فعلياً بدون فراغ أبيض بالنص).
 
 **الحالة:** ✅ الكود والصور جاهزين ومرفوعين بالكامل على GitHub. ⏳ بانتظار مؤيد يبني APK جديد لكل تطبيق ويجرب.
+
+## 20 أغسطس 2026 (تكملة) — 🆕 تفعيل OTP حقيقي (Firebase Phone Auth) — زبون، سائق، متجر
+
+### القرار المتفق عليه مع مؤيد
+- OTP **مرة وحدة بس** عند إنشاء حساب جديد لأول مرة (مو كل تسجيل دخول — الجلسة تضل محفوظة محلياً بالجهاز زي ما كانت).
+- الحسابات الموجودة أصلاً (بدون تحقق رقم) **تضل شغالة عادي بدون أي تأثير** — OTP بس للتسجيلات الجديدة من هلق وطلع.
+
+### المشكلة الأمنية اللي انحلّت بالمناسبة
+قبل هالتعديل، "تسجيل الدخول" بالثلاث تطبيقات كان مجرد **كتابة رقم الهاتف بدون أي تحقق** — أي حدا يعرف رقم هاتف شخص تاني كان يقدر يدخل على حسابه (زبون/سائق/متجر) مباشرة. هلق التسجيل الأول محمي برمز SMS حقيقي.
+
+### التنفيذ التقني
+**`firebase-init.js`** (مشترك بكل الصفحات) — أُضيف:
+- استيراد `RecaptchaVerifier`, `signInWithPhoneNumber` من Firebase Auth SDK.
+- `toE164Jordan(localPhone)` — يحوّل رقم محلي (07XXXXXXXX) لصيغة دولية (+9627XXXXXXXX).
+- `sendOtpCode(containerId, localPhone)` — يبعت الكود عبر invisible reCAPTCHA، يرجع `confirmationResult`.
+- `otpErrorMessage(err)` — رسائل خطأ عربية مفهومة لكل أكواد خطأ Firebase الشائعة (رمز غلط، منتهي، محاولات كتير، دومين غير مصرّح...).
+
+**`akleto-customer.html`** — `startCustomerSession()` صار يبعت OTP بدل ما ينشئ الحساب مباشرة (بعد التأكد إنه الرقم مش مسجّل مسبقاً). شاشة جديدة `#otpScreen` (6 خانات، تأكيد، إعادة إرسال، رجوع). دالة جديدة `confirmCustomerOtp()` بتكمل إنشاء الحساب بعد نجاح التحقق، باستخدام الـuid الحقيقي المتحقق منه (`result.user.uid`) بدل الـuid المجهول.
+
+**`akleto-driver-signup.html`** — أُضيفت خطوة جديدة بمعالج التسجيل (`panel-1v`) بين خطوة البيانات الأساسية ورفع الوثائق. `goToStep2()` صار يبعت OTP بعد التحقق من عدم تكرار الرقم (وبس للتسجيل الجديد — إعادة التقديم `resubmit` بتتخطى OTP لأنها مش تسجيل جديد). `confirmDriverOtp()` بتخزّن الـuid المتحقق منه بـ`window._signupData.auth_uid`. **لا حاجة لتعديل `createDriverAccount` بملف `driver-shared.js`** — دالة `ensureDriverAuth()` أصلاً بتتحقق بس من وجود جلسة Auth حالية (`auth.currentUser`) بغض النظر عن نوعها، فبما إنه جلسة التحقق بالـOTP بتصير قبل الوصول للخطوة الأخيرة، بتُستخدم تلقائياً بدون أي تعديل إضافي.
+
+**`akleto-store.html`** — `loginAsStore()` انقسمت لمسارين: **موظف موجود مسبقاً** بنفس المتجر (بحسب `store_id`+`phone`) → دخول مباشر بدون OTP (زي ما كان). **موظف جديد** (أول مرة يسجّل بهالمتجر) → OTP أول عبر شاشة `#storeOtpScreen`، وبعد التأكيد `confirmStoreOtp()` بينشئ مستند `store_employees` بالـuid المتحقق منه.
+
+### ⚠️⚠️ خطوات إلزامية بـFirebase Console — بدونها الميزة ما رح تشتغل إطلاقاً
+1. **Firebase Console → Authentication → Sign-in method → فعّل "Phone" كـprovider.**
+2. **Firebase Console → Authentication → Settings → Authorized domains → أضف `moayyad44.github.io`** (الدومين اللي التطبيقات الثلاث بتحمّل صفحاتها منه عبر `server.url` بـ`capacitor.config.json`) — بدون هالخطوة رح يطلع خطأ `auth/unauthorized-domain` عند أي محاولة إرسال OTP.
+3. **تفعيل/ربط reCAPTCHA:** Firebase Phone Auth (نسخة الويب) بتعتمد على reCAPTCHA (v2 أو Enterprise حسب إعداد المشروع) للتحقق إنه الطلب من إنسان حقيقي. غالباً يشتغل تلقائياً بمجرد تفعيل Phone provider، لكن لو ظهرت مشاكل بالتحقق، يلزم مراجعة "Google Cloud Console → reCAPTCHA Enterprise" والتأكد من ربط مفتاح API بمشروع `akleto-prod`.
+4. **⚠️ تنويه تكلفة:** Firebase Phone Auth **مو مجاني بالكامل** — فيه حصة مجانية محدودة شهرياً (تختلف حسب خطة المشروع Blaze)، وبعدها بتُحتسب تكلفة لكل رسالة SMS تُرسل. مع نمو عدد المستخدمين الجدد شهرياً، هاي تكلفة تشغيلية مستمرة لازم تُراقب من Firebase Console → Usage and billing.
+5. لا حاجة لأي `git pull` أو بناء APK جديد لتفعيل هالميزة تقنياً (الكود يشتغل مباشرة بمجرد رفعه لأنه محمّل عن بعد) — **بس** الخطوات 1 و2 فوق لازم تصير يدوياً من Firebase Console قبل ما يشتغل أي OTP فعلياً، وإلا كل محاولة تسجيل جديد رح تفشل بخطأ.
+
+### التحقق قبل الرفع
+`node --check` على كل كتل السكربت بالملفات الأربعة (`firebase-init.js`, `akleto-customer.html`, `akleto-driver-signup.html`, `akleto-store.html`) — كلها سليمة. تأكدت من عدم وجود أي اعتماد على نوع مزود المصادقة (`isAnonymous`/`sign_in_provider`) بـ`firestore.rules` — لا حاجة لتعديلها.
+
+**الحالة:** ✅ الكود جاهز ومرفوع بالكامل. ⏳ بانتظار مؤيد يفعّل Phone provider ويضيف الدومين المصرّح من Firebase Console (خطوتين 1+2 فوق) قبل ما يجرب فعلياً.

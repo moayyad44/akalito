@@ -433,6 +433,28 @@ if ("serviceWorker" in navigator) {
 
   <button class="btn-main" id="sl-login-btn" onclick="loginAsStore()">دخول 🏪</button>
   <div class="error-text" id="sl-error"></div>
+  <div id="recaptcha-container-store"></div>
+</div>
+
+<!-- ══════ شاشة تحقق OTP للمتجر (موظف جديد بس، مرة وحدة) ══════ -->
+<div id="storeOtpScreen" class="hidden" style="display:flex;flex-direction:column;justify-content:center;min-height:100vh;padding:28px;text-align:center;">
+  <div class="logo-mark">
+    <svg viewBox="0 0 48 48" width="60" height="60" aria-hidden="true">
+      <circle cx="24" cy="24" r="24" fill="#A23E48"/>
+      <path d="M24 14v12l8 5" stroke="#FDF8F3" stroke-width="2.4" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>
+  </div>
+  <h1 style="font-size:24px;color:var(--primary);margin-bottom:6px;font-family:'Tajawal',sans-serif;">تحقق من رقمك</h1>
+  <p style="color:var(--text30);font-size:14px;margin-bottom:24px;">بعتنالك رمز مؤلف من 6 أرقام عبر رسالة SMS لرقم <b id="store-otp-phone-display"></b></p>
+
+  <div class="field-group">
+    <label>رمز التحقق</label>
+    <input type="tel" id="store-otp-code" placeholder="------" maxlength="6" inputmode="numeric" style="text-align:center; letter-spacing:6px; font-size:20px;">
+  </div>
+
+  <button class="btn-main" id="store-otp-btn" onclick="confirmStoreOtp()">تأكيد الرمز ✅</button>
+  <div class="error-text" id="store-otp-error"></div>
+  <p style="margin-top:14px;"><a href="javascript:void(0)" onclick="resendStoreOtp()" style="color:var(--primary); font-weight:700;">إعادة إرسال الرمز</a></p>
 </div>
 
 
@@ -632,7 +654,7 @@ if ("serviceWorker" in navigator) {
 <script type="module">
 import {
   db, collection, getDocs, addDoc, doc, updateDoc, setDoc, query, where, serverTimestamp, withTimeout,
-  onSnapshot, arrayUnion, auth, onAuthStateChanged, signInAnonymously
+  onSnapshot, arrayUnion, auth, onAuthStateChanged, signInAnonymously, sendOtpCode, otpErrorMessage
 } from "./firebase-init.js";
 
 /* ══════════════════════════════════════════════════════════
@@ -871,23 +893,28 @@ window.loginAsStore = async () => {
       return;
     }
 
-    // ابحث عن سجل موظف موجود بنفس الرقم بهذا المتجر، وإلا أنشئ سجل جديد
-    const authUid = await ensureStoreAuth();
+    // ابحث عن سجل موظف موجود بنفس الرقم بهذا المتجر
     const empSnap = await withTimeout(
       getDocs(query(collection(db, 'store_employees'),
         where('store_id', '==', storeDoc.id), where('phone', '==', phone))),
       15000, 'انتهت مهلة الاتصال — تأكد من الإنترنت'
     );
+
     if (empSnap.empty) {
-      await withTimeout(
-        addDoc(collection(db, 'store_employees'), {
-          store_id: storeDoc.id, name, phone, auth_uid: authUid, created_at: serverTimestamp()
-        }),
-        15000, 'انتهت مهلة الاتصال — تأكد من الإنترنت'
-      );
-    } else {
-      await updateDoc(doc(db, 'store_employees', empSnap.docs[0].id), { auth_uid: authUid }).catch(() => {});
+      // موظف جديد بهالمتجر — لازم تحقق من رقمه برمز SMS أول (مرة وحدة بس)
+      _pendingStoreLogin = { name, phone, storeId: storeDoc.id, storeName: storeData.name || 'متجر' };
+      window._storeConfirmationResult = await sendOtpCode('recaptcha-container-store', phone);
+      document.getElementById('store-otp-phone-display').textContent = phone;
+      document.getElementById('store-otp-code').value = '';
+      document.getElementById('store-otp-error').style.display = 'none';
+      document.getElementById('storeLoginScreen').classList.add('hidden');
+      document.getElementById('storeOtpScreen').classList.remove('hidden');
+      return;
     }
+
+    // موظف موجود مسبقاً (سجّل دخول قبل هيك) — دخول مباشر بدون تحقق إضافي
+    const authUid = await ensureStoreAuth();
+    await updateDoc(doc(db, 'store_employees', empSnap.docs[0].id), { auth_uid: authUid }).catch(() => {});
     await updateDoc(doc(db, 'stores', storeDoc.id), { authorized_uids: arrayUnion(authUid) }).catch(() => {});
 
     storeId = storeDoc.id;
@@ -904,11 +931,74 @@ window.loginAsStore = async () => {
     enterStoreMode();
   } catch(e) {
     console.error('store login error', e);
-    errBox.textContent = 'صار خطأ — جرب مرة ثانية';
+    errBox.textContent = otpErrorMessage(e);
     errBox.style.display = 'block';
   } finally {
     btn.disabled = false;
     btn.textContent = 'دخول 🏪';
+  }
+};
+
+let _pendingStoreLogin = null;
+
+window.confirmStoreOtp = async () => {
+  const code = document.getElementById('store-otp-code').value.trim();
+  const errBox = document.getElementById('store-otp-error');
+  errBox.style.display = 'none';
+  if (!/^\d{6}$/.test(code)) {
+    errBox.textContent = 'اكتب الرمز المكوّن من 6 أرقام كامل';
+    errBox.style.display = 'block';
+    return;
+  }
+  const btn = document.getElementById('store-otp-btn');
+  btn.disabled = true; btn.textContent = 'جاري التأكيد...';
+  try {
+    const result = await window._storeConfirmationResult.confirm(code);
+    const authUid = result.user.uid;
+    const { name, phone, storeId: sId, storeName: sName } = _pendingStoreLogin;
+
+    await withTimeout(
+      addDoc(collection(db, 'store_employees'), {
+        store_id: sId, name, phone, auth_uid: authUid, phone_verified: true, created_at: serverTimestamp()
+      }),
+      15000, 'انتهت مهلة الاتصال — تأكد من الإنترنت'
+    );
+    await updateDoc(doc(db, 'stores', sId), { authorized_uids: arrayUnion(authUid) }).catch(() => {});
+
+    storeId = sId;
+    storeName = sName;
+    storeEmpName = name;
+    storeEmpPhone = phone;
+    localStorage.setItem(STORE_ID_KEY, storeId);
+    localStorage.setItem(STORE_NAME_KEY, storeName);
+    localStorage.setItem(STORE_EMP_NAME_KEY, storeEmpName);
+    localStorage.setItem(STORE_EMP_PHONE_KEY, storeEmpPhone);
+
+    document.getElementById('storeOtpScreen').classList.add('hidden');
+    document.getElementById('appShell').classList.remove('hidden');
+    enterStoreMode();
+  } catch (e) {
+    console.error('store otp confirm error', e);
+    errBox.textContent = otpErrorMessage(e);
+    errBox.style.display = 'block';
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'تأكيد الرمز ✅';
+  }
+};
+
+window.resendStoreOtp = async () => {
+  const errBox = document.getElementById('store-otp-error');
+  errBox.style.display = 'none';
+  if (!_pendingStoreLogin) return;
+  try {
+    window._storeConfirmationResult = await sendOtpCode('recaptcha-container-store', _pendingStoreLogin.phone);
+    errBox.textContent = 'تم إرسال رمز جديد ✅';
+    errBox.style.display = 'block';
+  } catch (e) {
+    console.error('resend store otp error', e);
+    errBox.textContent = otpErrorMessage(e);
+    errBox.style.display = 'block';
   }
 };
 

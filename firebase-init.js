@@ -75,16 +75,22 @@ export async function sendOtpCode(containerId, localPhone) {
   return confirmationResult;
 }
 
-/* رسالة خطأ عربية مفهومة حسب كود خطأ Firebase Phone Auth الشائعة */
+/* رسالة خطأ عربية مفهومة حسب كود خطأ Firebase Phone Auth الشائعة.
+   🔧 وضع تشخيص مؤقت: نلحق كود/نص الخطأ الحقيقي بآخر الرسالة عشان
+   نقدر نشخّص أي مشكلة بسرعة بدون remote debugging — لاحقاً لما تستقر
+   الميزة منشيل هالسطر الأخير ونخليها رسالة نظيفة بس. */
 export function otpErrorMessage(err) {
   const code = err && err.code;
-  if (code === 'auth/invalid-verification-code') return 'رمز التحقق غير صحيح — تأكد منه وجرب مرة ثانية';
-  if (code === 'auth/code-expired') return 'انتهت صلاحية الرمز — اطلب رمز جديد';
-  if (code === 'auth/too-many-requests') return 'محاولات كتيرة بوقت قصير — جرب بعد شوي';
-  if (code === 'auth/invalid-phone-number') return 'رقم الهاتف غير صحيح';
-  if (code === 'auth/unauthorized-domain') return 'خطأ إعداد بالسيرفر (دومين غير مصرّح) — تواصل مع الدعم الفني';
-  if (code === 'auth/quota-exceeded') return 'تم تجاوز حد الرسائل النصية المسموح — جرب لاحقاً';
-  return 'صار خطأ بإرسال أو تأكيد رمز التحقق — جرب مرة ثانية';
+  let msg;
+  if (code === 'auth/invalid-verification-code') msg = 'رمز التحقق غير صحيح — تأكد منه وجرب مرة ثانية';
+  else if (code === 'auth/code-expired') msg = 'انتهت صلاحية الرمز — اطلب رمز جديد';
+  else if (code === 'auth/too-many-requests') msg = 'محاولات كتيرة بوقت قصير — جرب بعد شوي';
+  else if (code === 'auth/invalid-phone-number') msg = 'رقم الهاتف غير صحيح';
+  else if (code === 'auth/unauthorized-domain') msg = 'خطأ إعداد بالسيرفر (دومين غير مصرّح) — تواصل مع الدعم الفني';
+  else if (code === 'auth/quota-exceeded') msg = 'تم تجاوز حد الرسائل النصية المسموح — جرب لاحقاً';
+  else msg = 'صار خطأ بإرسال أو تأكيد رمز التحقق — جرب مرة ثانية';
+  const debugSuffix = ` [DEBUG: ${code || 'no-code'} — ${(err && err.message || '').slice(0, 120)}]`;
+  return msg + debugSuffix;
 }
 
 /* رفع صورة إلى Firebase Storage وإرجاع الرابط — مشتركة بكل الصفحات */

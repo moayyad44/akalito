@@ -9,7 +9,8 @@ import {
   doc, serverTimestamp, getDocFromServer, runTransaction, arrayUnion
 } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 import {
-  getAuth, onAuthStateChanged, signInWithEmailAndPassword, signOut, signInAnonymously
+  getAuth, onAuthStateChanged, signInWithEmailAndPassword, signOut, signInAnonymously,
+  RecaptchaVerifier, signInWithPhoneNumber
 } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
 import {
   getStorage, ref as storageRef, uploadBytes, getDownloadURL
@@ -34,8 +35,57 @@ export {
   addDoc, setDoc, updateDoc, deleteDoc, writeBatch, doc, serverTimestamp, getDocFromServer,
   runTransaction, arrayUnion,
   onAuthStateChanged, signInWithEmailAndPassword, signOut, signInAnonymously,
+  RecaptchaVerifier, signInWithPhoneNumber,
   storageRef, uploadBytes, getDownloadURL
 };
+
+/* ══════════════════════════════════════════════════════════
+   تحقق OTP برقم الهاتف (Firebase Phone Auth) — مشترك بين تطبيقات
+   الزبون، السائق، والمتجر. يُستخدم مرة وحدة بس عند إنشاء حساب جديد
+   لأول مرة (مو عند كل تسجيل دخول — الحسابات الحالية بدون تحقق تضل
+   شغالة عادي زي ما هي).
+
+   الاستخدام بكل تطبيق:
+     const otp = startPhoneVerification('recaptcha-container-id', '0791234567');
+     // otp.confirmationResult جاهزة، اطلب من المستخدم يدخل الكود، وبعدين:
+     const uid = await otp.confirm(code); // يرجّع uid حقيقي متحقق منه
+
+   لازم "تفعيل Phone كـ Sign-in provider" من Firebase Console يدوياً، وإضافة
+   دومين GitHub Pages (moayyad44.github.io) لقائمة Authorized domains قبل
+   ما تشتغل فعلياً — وإلا رح يطلع خطأ auth/unauthorized-domain.
+   ══════════════════════════════════════════════════════════ */
+const _recaptchaVerifiers = {};
+
+/* يحوّل رقم أردني محلي (07XXXXXXXX) لصيغة دولية (+9627XXXXXXXX) يطلبها Firebase */
+export function toE164Jordan(localPhone) {
+  const digits = (localPhone || '').replace(/\D/g, '');
+  const trimmed = digits.startsWith('0') ? digits.slice(1) : digits;
+  return '+962' + trimmed;
+}
+
+/* يبعت كود التحقق SMS لرقم الهاتف. containerId لازم يكون id لعنصر <div> فاضي
+   بالصفحة (invisible captcha — ما بيظهر شي للمستخدم بالعادة). */
+export async function sendOtpCode(containerId, localPhone) {
+  if (!_recaptchaVerifiers[containerId]) {
+    _recaptchaVerifiers[containerId] = new RecaptchaVerifier(auth, containerId, { size: 'invisible' });
+  }
+  const verifier = _recaptchaVerifiers[containerId];
+  const e164 = toE164Jordan(localPhone);
+  const confirmationResult = await signInWithPhoneNumber(auth, e164, verifier);
+  return confirmationResult;
+}
+
+/* رسالة خطأ عربية مفهومة حسب كود خطأ Firebase Phone Auth الشائعة */
+export function otpErrorMessage(err) {
+  const code = err && err.code;
+  if (code === 'auth/invalid-verification-code') return 'رمز التحقق غير صحيح — تأكد منه وجرب مرة ثانية';
+  if (code === 'auth/code-expired') return 'انتهت صلاحية الرمز — اطلب رمز جديد';
+  if (code === 'auth/too-many-requests') return 'محاولات كتيرة بوقت قصير — جرب بعد شوي';
+  if (code === 'auth/invalid-phone-number') return 'رقم الهاتف غير صحيح';
+  if (code === 'auth/unauthorized-domain') return 'خطأ إعداد بالسيرفر (دومين غير مصرّح) — تواصل مع الدعم الفني';
+  if (code === 'auth/quota-exceeded') return 'تم تجاوز حد الرسائل النصية المسموح — جرب لاحقاً';
+  return 'صار خطأ بإرسال أو تأكيد رمز التحقق — جرب مرة ثانية';
+}
 
 /* رفع صورة إلى Firebase Storage وإرجاع الرابط — مشتركة بكل الصفحات */
 export async function uploadImage(file, folder, timeoutMs = 15000) {

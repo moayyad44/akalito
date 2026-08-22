@@ -1356,21 +1356,37 @@ window.confirmCustomerOtp = async () => {
   try {
     const result = await window._customerConfirmationResult.confirm(code);
     const authUid = result.user.uid;
-    const { name, phone } = _pendingCustomerSignup;
-    const newRef = await withTimeout(
-      addDoc(collection(db, 'customers'), {
-        name, phone, order_count: 0, is_blocked: false, auth_uid: authUid,
-        phone_verified: true, created_at: serverTimestamp()
-      }),
-      15000, 'انتهت مهلة الاتصال — تأكد من الإنترنت'
-    );
-    customerId = newRef.id;
-    customerName = name;
-    customerPhone = phone;
+
+    if (_pendingCustomerSignup) {
+      // مسار تسجيل حساب جديد
+      const { name, phone } = _pendingCustomerSignup;
+      const newRef = await withTimeout(
+        addDoc(collection(db, 'customers'), {
+          name, phone, order_count: 0, is_blocked: false, auth_uid: authUid,
+          phone_verified: true, created_at: serverTimestamp()
+        }),
+        15000, 'انتهت مهلة الاتصال — تأكد من الإنترنت'
+      );
+      customerId = newRef.id;
+      customerName = name;
+      customerPhone = phone;
+    } else if (_pendingCustomerLogin) {
+      // مسار دخول لحساب موجود — نحدّث auth_uid لأنه ممكن يتغيّر كل مرة (جلسة جديدة)
+      const { id, name, phone } = _pendingCustomerLogin;
+      await updateDoc(doc(db, 'customers', id), { auth_uid: authUid, phone_verified: true }).catch(() => {});
+      customerId = id;
+      customerName = name;
+      customerPhone = phone;
+    } else {
+      throw new Error('no pending customer session');
+    }
+
     localStorage.setItem(CUSTOMER_STORAGE_KEY, customerId);
-    localStorage.setItem(CUSTOMER_NAME_KEY, name);
-    localStorage.setItem(CUSTOMER_PHONE_KEY, phone);
+    localStorage.setItem(CUSTOMER_NAME_KEY, customerName);
+    localStorage.setItem(CUSTOMER_PHONE_KEY, customerPhone);
     document.getElementById('otpScreen').classList.add('hidden');
+    _pendingCustomerSignup = null;
+    _pendingCustomerLogin = null;
     enterApp();
   } catch (e) {
     console.error('otp confirm error', e);
@@ -1385,9 +1401,10 @@ window.confirmCustomerOtp = async () => {
 window.resendCustomerOtp = async () => {
   const errBox = document.getElementById('otp-error');
   errBox.style.display = 'none';
-  if (!_pendingCustomerSignup) return;
+  const phone = (_pendingCustomerSignup && _pendingCustomerSignup.phone) || (_pendingCustomerLogin && _pendingCustomerLogin.phone);
+  if (!phone) return;
   try {
-    await sendOtpCode('recaptcha-container-customer', _pendingCustomerSignup.phone);
+    window._customerConfirmationResult = await sendOtpCode('recaptcha-container-customer', phone);
     errBox.textContent = 'تم إرسال رمز جديد ✅';
     errBox.style.display = 'block';
   } catch (e) {
@@ -1400,6 +1417,8 @@ window.resendCustomerOtp = async () => {
 window.cancelOtpFlow = () => {
   document.getElementById('otpScreen').classList.add('hidden');
   document.getElementById('welcomeScreen').classList.remove('hidden');
+  _pendingCustomerSignup = null;
+  _pendingCustomerLogin = null;
 };
 
 window.signInCustomer = async () => {
@@ -1446,19 +1465,26 @@ window.signInCustomer = async () => {
     customerId = docSnap.id;
     customerName = data.name || '';
     customerPhone = phone;
-    localStorage.setItem(CUSTOMER_STORAGE_KEY, customerId);
-    localStorage.setItem(CUSTOMER_NAME_KEY, customerName);
-    localStorage.setItem(CUSTOMER_PHONE_KEY, phone);
-    enterApp();
+
+    // دخول لحساب موجود — نطلب OTP دايماً هلق (مش بس أول تسجيل)
+    _pendingCustomerLogin = { id: customerId, name: customerName, phone };
+    window._customerConfirmationResult = await sendOtpCode('recaptcha-container-customer', phone);
+    document.getElementById('otp-phone-display').textContent = phone;
+    document.getElementById('otp-code-input').value = '';
+    document.getElementById('otp-error').style.display = 'none';
+    document.getElementById('welcomeScreen').classList.add('hidden');
+    document.getElementById('otpScreen').classList.remove('hidden');
   } catch(e) {
     console.error('signin error', e);
-    errBox.textContent = 'صار خطأ — جرب مرة ثانية';
+    errBox.textContent = otpErrorMessage(e);
     errBox.style.display = 'block';
   } finally {
     btn.disabled = false;
     btn.textContent = authMode === 'signin' ? 'دخول 🚀' : 'ابدأ 🚀';
   }
 };
+
+let _pendingCustomerLogin = null;
 
 function enterApp() {
   document.getElementById('welcomeScreen').classList.add('hidden');

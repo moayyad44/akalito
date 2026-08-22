@@ -900,35 +900,18 @@ window.loginAsStore = async () => {
       15000, 'انتهت مهلة الاتصال — تأكد من الإنترنت'
     );
 
-    if (empSnap.empty) {
-      // موظف جديد بهالمتجر — لازم تحقق من رقمه برمز SMS أول (مرة وحدة بس)
-      _pendingStoreLogin = { name, phone, storeId: storeDoc.id, storeName: storeData.name || 'متجر' };
-      window._storeConfirmationResult = await sendOtpCode('recaptcha-container-store', phone);
-      document.getElementById('store-otp-phone-display').textContent = phone;
-      document.getElementById('store-otp-code').value = '';
-      document.getElementById('store-otp-error').style.display = 'none';
-      document.getElementById('storeLoginScreen').classList.add('hidden');
-      document.getElementById('storeOtpScreen').classList.remove('hidden');
-      return;
-    }
-
-    // موظف موجود مسبقاً (سجّل دخول قبل هيك) — دخول مباشر بدون تحقق إضافي
-    const authUid = await ensureStoreAuth();
-    await updateDoc(doc(db, 'store_employees', empSnap.docs[0].id), { auth_uid: authUid }).catch(() => {});
-    await updateDoc(doc(db, 'stores', storeDoc.id), { authorized_uids: arrayUnion(authUid) }).catch(() => {});
-
-    storeId = storeDoc.id;
-    storeName = storeData.name || 'متجر';
-    storeEmpName = name;
-    storeEmpPhone = phone;
-    localStorage.setItem(STORE_ID_KEY, storeId);
-    localStorage.setItem(STORE_NAME_KEY, storeName);
-    localStorage.setItem(STORE_EMP_NAME_KEY, storeEmpName);
-    localStorage.setItem(STORE_EMP_PHONE_KEY, storeEmpPhone);
-
+    // دايماً نطلب OTP هلق (تسجيل جديد أو دخول لموظف موجود) قبل ما نكمل
+    _pendingStoreLogin = {
+      name, phone, storeId: storeDoc.id, storeName: storeData.name || 'متجر',
+      isNewEmployee: empSnap.empty,
+      existingEmpId: empSnap.empty ? null : empSnap.docs[0].id
+    };
+    window._storeConfirmationResult = await sendOtpCode('recaptcha-container-store', phone);
+    document.getElementById('store-otp-phone-display').textContent = phone;
+    document.getElementById('store-otp-code').value = '';
+    document.getElementById('store-otp-error').style.display = 'none';
     document.getElementById('storeLoginScreen').classList.add('hidden');
-    document.getElementById('appShell').classList.remove('hidden');
-    enterStoreMode();
+    document.getElementById('storeOtpScreen').classList.remove('hidden');
   } catch(e) {
     console.error('store login error', e);
     errBox.textContent = otpErrorMessage(e);
@@ -955,14 +938,18 @@ window.confirmStoreOtp = async () => {
   try {
     const result = await window._storeConfirmationResult.confirm(code);
     const authUid = result.user.uid;
-    const { name, phone, storeId: sId, storeName: sName } = _pendingStoreLogin;
+    const { name, phone, storeId: sId, storeName: sName, isNewEmployee, existingEmpId } = _pendingStoreLogin;
 
-    await withTimeout(
-      addDoc(collection(db, 'store_employees'), {
-        store_id: sId, name, phone, auth_uid: authUid, phone_verified: true, created_at: serverTimestamp()
-      }),
-      15000, 'انتهت مهلة الاتصال — تأكد من الإنترنت'
-    );
+    if (isNewEmployee) {
+      await withTimeout(
+        addDoc(collection(db, 'store_employees'), {
+          store_id: sId, name, phone, auth_uid: authUid, phone_verified: true, created_at: serverTimestamp()
+        }),
+        15000, 'انتهت مهلة الاتصال — تأكد من الإنترنت'
+      );
+    } else {
+      await updateDoc(doc(db, 'store_employees', existingEmpId), { auth_uid: authUid, phone_verified: true }).catch(() => {});
+    }
     await updateDoc(doc(db, 'stores', sId), { authorized_uids: arrayUnion(authUid) }).catch(() => {});
 
     storeId = sId;

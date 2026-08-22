@@ -2497,3 +2497,22 @@ firebase functions:delete advanceOrderOffer --region europe-west1
 `node --check` على كل كتل السكربت بالملفات الأربعة (`firebase-init.js`, `akleto-customer.html`, `akleto-driver-signup.html`, `akleto-store.html`) — كلها سليمة. تأكدت من عدم وجود أي اعتماد على نوع مزود المصادقة (`isAnonymous`/`sign_in_provider`) بـ`firestore.rules` — لا حاجة لتعديلها.
 
 **الحالة:** ✅ الكود جاهز ومرفوع بالكامل. ⏳ بانتظار مؤيد يفعّل Phone provider ويضيف الدومين المصرّح من Firebase Console (خطوتين 1+2 فوق) قبل ما يجرب فعلياً.
+
+## 22 أغسطس 2026 — 🆕 مهمة مستقبلية: دومين خاص بدل GitHub Pages
+
+### السياق
+اكتُشفت أثناء اختبار OTP: رسالة التحقق SMS (عبر Firebase Phone Auth) بتظهر بصيغة "XXXXXX is your verification code for moayyad44.github.io" — لأنه reCAPTCHA (آلية الحماية اللي Firebase بتستخدمها) بتربط تلقائياً باسم الدومين اللي التطبيقات محمّلة منه، وهو حالياً دومين GitHub Pages الافتراضي.
+
+### القرار
+- **نص رسالة OTP نفسه واسم المرسل غير قابلين للتخصيص إطلاقاً** مع Firebase Phone Auth (تأكدنا بالبحث — قيد معروف ومطلوب من مطوّرين تانيين من فيربيس من زمان بدون تنفيذ).
+- **التبديل لمزوّد SMS خارجي** (Twilio Verify / Unifonic / MSG91) هو الخيار الوحيد للتحكم الكامل بنص الرسالة واسم المرسل (مثلاً "AKLITO") — مؤجّل حالياً، يحتاج شغل إضافي (Cloud Function جديدة) وتكلفة إضافية.
+- **القرار الحالي المتفق عليه:** الانتقال لدومين خاص (مثلاً `akalito.com` أو مشابه) بدل الاعتماد على `moayyad44.github.io` — تحسين أرخص وأسرع، هيك الرسالة بتصير "...for akalito.com" بدل اسم GitHub، أكثر احترافية (رغم إنها لسا مش نص حر متل "AKLITO" بالضبط).
+
+### ⚠️ خطوات مطلوبة لاحقاً (لسا ما اشتغلنا عليها)
+1. شراء دومين مناسب لأكليتو (مثلاً عبر Namecheap، GoDaddy، أو مزوّد أردني).
+2. ربط الدومين بـGitHub Pages (عبر إعداد CNAME بالريبو + DNS records عند مزوّد الدومين).
+3. تحديث `server.url` بملفات `capacitor.config.json` للتطبيقات الأربعة ليشاور على الدومين الجديد بدل `moayyad44.github.io`.
+4. **إضافة الدومين الجديد لقائمة Authorized domains بـFirebase Console** (Authentication → Settings) — وإلا OTP رح ينكسر فوراً لأنه الدومين القديم مش هو نفسه.
+5. `git pull` + `npx cap sync android` + بناء APK جديد للتطبيقات الأربعة بعد التحديث.
+
+**الحالة:** ⏳ مهمة مسجّلة بانتظار قرار مؤيد بأي دومين يشتريه، ثم التنفيذ.

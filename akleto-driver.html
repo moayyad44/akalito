@@ -95,6 +95,7 @@
 
     <button class="btn-main" id="w-start-btn" onclick="loginDriver()">دخول 🚀</button>
     <div class="error-text" id="w-error"></div>
+    <div id="recaptcha-container-driver-login"></div>
 
     <div class="divider">أو</div>
     <button class="btn-ghost" onclick="window.location.href='akleto-driver-signup.html'">ما عندي حساب — سجّل كسائق جديد</button>
@@ -107,6 +108,18 @@
     <button class="btn-main" id="resubmitBtn" style="display:none;margin-bottom:10px;">صلّح البيانات وأعد الإرسال ✏️</button>
     <button class="btn-ghost" onclick="resetLogin()">رجوع</button>
   </div>
+
+  <!-- ══════ شاشة تحقق OTP لتسجيل دخول السائق ══════ -->
+  <div id="otpScreen" style="display:none;">
+    <p style="margin-bottom:18px;">بعتنالك رمز مؤلف من 6 أرقام عبر رسالة SMS لرقم <b id="driverlogin-otp-phone-display"></b></p>
+    <div class="field-group">
+      <label>رمز التحقق</label>
+      <input type="tel" id="driverlogin-otp-code" placeholder="------" maxlength="6" inputmode="numeric" style="text-align:center; letter-spacing:6px; font-size:20px;">
+    </div>
+    <button class="btn-main" id="driverlogin-otp-btn" onclick="confirmDriverLoginOtp()">تأكيد الرمز ✅</button>
+    <div class="error-text" id="driverlogin-otp-error"></div>
+    <p style="margin-top:14px;"><a href="javascript:void(0)" onclick="resendDriverLoginOtp()" style="color:var(--primary); font-weight:700;">إعادة إرسال الرمز</a> &nbsp;|&nbsp; <a href="javascript:void(0)" onclick="cancelDriverLoginOtp()" style="color:var(--text30);">رجوع</a></p>
+  </div>
 </div>
 
 <script>
@@ -116,6 +129,9 @@ if ("serviceWorker" in navigator) {
 </script>
 <script type="module">
 import { getDriverSession, saveDriverSession, findDriverByPhone, linkDriverAuthUid } from "./driver-shared.js";
+import { sendOtpCode, otpErrorMessage } from "./firebase-init.js";
+
+let _pendingDriverLogin = null;
 
 window.resetLogin = () => {
   document.getElementById('statusCard').style.display = 'none';
@@ -172,17 +188,71 @@ window.loginDriver = async () => {
       return;
     }
 
-    await linkDriverAuthUid(driver.id);
-    saveDriverSession(driver.id, driver.name, driver.phone);
-    window.location.href = 'akleto-driver-home.html';
+    // كل شي تمام — نطلب OTP قبل ما نكمل الدخول الفعلي
+    _pendingDriverLogin = driver;
+    window._driverLoginConfirmationResult = await sendOtpCode('recaptcha-container-driver-login', phone);
+    document.getElementById('driverlogin-otp-phone-display').textContent = phone;
+    document.getElementById('driverlogin-otp-code').value = '';
+    document.getElementById('driverlogin-otp-error').style.display = 'none';
+    document.getElementById('loginBox').style.display = 'none';
+    document.getElementById('otpScreen').style.display = 'block';
   } catch (e) {
     console.error('driver login error', e);
-    errBox.textContent = 'صار خطأ — جرب مرة ثانية';
+    errBox.textContent = otpErrorMessage(e);
     errBox.style.display = 'block';
   } finally {
     btn.disabled = false;
     btn.textContent = 'دخول 🚀';
   }
+};
+
+window.confirmDriverLoginOtp = async () => {
+  const code = document.getElementById('driverlogin-otp-code').value.trim();
+  const errBox = document.getElementById('driverlogin-otp-error');
+  errBox.style.display = 'none';
+  if (!/^\d{6}$/.test(code)) {
+    errBox.textContent = 'اكتب الرمز المكوّن من 6 أرقام كامل';
+    errBox.style.display = 'block';
+    return;
+  }
+  const btn = document.getElementById('driverlogin-otp-btn');
+  btn.disabled = true;
+  btn.textContent = 'جاري التأكيد...';
+  try {
+    await window._driverLoginConfirmationResult.confirm(code);
+    const driver = _pendingDriverLogin;
+    await linkDriverAuthUid(driver.id);
+    saveDriverSession(driver.id, driver.name, driver.phone);
+    window.location.href = 'akleto-driver-home.html';
+  } catch (e) {
+    console.error('driver login otp confirm error', e);
+    errBox.textContent = otpErrorMessage(e);
+    errBox.style.display = 'block';
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'تأكيد الرمز ✅';
+  }
+};
+
+window.resendDriverLoginOtp = async () => {
+  const errBox = document.getElementById('driverlogin-otp-error');
+  errBox.style.display = 'none';
+  if (!_pendingDriverLogin) return;
+  try {
+    window._driverLoginConfirmationResult = await sendOtpCode('recaptcha-container-driver-login', _pendingDriverLogin.phone);
+    errBox.textContent = 'تم إرسال رمز جديد ✅';
+    errBox.style.display = 'block';
+  } catch (e) {
+    console.error('resend driver login otp error', e);
+    errBox.textContent = otpErrorMessage(e);
+    errBox.style.display = 'block';
+  }
+};
+
+window.cancelDriverLoginOtp = () => {
+  document.getElementById('otpScreen').style.display = 'none';
+  document.getElementById('loginBox').style.display = 'block';
+  _pendingDriverLogin = null;
 };
 
 window.addEventListener('DOMContentLoaded', () => {

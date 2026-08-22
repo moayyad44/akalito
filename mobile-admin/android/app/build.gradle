@@ -1,5 +1,16 @@
 apply plugin: 'com.android.application'
 
+// ══════════════════════════════════════════════════════════
+// توقيع نسخة release — يقرأ بيانات التوقيع من ملف keystore.properties
+// المحلي (android/keystore.properties)، اللي ما لازم يترفع لـ GitHub
+// إطلاقاً (الريبو عام/Public). لو الملف مش موجود، الـrelease build
+// بيضل بدون توقيع (زي ما كان قبل هالتعديل) — هيك ما ينكسر أي بناء حالي.
+def keystorePropertiesFile = rootProject.file("keystore.properties")
+def keystoreProperties = new Properties()
+if (keystorePropertiesFile.exists()) {
+    keystoreProperties.load(new FileInputStream(keystorePropertiesFile))
+}
+
 android {
     namespace = "com.akalito.admin"
     compileSdk = rootProject.ext.compileSdkVersion
@@ -14,8 +25,19 @@ android {
              ignoreAssetsPattern = '!.svn:!.git:!.ds_store:!*.scc:.*:!CVS:!thumbs.db:!picasa.ini:!*~'
         }
     }
+    signingConfigs {
+        release {
+            if (keystorePropertiesFile.exists()) {
+                storeFile file(keystoreProperties['storeFile'])
+                storePassword keystoreProperties['storePassword']
+                keyAlias keystoreProperties['keyAlias']
+                keyPassword keystoreProperties['keyPassword']
+            }
+        }
+    }
     buildTypes {
         release {
+            signingConfig = keystorePropertiesFile.exists() ? signingConfigs.release : null
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
         }

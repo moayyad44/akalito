@@ -15,6 +15,9 @@ import {
 import {
   getStorage, ref as storageRef, uploadBytes, getDownloadURL
 } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-storage.js";
+import {
+  getFunctions, httpsCallable
+} from "https://www.gstatic.com/firebasejs/10.12.0/firebase-functions.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyAefkYqFsvL9wQEZYnGkb_y47eYZacrs7U",
@@ -25,10 +28,11 @@ const firebaseConfig = {
   appId: "1:739001380275:web:41da29d05a75481df9efc6"
 };
 
-export const app     = initializeApp(firebaseConfig);
-export const db      = initializeFirestore(app, { experimentalAutoDetectLongPolling: true });
-export const auth    = getAuth(app);
-export const storage = getStorage(app);
+export const app       = initializeApp(firebaseConfig);
+export const db        = initializeFirestore(app, { experimentalAutoDetectLongPolling: true });
+export const auth      = getAuth(app);
+export const storage   = getStorage(app);
+export const functionsInstance = getFunctions(app, "europe-west1"); // نفس منطقة Cloud Functions الموجودة أصلاً
 
 export {
   collection, getDocs, getDoc, query, orderBy, limit, where, onSnapshot,
@@ -36,7 +40,8 @@ export {
   runTransaction, arrayUnion,
   onAuthStateChanged, signInWithEmailAndPassword, signOut, signInAnonymously,
   RecaptchaVerifier, signInWithPhoneNumber,
-  storageRef, uploadBytes, getDownloadURL
+  storageRef, uploadBytes, getDownloadURL,
+  httpsCallable
 };
 
 /* ══════════════════════════════════════════════════════════
@@ -101,6 +106,17 @@ export async function uploadImage(file, folder, timeoutMs = 15000) {
   const sref = storageRef(storage, path);
   await withTimeout(uploadBytes(sref, file), timeoutMs, 'انتهت مهلة رفع الصورة');
   return await withTimeout(getDownloadURL(sref), timeoutMs, 'انتهت مهلة رفع الصورة');
+}
+
+/* يتحقق من رمز PIN دخول موظف متجر عبر Cloud Function (verifyStorePin) بدل
+   قراءة مجموعة `stores` مباشرة — الـPIN صار مخزّن بمجموعة `store_pins`
+   محمية بالكامل (أدمن بس)، فالتحقق الفعلي يصير سيرفر-سايد بـAdmin SDK.
+   يرجّع { storeId, storeName, isActive } لو الرمز صحيح، وإلا يرمي خطأ
+   (err.code === 'functions/not-found' لو الرمز غلط). */
+export async function verifyStorePin(pin) {
+  const fn = httpsCallable(functionsInstance, 'verifyStorePin');
+  const res = await fn({ pin });
+  return res.data;
 }
 
 /* يمنع أي عملية من التعليق للأبد */

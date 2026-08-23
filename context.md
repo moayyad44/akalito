@@ -2516,3 +2516,22 @@ firebase functions:delete advanceOrderOffer --region europe-west1
 5. `git pull` + `npx cap sync android` + بناء APK جديد للتطبيقات الأربعة بعد التحديث.
 
 **الحالة:** ⏳ مهمة مسجّلة بانتظار قرار مؤيد بأي دومين يشتريه، ثم التنفيذ.
+
+## 22 أغسطس 2026 — ⏸️ Splash Screen: متوقفة مؤقتاً (مش محلولة، بطلب مؤيد)
+
+### الحالة النهائية
+جرّبنا 3 محاولات إصلاح متتالية لمشكلة "splash screen ما بتظهر":
+1. توليد صور splash.png بلون البراند (104 صورة) — تبيّن إنها الطريقة الغلط أصلاً، المشروع مبني على نظام splash حديث لأندرويد 12+ (`Theme.SplashScreen`) ما بيستخدم هيك صور إطلاقاً.
+2. تصحيح `styles.xml` ليستخدم `windowSplashScreenBackground`/`windowSplashScreenAnimatedIcon` الصح بدل `android:background` القديمة — تحسين صحيح تقنياً بس ما حل المشكلة بالكامل.
+3. ربط splash بكود Java أصلي مباشر (`installSplashScreen()` + `setKeepOnScreenCondition` مربوطة بـ`WebView.onPageFinished`) بدل الاعتماد على جسر الجافاسكربت — بسبب bug موثّق بـCapacitor نفسها بيعطّل `SplashScreen.hide()` مع صفحات محمّلة عن بعد (`server.url`). لسا ما اشتغلت حتى بعد هالإصلاح.
+
+**مؤيد قرر يوقف الشغل على هاي المهمة حالياً** — مش أولوية، ونرجعلها لاحقاً لو حبينا.
+
+### ⚠️ ملاحظة لأي شغل مستقبلي على هالموضوع
+التغييرات الثلاثة فوق **لسا موجودة بالكود** (مرفوعة على GitHub، ما تم التراجع عنها):
+- `values/styles.xml` + `values/splash_theme_colors.xml` (تصحيح ثيم splash) — بكل التطبيقات الأربعة.
+- `MainActivity.java` (ربط native بالـWebView) — بكل التطبيقات الأربعة.
+- 104 صورة splash.png (غير مستخدمة فعلياً بالنظام الحالي، بس موجودة وما بتأذي شي).
+- مكتبة `@capacitor/splash-screen` مضافة بـ`package.json` الأربعة + إعدادات `capacitor.config.json`.
+
+لو حدا رجع يشتغل عليها لاحقاً، الخطوة المنطقية التالية (ما جُرِّبت بعد): التأكد فعلياً هل splash عم يظهر لمدة قصيرة جداً (أجزاء من الثانية، مش ملحوظة) أو ما بيظهر إطلاقاً — عبر تسجيل شاشة (screen recording) بطيء الحركة وقت فتح التطبيق، بدل الاعتماد على الملاحظة البصرية العادية.

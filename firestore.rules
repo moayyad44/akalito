@@ -179,11 +179,21 @@ service cloud.firestore {
           !('authorized_uids' in resource.data) ||
           resource.data.authorized_uids.size() == 0
         ) &&
-        request.resource.data.is_active == resource.data.is_active &&
-        request.resource.data.pin == resource.data.pin
+        request.resource.data.is_active == resource.data.is_active
       );
 
       allow delete: if isAdmin();
+    }
+
+    /* ═══ store_pins — رموز دخول موظفي المتاجر (4 أرقام) ═══
+       🚨 نُقلت من حقل `pin` بمستند stores (كان مقروء للعامة) لهاي المجموعة
+       المنفصلة، لأنه Firestore ما بتقدر تقيّد حقل واحد بس داخل مستند —
+       فطالما stores.read لازم يضل عام (لتصفّح الزبون)، أي حقل حساس عليه
+       ينتقل لمكان تاني. التحقق الفعلي من الـPIN صار حصراً عبر Cloud
+       Function (verifyStorePin) اللي بتستخدم Admin SDK وبتتجاوز هالقاعدة —
+       العميل (تطبيق المتجر) ما يقرأ ولا يكتب هالمجموعة إطلاقاً بشكل مباشر. */
+    match /store_pins/{storeId} {
+      allow read, write: if isAdmin();
     }
 
     /* موظفو المتاجر — سجل كل شخص سجّل دخول بمتجر معيّن (اسم/هاتف/متجر).

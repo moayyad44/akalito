@@ -20,12 +20,15 @@
 import {
   watchUnreadNotifications,
   watchPendingDriversCount,
-  db, auth, collection, getDocs, addDoc, updateDoc, deleteDoc, doc, serverTimestamp,
-  onAuthStateChanged, signOut, withTimeout
+  db, auth, collection, getDocs, addDoc, updateDoc, deleteDoc, doc, setDoc, serverTimestamp,
+  onAuthStateChanged, signOut, withTimeout, functionsInstance, httpsCallable
 } from "./firebase-init.js";
 
 let storesCache = [];
 let employeesCache = [];
+// 🔒 أرقام PIN صارت بمجموعة منفصلة (store_pins) محمية بالأدمن بس — مو حقل
+// عام على مستند stores (كان مقروء لأي حد، ثغرة أمنية تم إصلاحها).
+let pinsMap = {}; // storeId -> pin
 let isSavingStore = false;
 let currentEditingStoreId = null;
 
@@ -133,9 +136,27 @@ window.addEventListener('DOMContentLoaded', () => {
 
   window.adminLogout = () => signOut(auth);
 
+  window.migrateOldPins = async () => {
+    const btn = document.getElementById('migratePinsBtn');
+    btn.disabled = true;
+    btn.textContent = 'جاري الترحيل...';
+    try {
+      const fn = httpsCallable(functionsInstance, 'migrateStorePins');
+      const res = await fn();
+      showToast(`تم ترحيل ${res.data.migrated} من ${res.data.totalStores} متجر ✅`);
+      await loadStores();
+    } catch(e) {
+      console.error('migrate pins error', e);
+      showToast('صار خطأ بالترحيل — تأكد إنه Cloud Functions منشورة، وجرب مرة ثانية ❌', true);
+    } finally {
+      btn.disabled = false;
+      btn.textContent = 'ترحيل الآن';
+    }
+  };
+
   /* رمز PIN فريد من 4 أرقام — يُستخدم لتعريف المتجر عند دخول الموظفين من تطبيق الزبون */
   function generateUniquePin() {
-    const existing = new Set(storesCache.map(s => s.pin));
+    const existing = new Set(Object.values(pinsMap));
     let pin;
     do {
       pin = String(Math.floor(1000 + Math.random() * 9000));
@@ -147,12 +168,15 @@ window.addEventListener('DOMContentLoaded', () => {
     const wrap = document.getElementById('storesWrap');
     wrap.innerHTML = `<div class="empty-state" style="padding:14px 0;">جاري التحميل...</div>`;
     try {
-      const [storesSnap, empSnap] = await Promise.all([
+      const [storesSnap, empSnap, pinsSnap] = await Promise.all([
         getDocs(collection(db, 'stores')),
-        getDocs(collection(db, 'store_employees'))
+        getDocs(collection(db, 'store_employees')),
+        getDocs(collection(db, 'store_pins'))
       ]);
       storesCache = storesSnap.docs.map(d => ({ id: d.id, ...d.data() }));
       employeesCache = empSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+      pinsMap = {};
+      pinsSnap.docs.forEach(d => { pinsMap[d.id] = d.data().pin; });
     } catch(e) {
       console.error('load stores error', e);
       wrap.innerHTML = `<div class="empty-state" style="padding:14px 0;">صار خطأ بتحميل المتاجر — تحقق من الإنترنت</div>`;
@@ -188,7 +212,7 @@ window.addEventListener('DOMContentLoaded', () => {
             <div class="ing-name">${s.name || 'بدون اسم'} ${!active ? '<span style="color:#D9534F;font-size:11px;">(غير نشط)</span>' : ''}</div>
             <div class="ing-meta">📍 ${s.address || '—'} · 📞 ${s.phone || '—'}</div>
             <div class="ing-meta">${(s.lat != null && s.lng != null) ? `🧭 الإحداثيات محفوظة (${s.lat.toFixed(4)}, ${s.lng.toFixed(4)})` : '<span style="color:#D9534F;">⚠️ ما في إحداثيات — ما رح يشارك بحساب أقرب متجر</span>'}</div>
-            <div class="ing-meta">🔑 PIN: <b style="font-family:monospace;font-size:15px;letter-spacing:3px;">${s.pin || '----'}</b>
+            <div class="ing-meta">🔑 PIN: <b style="font-family:monospace;font-size:15px;letter-spacing:3px;">${pinsMap[s.id] || '----'}</b>
               &nbsp;·&nbsp; 👥 ${emps.length} موظف
             </div>
             <button type="button" class="ing-remove" style="font-size:11px;width:auto;padding:4px 8px;margin-top:6px;"
@@ -199,7 +223,7 @@ window.addEventListener('DOMContentLoaded', () => {
           </div>
           <div style="display:flex;flex-direction:column;gap:6px;">
             <button type="button" class="ing-remove" style="font-size:12px;width:auto;padding:6px 10px;"
-                    onclick="event.stopPropagation();copyPin('${s.pin}')">نسخ PIN</button>
+                    onclick="event.stopPropagation();copyPin('${pinsMap[s.id] || ''}')">نسخ PIN</button>
             <button type="button" class="ing-remove" style="font-size:12px;width:auto;padding:6px 10px;"
                     onclick="event.stopPropagation();toggleStoreActive('${s.id}', ${active})">${active ? 'تعطيل' : 'تفعيل'}</button>
           </div>
@@ -349,8 +373,12 @@ window.addEventListener('DOMContentLoaded', () => {
         renderStores();
       } else {
         const pin = generateUniquePin();
-        await withTimeout(addDoc(collection(db, 'stores'), {
-          name, phone, address, lat, lng, pin, is_active: true, rating: null, created_at: serverTimestamp()
+        const newStoreRef = await withTimeout(addDoc(collection(db, 'stores'), {
+          name, phone, address, lat, lng, is_active: true, rating: null, created_at: serverTimestamp()
+        }), 15000, 'انتهت مهلة الحفظ — تأكد من الإنترنت');
+        // الـPIN يُخزَّن بمجموعة منفصلة محمية (store_pins) — مو حقل عام على مستند المتجر
+        await withTimeout(setDoc(doc(db, 'store_pins', newStoreRef.id), {
+          pin, store_id: newStoreRef.id, created_at: serverTimestamp()
         }), 15000, 'انتهت مهلة الحفظ — تأكد من الإنترنت');
         closeAddStoreModal();
         showToast(`تم إنشاء المتجر ✅ — PIN: ${pin}`);
@@ -376,6 +404,7 @@ window.addEventListener('DOMContentLoaded', () => {
     delBtn.textContent = 'جاري الحذف...';
     try {
       await withTimeout(deleteDoc(doc(db, 'stores', currentEditingStoreId)), 15000, 'انتهت مهلة الحذف — تأكد من الإنترنت');
+      await withTimeout(deleteDoc(doc(db, 'store_pins', currentEditingStoreId)), 15000, 'انتهت مهلة الحذف — تأكد من الإنترنت').catch(() => {});
       closeAddStoreModal();
       showToast('تم حذف المتجر ✅');
       await loadStores();
@@ -471,6 +500,19 @@ if ("serviceWorker" in navigator) {
       <button class="menu-toggle" id="menuBtn" onclick="toggleSidebar()" title="القائمة">☰</button>
       <button class="theme-toggle" id="themeBtn" onclick="toggleTheme()" title="تبديل الوضع">🌙</button>
       <button class="btn-primary" onclick="openAddStoreModal()">➕ <span class="btn-primary-label">متجر جديد</span></button>
+    </div>
+  </div>
+
+  <!-- 🔧 زر ترحيل مؤقت (مرة وحدة) — ينقل أرقام PIN القديمة من مستند stores
+       (كانت مقروءة للعامة) لمجموعة store_pins المحمية. احذف هالبطاقة بعد
+       الاستخدام مرة وحدة، ما في داعي تبقى بالواجهة. -->
+  <div class="card" style="border:1px solid var(--orange);margin-bottom:14px;">
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;">
+      <div>
+        <div style="font-weight:700;">🔧 ترحيل أرقام PIN القديمة (مرة وحدة بس)</div>
+        <div class="ing-meta">ينقل أي PIN لسا محفوظ بمستند المتجر القديم لمكان محمي — اضغطه مرة وحدة بعد أول نشر لهالتحديث.</div>
+      </div>
+      <button type="button" class="btn-primary" id="migratePinsBtn" onclick="migrateOldPins()">ترحيل الآن</button>
     </div>
   </div>
 

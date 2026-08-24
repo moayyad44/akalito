@@ -15,7 +15,6 @@
 
 const { onDocumentUpdated } = require("firebase-functions/v2/firestore");
 const { onDocumentCreated } = require("firebase-functions/v2/firestore");
-const { onCall, HttpsError } = require("firebase-functions/v2/https");
 const { setGlobalOptions } = require("firebase-functions/v2");
 const admin = require("firebase-admin");
 
@@ -314,76 +313,3 @@ exports.onOrderReady = onDocumentUpdated(
     }
   }
 );
-
-/* ══════════════════════════════════════════════════════════
-   verifyStorePin — التحقق من رمز PIN دخول موظف المتجر سيرفر-سايد.
-   ⚠️ سبب وجود هالدالة: كان تطبيق المتجر يقرأ مجموعة `stores` كاملة عبر
-   استعلام where('pin','==',pin) — بما إنه Firestore Rules ما بتقيّد
-   حقول معيّنة داخل مستند (كل شي أو ولا شي)، وقاعدة `stores` مفتوحة
-   القراءة (لازمة لتصفّح المتجر من تطبيق الزبون)، كان أي حد يقدر يقرأ
-   PIN كل المتاجر مباشرة عبر REST/SDK بدون حتى المرور بالتطبيق.
-   الحل: الـPIN صار مخزّن بمجموعة منفصلة `store_pins/{storeId}` (نفس
-   الـid تبع المتجر) محمية بالكامل (قراءة/كتابة أدمن بس)، والتحقق
-   يصير هون بـAdmin SDK اللي بيتجاوز القواعد أصلاً — العميل ما يقدر
-   يقرأ أي PIN إطلاقاً، بس يبعت الرقم يلي كتبه ويستنى نتيجة (موجود/مش
-   موجود) بدون ما تنكشف بيانات باقي المتاجر.
-   ══════════════════════════════════════════════════════════ */
-exports.verifyStorePin = onCall(async (request) => {
-  const pin = String((request.data && request.data.pin) || "").trim();
-  if (!/^\d{4}$/.test(pin)) {
-    throw new HttpsError("invalid-argument", "رمز PIN لازم يكون 4 أرقام بالظبط");
-  }
-
-  const pinSnap = await db.collection("store_pins")
-    .where("pin", "==", pin).limit(1).get();
-  if (pinSnap.empty) {
-    throw new HttpsError("not-found", "رمز PIN غير صحيح");
-  }
-  const storeId = pinSnap.docs[0].id; // معرّف وثيقة store_pins == معرّف المتجر نفسه
-
-  const storeDoc = await db.collection("stores").doc(storeId).get();
-  if (!storeDoc.exists) {
-    throw new HttpsError("not-found", "المتجر غير موجود");
-  }
-  const storeData = storeDoc.data();
-
-  return {
-    storeId,
-    storeName: storeData.name || "متجر",
-    isActive: storeData.is_active !== false,
-  };
-});
-
-/* ══════════════════════════════════════════════════════════
-   migrateStorePins — دالة ترحيل تُستخدم مرة وحدة بس (يدوياً من أدمن حقيقي).
-   تنقل حقل `pin` الموجود بمستندات `stores` القديمة (كانت مقروءة للعامة)
-   إلى مجموعة `store_pins` المحمية، وتحذف الحقل من `stores` بعدها — عشان
-   ما يضل أي PIN قديم مكشوف حتى بعد نشر القواعد الجديدة.
-   محمية بفحص `admins/{uid}` صريح جوا الدالة نفسها (Cloud Functions onCall
-   ما بتحترم Firestore Rules تلقائياً). ══════════════════════════════════ */
-exports.migrateStorePins = onCall(async (request) => {
-  if (!request.auth) {
-    throw new HttpsError("unauthenticated", "لازم تسجّل دخول كأدمن أولاً");
-  }
-  const adminDoc = await db.collection("admins").doc(request.auth.uid).get();
-  if (!adminDoc.exists) {
-    throw new HttpsError("permission-denied", "هالميزة للأدمن بس");
-  }
-
-  const storesSnap = await db.collection("stores").get();
-  const ops = [];
-  let migrated = 0;
-  storesSnap.docs.forEach((storeDoc) => {
-    const data = storeDoc.data();
-    if (data.pin) {
-      ops.push(db.collection("store_pins").doc(storeDoc.id).set({
-        pin: data.pin, store_id: storeDoc.id,
-        migrated_at: admin.firestore.FieldValue.serverTimestamp(),
-      }, { merge: true }));
-      ops.push(storeDoc.ref.update({ pin: admin.firestore.FieldValue.delete() }));
-      migrated++;
-    }
-  });
-  await Promise.all(ops);
-  return { migrated, totalStores: storesSnap.size };
-});

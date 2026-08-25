@@ -419,16 +419,6 @@ if ("serviceWorker" in navigator) {
   <p style="color:var(--text30);font-size:14px;margin-bottom:24px;">لموظفي المتاجر الشريكة فقط — رقم هاتفك لازم يكون مضاف من الأدمن مسبقاً</p>
 
   <div class="field-group">
-    <label>المتجر</label>
-    <select id="sl-store" style="width:100%;">
-      <option value="">جاري تحميل قائمة المتاجر...</option>
-    </select>
-  </div>
-  <div class="field-group">
-    <label>الاسم</label>
-    <input type="text" id="sl-name" placeholder="اسمك" />
-  </div>
-  <div class="field-group">
     <label>رقم الهاتف</label>
     <input type="tel" id="sl-phone" placeholder="07XXXXXXXX" />
   </div>
@@ -655,7 +645,7 @@ if ("serviceWorker" in navigator) {
 
 <script type="module">
 import {
-  db, collection, getDocs, addDoc, doc, updateDoc, setDoc, query, where, serverTimestamp, withTimeout,
+  db, collection, getDocs, getDoc, addDoc, doc, updateDoc, setDoc, query, where, serverTimestamp, withTimeout,
   onSnapshot, arrayUnion, auth, onAuthStateChanged, signInAnonymously, sendOtpCode, otpErrorMessage
 } from "./firebase-init.js";
 
@@ -856,24 +846,10 @@ function showToast(msg) {
 /* ═══════════ بدء الجلسة / تسجيل الزبون ═══════════ */
 
 window.loginAsStore = async () => {
-  const selEl = document.getElementById('sl-store');
-  const sId = selEl.value;
-  const sName = selEl.selectedOptions[0] ? selEl.selectedOptions[0].dataset.name : '';
-  const name = document.getElementById('sl-name').value.trim();
   const phone = document.getElementById('sl-phone').value.trim();
   const errBox = document.getElementById('sl-error');
   errBox.style.display = 'none';
 
-  if (!sId) {
-    errBox.textContent = 'لازم تختار المتجر';
-    errBox.style.display = 'block';
-    return;
-  }
-  if (!name || !phone) {
-    errBox.textContent = 'لازم تعبي الاسم ورقم الهاتف';
-    errBox.style.display = 'block';
-    return;
-  }
   if (!/^07\d{8}$/.test(phone)) {
     errBox.textContent = 'رقم الهاتف لازم يبدأ بـ07 ويكون 10 أرقام بالظبط';
     errBox.style.display = 'block';
@@ -885,23 +861,38 @@ window.loginAsStore = async () => {
   btn.textContent = 'جاري التحقق...';
 
   try {
-    // 🆕 نظام PIN اتلغى بالكامل — الأدمن هو يلي بيضيف رقم الموظف مسبقاً
-    // بمجموعة store_employees (create: isAdmin بس بقواعد Firestore).
-    // هون بس نتحقق إنه الرقم المُدخل موجود ومصرّح لهذا المتجر بالذات؛
-    // ما في تسجيل ذاتي/تلقائي لموظف جديد إطلاقاً.
+    // 🆕 ما في اختيار متجر ولا اسم يدوي — الأدمن أصلاً حدد مسبقاً وين
+    // بيشتغل هالرقم واسم صاحبه بمجموعة store_employees. هون بس نتحقق
+    // إنه الرقم مصرّح ونجيب المتجر واسم الموظف المرتبطين فيه.
     const empSnap = await withTimeout(
-      getDocs(query(collection(db, 'store_employees'),
-        where('store_id', '==', sId), where('phone', '==', phone))),
+      getDocs(query(collection(db, 'store_employees'), where('phone', '==', phone))),
       15000, 'انتهت مهلة الاتصال — تأكد من الإنترنت'
     );
     if (empSnap.empty) {
-      errBox.textContent = 'رقمك مش مصرّح لهذا المتجر — تواصل مع الأدمن ليضيفك';
+      errBox.textContent = 'رقمك مش مصرّح بأي متجر — تواصل مع الأدمن ليضيفك';
       errBox.style.display = 'block';
       return;
     }
-    const existingEmpId = empSnap.docs[0].id;
+    const empDoc = empSnap.docs[0];
+    const empData = empDoc.data();
+    const sId = empData.store_id;
+    const name = empData.name || '';
 
-    _pendingStoreLogin = { name, phone, storeId: sId, storeName: sName, existingEmpId };
+    const storeSnap = await withTimeout(getDoc(doc(db, 'stores', sId)), 15000, 'انتهت مهلة الاتصال — تأكد من الإنترنت');
+    if (!storeSnap.exists()) {
+      errBox.textContent = 'المتجر المرتبط برقمك غير موجود — تواصل مع الأدمن';
+      errBox.style.display = 'block';
+      return;
+    }
+    const storeData = storeSnap.data();
+    if (storeData.is_active === false) {
+      errBox.textContent = 'هذا المتجر معطّل حالياً — تواصل مع الأدمن';
+      errBox.style.display = 'block';
+      return;
+    }
+    const sName = storeData.name || 'متجر';
+
+    _pendingStoreLogin = { name, phone, storeId: sId, storeName: sName, existingEmpId: empDoc.id };
     window._storeConfirmationResult = await sendOtpCode('recaptcha-container-store', phone);
     document.getElementById('store-otp-phone-display').textContent = phone;
     document.getElementById('store-otp-code').value = '';
@@ -937,10 +928,10 @@ window.confirmStoreOtp = async () => {
     const { name, phone, storeId: sId, storeName: sName, existingEmpId } = _pendingStoreLogin;
 
     // الموظف موجود مسبقاً (أضافه الأدمن) — هون بس نربط auth_uid ونؤكد
-    // التحقق من رقمه، ونحدّث الاسم لو المستخدم كتب اسم مختلف عن يلي
-    // سجّله الأدمن.
+    // التحقق من رقمه. الاسم أصلاً من إدخال الأدمن، ما في داعي نطلبه
+    // من المستخدم أو نغيّره هون.
     await updateDoc(doc(db, 'store_employees', existingEmpId), {
-      auth_uid: authUid, phone_verified: true, name
+      auth_uid: authUid, phone_verified: true
     }).catch(() => {});
     await updateDoc(doc(db, 'stores', sId), { authorized_uids: arrayUnion(authUid) }).catch(() => {});
 
@@ -1874,28 +1865,6 @@ window.openNotifSheet = () => {
 window.closeNotifSheet = () => document.getElementById('notifSheet').classList.remove('open');
 
 
-/* يحمّل قائمة المتاجر النشطة بشاشة الدخول (select) — تستخدم قراءة عامة
-   عادية على مجموعة stores (نفس المعلومات المستخدمة أصلاً بتصفّح الزبون). */
-async function loadStoresIntoSelect() {
-  const sel = document.getElementById('sl-store');
-  try {
-    const snap = await withTimeout(getDocs(collection(db, 'stores')), 15000, 'انتهت مهلة الاتصال');
-    const active = snap.docs
-      .map(d => ({ id: d.id, ...d.data() }))
-      .filter(s => s.is_active !== false)
-      .sort((a, b) => (a.name || '').localeCompare(b.name || '', 'ar'));
-    if (!active.length) {
-      sel.innerHTML = '<option value="">ما في متاجر متاحة حالياً</option>';
-      return;
-    }
-    sel.innerHTML = '<option value="">اختر متجرك...</option>' +
-      active.map(s => `<option value="${s.id}" data-name="${(s.name || 'متجر').replace(/"/g,'&quot;')}">${s.name || 'متجر'}</option>`).join('');
-  } catch (e) {
-    console.error('load stores list error', e);
-    sel.innerHTML = '<option value="">صار خطأ بتحميل المتاجر — أعد فتح الصفحة</option>';
-  }
-}
-
 window.addEventListener('DOMContentLoaded', () => {
   setupStoreHardwareBackButton();
   const savedStoreId = localStorage.getItem(STORE_ID_KEY);
@@ -1908,8 +1877,6 @@ window.addEventListener('DOMContentLoaded', () => {
     document.getElementById('appShell').classList.remove('hidden');
     linkStoreAuthUid(storeId); // يضمن ربط Auth حتى لجلسات محفوظة من قبل هالتحديث
     enterStoreMode();
-  } else {
-    loadStoresIntoSelect();
   }
 });
 </script>

@@ -166,15 +166,7 @@ window.addEventListener('DOMContentLoaded', () => {
 
     wrap.innerHTML = sorted.map(s => {
       const active = s.is_active !== false;
-      const emps = employeesCache.filter(e => e.store_id === s.id);
-      const empListHtml = emps.length
-        ? emps.map(e => `
-            <div class="ing-meta" style="padding-right:4px;display:flex;align-items:center;justify-content:space-between;gap:8px;">
-              <span>👤 ${e.name || 'بانتظار أول دخول'} · ${e.phone || '—'} ${e.auth_uid ? '' : '<span style="color:#D9534F;font-size:10px;">(ما دخل لسا)</span>'}</span>
-              <button type="button" class="ing-remove" style="font-size:10px;width:auto;padding:2px 6px;flex-shrink:0;"
-                      onclick="event.stopPropagation();removeStoreEmployee('${e.id}','${s.id}')">إلغاء</button>
-            </div>`).join('')
-        : `<div class="ing-meta" style="padding-right:4px;">ما في أرقام مصرّحة بعد — ضيف رقم موظف تحت 👇</div>`;
+      const empCount = employeesCache.filter(e => e.store_id === s.id).length;
 
       return `
         <div class="ingredient-list-item" style="align-items:flex-start;flex-wrap:wrap;cursor:pointer;" onclick="openEditStoreModal('${s.id}')">
@@ -183,18 +175,7 @@ window.addEventListener('DOMContentLoaded', () => {
             <div class="ing-name">${s.name || 'بدون اسم'} ${!active ? '<span style="color:#D9534F;font-size:11px;">(غير نشط)</span>' : ''}</div>
             <div class="ing-meta">📍 ${s.address || '—'} · 📞 ${s.phone || '—'}</div>
             <div class="ing-meta">${(s.lat != null && s.lng != null) ? `🧭 الإحداثيات محفوظة (${s.lat.toFixed(4)}, ${s.lng.toFixed(4)})` : '<span style="color:#D9534F;">⚠️ ما في إحداثيات — ما رح يشارك بحساب أقرب متجر</span>'}</div>
-            <div class="ing-meta">👥 ${emps.length} موظف مصرّح</div>
-            <button type="button" class="ing-remove" style="font-size:11px;width:auto;padding:4px 8px;margin-top:6px;"
-                    onclick="event.stopPropagation();toggleEmployees('${s.id}')">إدارة الموظفين ▾</button>
-            <div id="emp-${s.id}" class="hidden" style="margin-top:6px;border-top:1px solid rgba(255,255,255,0.06);padding-top:6px;" onclick="event.stopPropagation();">
-              ${empListHtml}
-              <div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap;">
-                <input type="tel" id="add-emp-phone-${s.id}" placeholder="07XXXXXXXX" style="flex:1;min-width:100px;padding:6px 8px;border-radius:8px;border:1px solid rgba(255,255,255,0.15);background:transparent;color:inherit;" />
-                <input type="text" id="add-emp-name-${s.id}" placeholder="اسم (اختياري)" style="flex:1;min-width:100px;padding:6px 8px;border-radius:8px;border:1px solid rgba(255,255,255,0.15);background:transparent;color:inherit;" />
-                <button type="button" class="ing-remove" style="font-size:11px;width:auto;padding:6px 10px;"
-                        onclick="addStoreEmployeePhone('${s.id}')">➕ تصريح رقم</button>
-              </div>
-            </div>
+            <div class="ing-meta">👥 ${empCount} موظف مصرّح — اضغط لإدارتهم</div>
           </div>
           <div style="display:flex;flex-direction:column;gap:6px;">
             <button type="button" class="ing-remove" style="font-size:12px;width:auto;padding:6px 10px;"
@@ -204,15 +185,28 @@ window.addEventListener('DOMContentLoaded', () => {
     }).join('');
   }
 
-  window.toggleEmployees = (id) => {
-    document.getElementById(`emp-${id}`).classList.toggle('hidden');
-  };
+  /* يعرض الموظفين المصرّحين لمتجر معيّن جوا مودال التعديل نفسه */
+  function renderEmployeesInModal(storeId) {
+    const listEl = document.getElementById('sf-employees-list');
+    if (!listEl) return;
+    const emps = employeesCache.filter(e => e.store_id === storeId);
+    listEl.innerHTML = emps.length
+      ? emps.map(e => `
+          <div class="ing-meta" style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:6px 0;border-bottom:1px solid rgba(255,255,255,0.06);">
+            <span>👤 ${e.name || 'بدون اسم'} · ${e.phone || '—'} ${e.auth_uid ? '' : '<span style="color:#D9534F;font-size:10px;">(ما دخل لسا)</span>'}</span>
+            <button type="button" class="ing-remove" style="font-size:10px;width:auto;padding:2px 6px;flex-shrink:0;"
+                    onclick="removeStoreEmployee('${e.id}')">إلغاء</button>
+          </div>`).join('')
+      : `<div class="ing-meta">ما في أرقام مصرّحة بعد — ضيف رقم تحت 👇</div>`;
+  }
 
-  /* يضيف رقم هاتف موظف مصرّح مسبقاً — الموظف بس بيقدر "يفعّل" هالسجل
-     (يربط auth_uid) أول مرة بيسجّل دخول بتطبيق المتجر عبر OTP. */
-  window.addStoreEmployeePhone = async (storeId) => {
-    const phoneInput = document.getElementById(`add-emp-phone-${storeId}`);
-    const nameInput = document.getElementById(`add-emp-name-${storeId}`);
+  /* يضيف رقم هاتف موظف مصرّح مسبقاً (من داخل مودال تعديل المتجر) — الموظف
+     بس بيقدر "يفعّل" هالسجل (يربط auth_uid) أول مرة يسجّل دخول بالـOTP. */
+  window.addEmployeeInModal = async () => {
+    const storeId = currentEditingStoreId;
+    if (!storeId) return;
+    const phoneInput = document.getElementById('sf-emp-phone');
+    const nameInput = document.getElementById('sf-emp-name');
     const phone = phoneInput.value.trim();
     const name = nameInput.value.trim();
     if (!/^07\d{8}$/.test(phone)) {
@@ -231,23 +225,21 @@ window.addEventListener('DOMContentLoaded', () => {
       showToast('تم تصريح الرقم ✅ — الموظف يقدر يسجّل دخول هلق');
       phoneInput.value = ''; nameInput.value = '';
       await loadStores();
-      document.getElementById(`emp-${storeId}`).classList.remove('hidden');
+      renderEmployeesInModal(storeId);
     } catch(e) {
       console.error('add employee phone error', e);
       showToast('صار خطأ — جرب مرة ثانية ❌', true);
     }
   };
 
-  /* يلغي تصريح رقم موظف — ما رح يقدر يسجّل دخول بعدها (لو كان عنده جلسة
-     مفتوحة أصلاً بالجهاز، لازم أيضاً تشيله يدوياً من authorized_uids على
-     مستند المتجر لو بدك تقطع وصوله فوراً). */
-  window.removeStoreEmployee = async (empId, storeId) => {
+  /* يلغي تصريح رقم موظف — ما رح يقدر يسجّل دخول بعدها. */
+  window.removeStoreEmployee = async (empId) => {
     if (!confirm('تأكيد إلغاء تصريح هالرقم؟ ما رح يقدر يسجّل دخول بعدها.')) return;
     try {
       await withTimeout(deleteDoc(doc(db, 'store_employees', empId)), 15000, 'انتهت مهلة الحذف — تأكد من الإنترنت');
       showToast('تم إلغاء التصريح ✅');
       await loadStores();
-      document.getElementById(`emp-${storeId}`).classList.remove('hidden');
+      if (currentEditingStoreId) renderEmployeesInModal(currentEditingStoreId);
     } catch(e) {
       console.error('remove employee error', e);
       showToast('صار خطأ بالحذف — جرب مرة ثانية ❌', true);
@@ -278,6 +270,7 @@ window.addEventListener('DOMContentLoaded', () => {
     document.getElementById('storeModalTitle').textContent = '🏪 متجر شريك جديد';
     document.getElementById('sf-delete-btn').classList.add('hidden');
     document.getElementById('sf-pin-hint').classList.remove('hidden');
+    document.getElementById('sf-employees-section').classList.add('hidden'); // ما في متجر لسا لنضيفله موظفين
     const saveBtn = document.getElementById('sf-save-btn');
     saveBtn.disabled = false;
     saveBtn.textContent = 'حفظ المتجر ✓';
@@ -301,6 +294,8 @@ window.addEventListener('DOMContentLoaded', () => {
     document.getElementById('sf-lng').value = s.lng != null ? s.lng : '';
     document.getElementById('sf-delete-btn').classList.remove('hidden');
     document.getElementById('sf-pin-hint').classList.add('hidden');
+    document.getElementById('sf-employees-section').classList.remove('hidden');
+    renderEmployeesInModal(id);
     const saveBtn = document.getElementById('sf-save-btn');
     saveBtn.disabled = false;
     saveBtn.textContent = 'حفظ التعديلات ✓';
@@ -552,10 +547,20 @@ if ("serviceWorker" in navigator) {
           <button type="button" class="btn-secondary" style="margin-top:8px;width:100%;" onclick="useCurrentLocationForStore()" id="sf-locate-btn">📍 استخدم موقعي الحالي (وأنا واقف بالمتجر)</button>
           <div id="sf-locate-status" style="font-size:11.5px;color:var(--cream30);margin-top:4px;"></div>
           <div id="sfMap" style="width:100%;height:200px;border-radius:8px;overflow:hidden;margin-top:8px;background:#1a1a1a;"></div>
-          <div class="field-hint" style="margin-top:4px;">تقدر كمان تضغط بالخريطة أو تسحب الدبوس لتحديد الموقع بدقة.</div>
+          <div class="field-hint" style="margin-top:4px;">تقدر كمان تضغط بالخريطة أو تسحب الدبوس لتحديد الموقع بدقة. ⚠️ الإحداثيات مهمة — بدونها ما رح يقدر النظام يحسب هل هذا أقرب متجر للزبون عند توزيع الطلبات.</div>
         </div>
 
-        <div class="field-hint" id="sf-pin-hint">👥 بعد ما تحفظ المتجر، روح لقائمة المتاجر واضغط "إدارة الموظفين" عشان تضيف أرقام هواتف الموظفين المصرّح لهم بالدخول (زر "الدخول كتاجر" بتطبيق الزبون). ⚠️ الإحداثيات مهمة — بدونها ما رح يقدر النظام يحسب هل هذا أقرب متجر للزبون عند توزيع الطلبات.</div>
+        <div class="field-hint" id="sf-pin-hint">👥 بعد ما تحفظ المتجر، رح تقدر تضيف موظفين مصرّحين من نفس هالنافذة.</div>
+
+        <div class="form-group hidden" id="sf-employees-section" style="border-top:1px solid rgba(255,255,255,0.1);padding-top:14px;margin-top:4px;">
+          <label>👥 الموظفون المصرّحون بالدخول</label>
+          <div id="sf-employees-list" style="margin-bottom:8px;"></div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;">
+            <input type="tel" id="sf-emp-phone" placeholder="07XXXXXXXX" style="flex:1;min-width:100px;" />
+            <input type="text" id="sf-emp-name" placeholder="اسم الموظف" style="flex:1;min-width:100px;" />
+          </div>
+          <button type="button" class="btn-secondary" style="margin-top:8px;width:100%;" onclick="addEmployeeInModal()">➕ تصريح موظف جديد</button>
+        </div>
 
         <button type="button" class="ing-remove hidden" id="sf-delete-btn" style="width:100%;margin-top:14px;padding:10px;font-size:13px;" onclick="deleteStoreFromModal()">🗑️ حذف المتجر نهائياً</button>
 

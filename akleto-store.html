@@ -449,6 +449,20 @@ if ("serviceWorker" in navigator) {
   <p style="margin-top:14px;"><a href="javascript:void(0)" onclick="resendStoreOtp()" style="color:var(--primary); font-weight:700;">إعادة إرسال الرمز</a></p>
 </div>
 
+<!-- ══════ شاشة اختيار المتجر (لموظف مصرّح بأكتر من متجر بنفس الرقم) ══════ -->
+<div id="storeSelectScreen" class="hidden" style="display:flex;flex-direction:column;justify-content:center;min-height:100vh;padding:28px;text-align:center;">
+  <div class="logo-mark">
+    <svg viewBox="0 0 48 48" width="60" height="60" aria-hidden="true">
+      <circle cx="24" cy="24" r="24" fill="#A23E48"/>
+      <path d="M24 13v22M13 24h22" stroke="#FDF8F3" stroke-width="2.4" fill="none" stroke-linecap="round"/>
+    </svg>
+  </div>
+  <h1 style="font-size:22px;color:var(--primary);margin-bottom:6px;font-family:'Tajawal',sans-serif;">اختر المتجر</h1>
+  <p style="color:var(--text30);font-size:14px;margin-bottom:20px;">رقمك مصرّح بأكتر من متجر — اختر وين بدك تشتغل هلق</p>
+  <div id="store-select-list" style="display:flex;flex-direction:column;gap:10px;"></div>
+  <div class="error-text" id="store-select-error"></div>
+</div>
+
 
 <!-- ══════ تطبيق المتجر ══════ -->
 <div id="appShell" class="hidden">
@@ -863,7 +877,8 @@ window.loginAsStore = async () => {
   try {
     // 🆕 ما في اختيار متجر ولا اسم يدوي — الأدمن أصلاً حدد مسبقاً وين
     // بيشتغل هالرقم واسم صاحبه بمجموعة store_employees. هون بس نتحقق
-    // إنه الرقم مصرّح ونجيب المتجر واسم الموظف المرتبطين فيه.
+    // إنه الرقم مصرّح، وممكن يكون مصرّح بأكتر من متجر بنفس الوقت —
+    // بهاي الحالة نأجّل اختيار المتجر لحد بعد تأكيد الـOTP.
     const empSnap = await withTimeout(
       getDocs(query(collection(db, 'store_employees'), where('phone', '==', phone))),
       15000, 'انتهت مهلة الاتصال — تأكد من الإنترنت'
@@ -873,26 +888,36 @@ window.loginAsStore = async () => {
       errBox.style.display = 'block';
       return;
     }
-    const empDoc = empSnap.docs[0];
-    const empData = empDoc.data();
-    const sId = empData.store_id;
-    const name = empData.name || '';
 
-    const storeSnap = await withTimeout(getDoc(doc(db, 'stores', sId)), 15000, 'انتهت مهلة الاتصال — تأكد من الإنترنت');
-    if (!storeSnap.exists()) {
-      errBox.textContent = 'المتجر المرتبط برقمك غير موجود — تواصل مع الأدمن';
-      errBox.style.display = 'block';
-      return;
-    }
-    const storeData = storeSnap.data();
-    if (storeData.is_active === false) {
-      errBox.textContent = 'هذا المتجر معطّل حالياً — تواصل مع الأدمن';
-      errBox.style.display = 'block';
-      return;
-    }
-    const sName = storeData.name || 'متجر';
+    if (empSnap.docs.length === 1) {
+      const empDoc = empSnap.docs[0];
+      const empData = empDoc.data();
+      const sId = empData.store_id;
+      const name = empData.name || '';
 
-    _pendingStoreLogin = { name, phone, storeId: sId, storeName: sName, existingEmpId: empDoc.id };
+      const storeSnap = await withTimeout(getDoc(doc(db, 'stores', sId)), 15000, 'انتهت مهلة الاتصال — تأكد من الإنترنت');
+      if (!storeSnap.exists()) {
+        errBox.textContent = 'المتجر المرتبط برقمك غير موجود — تواصل مع الأدمن';
+        errBox.style.display = 'block';
+        return;
+      }
+      const storeData = storeSnap.data();
+      if (storeData.is_active === false) {
+        errBox.textContent = 'هذا المتجر معطّل حالياً — تواصل مع الأدمن';
+        errBox.style.display = 'block';
+        return;
+      }
+      _pendingStoreLogin = {
+        multi: false, name, phone, storeId: sId, storeName: storeData.name || 'متجر', existingEmpId: empDoc.id
+      };
+    } else {
+      // رقم مصرّح بأكتر من متجر — نجمع كل السجلات ونأجّل الاختيار لبعد OTP
+      _pendingStoreLogin = {
+        multi: true, phone,
+        employees: empSnap.docs.map(d => ({ id: d.id, storeId: d.data().store_id, name: d.data().name || '' }))
+      };
+    }
+
     window._storeConfirmationResult = await sendOtpCode('recaptcha-container-store', phone);
     document.getElementById('store-otp-phone-display').textContent = phone;
     document.getElementById('store-otp-code').value = '';
@@ -925,6 +950,16 @@ window.confirmStoreOtp = async () => {
   try {
     const result = await window._storeConfirmationResult.confirm(code);
     const authUid = result.user.uid;
+
+    if (_pendingStoreLogin.multi) {
+      // رقم واحد بعدة متاجر — نعرض شاشة اختيار بعد ما نتأكد من رقمه، بدل
+      // ما نفترض متجر واحد بالغلط.
+      _pendingStoreLogin.authUid = authUid;
+      document.getElementById('storeOtpScreen').classList.add('hidden');
+      await showStoreSelectScreen();
+      return;
+    }
+
     const { name, phone, storeId: sId, storeName: sName, existingEmpId } = _pendingStoreLogin;
 
     // الموظف موجود مسبقاً (أضافه الأدمن) — هون بس نربط auth_uid ونؤكد
@@ -954,6 +989,75 @@ window.confirmStoreOtp = async () => {
   } finally {
     btn.disabled = false;
     btn.textContent = 'تأكيد الرمز ✅';
+  }
+};
+
+/* يعرض شاشة اختيار متجر لموظف رقمه مصرّح بأكتر من متجر بنفس الوقت —
+   بتصير بعد تأكيد OTP بنجاح (رقمه صار موثّق)، وبتجيب اسم كل متجر
+   وحالة تفعيله (تستبعد المعطّل) قبل ما تعرض الأزرار. */
+async function showStoreSelectScreen() {
+  const listEl = document.getElementById('store-select-list');
+  const errBox = document.getElementById('store-select-error');
+  errBox.style.display = 'none';
+  listEl.innerHTML = '<div style="color:var(--text30);">جاري تحميل متاجرك...</div>';
+  document.getElementById('storeSelectScreen').classList.remove('hidden');
+
+  try {
+    const entries = _pendingStoreLogin.employees;
+    const resolved = [];
+    for (const emp of entries) {
+      const storeSnap = await getDoc(doc(db, 'stores', emp.storeId));
+      if (!storeSnap.exists()) continue;
+      const sData = storeSnap.data();
+      if (sData.is_active === false) continue; // متجر معطّل — نستبعده من الخيارات
+      resolved.push({ empId: emp.id, storeId: emp.storeId, name: emp.name, storeName: sData.name || 'متجر' });
+    }
+    if (!resolved.length) {
+      listEl.innerHTML = '';
+      errBox.textContent = 'كل متاجرك معطّلة حالياً — تواصل مع الأدمن';
+      errBox.style.display = 'block';
+      return;
+    }
+    listEl.innerHTML = resolved.map(r => `
+      <button type="button" class="btn-main" style="width:100%;"
+              onclick='selectStoreAndEnter(${JSON.stringify(r).replace(/'/g, "&#39;")})'>🏪 ${r.storeName}</button>
+    `).join('');
+  } catch (e) {
+    console.error('load store select list error', e);
+    listEl.innerHTML = '';
+    errBox.textContent = 'صار خطأ بتحميل قائمة متاجرك — أعد فتح الصفحة';
+    errBox.style.display = 'block';
+  }
+}
+
+window.selectStoreAndEnter = async (choice) => {
+  const errBox = document.getElementById('store-select-error');
+  errBox.style.display = 'none';
+  try {
+    const authUid = _pendingStoreLogin.authUid;
+    const phone = _pendingStoreLogin.phone;
+
+    await updateDoc(doc(db, 'store_employees', choice.empId), {
+      auth_uid: authUid, phone_verified: true
+    }).catch(() => {});
+    await updateDoc(doc(db, 'stores', choice.storeId), { authorized_uids: arrayUnion(authUid) }).catch(() => {});
+
+    storeId = choice.storeId;
+    storeName = choice.storeName;
+    storeEmpName = choice.name;
+    storeEmpPhone = phone;
+    localStorage.setItem(STORE_ID_KEY, storeId);
+    localStorage.setItem(STORE_NAME_KEY, storeName);
+    localStorage.setItem(STORE_EMP_NAME_KEY, storeEmpName);
+    localStorage.setItem(STORE_EMP_PHONE_KEY, storeEmpPhone);
+
+    document.getElementById('storeSelectScreen').classList.add('hidden');
+    document.getElementById('appShell').classList.remove('hidden');
+    enterStoreMode();
+  } catch (e) {
+    console.error('select store error', e);
+    errBox.textContent = 'صار خطأ — جرب مرة ثانية';
+    errBox.style.display = 'block';
   }
 };
 

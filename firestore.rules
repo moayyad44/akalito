@@ -116,7 +116,14 @@ service cloud.firestore {
     }
 
     /* ═══ customers — ثاني مجموعة مقيّدة فعلياً (نفس نمط drivers) ═══
-       - القراءة تضل عامة: تستخدمها لوحة الأدمن (قائمة الزبائن).
+       🚨 القراءة كانت `if true` (لازمة نظرياً لفحص "هل الرقم مسجّل
+       مسبقاً" قبل أي Auth بشاشتي التسجيل/الدخول) — بس هذا كان يسمح لأي
+       حد بالعالم يفرّغ اسم ورقم هاتف كل زبون بالنظام بلا فلتر (تسريب
+       بيانات حقيقي، ثغرة مشابهة لثغرة PIN المتجر بس بدون خطر انتحال
+       هوية مباشر). الحل: القراءة صارت مقيّدة لصاحب الحساب/الأدمن بس،
+       وفحص الرقم قبل الـOTP صار حصراً عبر Cloud Function
+       (checkCustomerPhone) بترجّع معلومة رقم واحد بس تم إرساله، مو
+       كامل الجدول.
        - الإنشاء: لازم Auth (حتى Anonymous) + auth_uid يطابق هوية المُنشئ.
        - التعديل: مسموح للأدمن دايماً، أو لصاحب المستند (auth_uid يطابق،
          أو المستند قديم وبعده ما انربط — نافذة انتقالية). ممنوع الزبون
@@ -124,7 +131,7 @@ service cloud.firestore {
          akleto-admin-customers.html).
        - الحذف: أدمن، أو الزبون نفسه (ميزة حذف الحساب موجودة أصلاً). */
     match /customers/{customerId} {
-      allow read: if true;
+      allow read: if isAdmin() || isOwnerCustomer(customerId);
 
       allow create: if request.auth != null
         && request.resource.data.auth_uid == request.auth.uid;

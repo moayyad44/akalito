@@ -1138,7 +1138,7 @@ if ("serviceWorker" in navigator) {
 import {
   db, collection, getDocs, getDoc, addDoc, doc, updateDoc, deleteDoc, query, where, serverTimestamp, withTimeout,
   onSnapshot, MEASURE_TYPES, convertToBase, loadMeasureTypes, runTransaction,
-  auth, onAuthStateChanged, signInAnonymously, sendOtpCode, otpErrorMessage
+  auth, onAuthStateChanged, signInAnonymously, sendOtpCode, otpErrorMessage, checkCustomerPhone
 } from "./firebase-init.js";
 
 function ticketCode(id) { return '#' + (id || '----').slice(-4).toUpperCase(); }
@@ -1311,11 +1311,12 @@ window.startCustomerSession = async () => {
   btn.textContent = 'جاري التحضير...';
 
   try {
-    const existingSnap = await withTimeout(
-      getDocs(query(collection(db, 'customers'), where('phone', '==', phone))),
-      15000, 'انتهت مهلة الاتصال — تأكد من الإنترنت'
-    );
-    if (!existingSnap.empty) {
+    // 🆕 فحص "هل الرقم مسجّل مسبقاً" صار عبر Cloud Function (checkCustomerPhone)
+    // بدل قراءة مجموعة customers مباشرة — القراءة العامة كانت بتسمح لأي حد
+    // يفرّغ اسم/هاتف كل الزبائن، فصار الفحص سيرفر-سايد ويرجّع معلومة
+    // الرقم المُرسَل بس.
+    const checkResult = await withTimeout(checkCustomerPhone(phone), 15000, 'انتهت مهلة الاتصال — تأكد من الإنترنت');
+    if (checkResult.exists) {
       errBox.textContent = 'في حساب مسجّل بهذا الرقم مسبقاً — اضغط "تسجيل الدخول" وسجّل برقم هاتفك فقط';
       errBox.style.display = 'block';
       return;
@@ -1442,28 +1443,24 @@ window.signInCustomer = async () => {
   btn.textContent = 'جاري التحقق...';
 
   try {
-    const snap = await withTimeout(
-      getDocs(query(collection(db, 'customers'), where('phone', '==', phone))),
-      15000, 'انتهت مهلة الاتصال — تأكد من الإنترنت'
-    );
+    // 🆕 نفس منطق signUpCustomer — فحص الرقم صار عبر Cloud Function بدل
+    // قراءة مجموعة customers مباشرة (كانت قراءتها مفتوحة للعامة بالكامل).
+    const checkResult = await withTimeout(checkCustomerPhone(phone), 15000, 'انتهت مهلة الاتصال — تأكد من الإنترنت');
 
-    if (snap.empty) {
+    if (!checkResult.exists) {
       errBox.textContent = 'ما في حساب مسجّل بهذا الرقم — اضغط "حساب جديد" وسجّل أول مرة';
       errBox.style.display = 'block';
       return;
     }
 
-    const docSnap = snap.docs[0];
-    const data = docSnap.data() || {};
-
-    if (data.is_blocked) {
+    if (checkResult.isBlocked) {
       errBox.textContent = 'هذا الحساب محظور حالياً — تواصل معنا للاستفسار';
       errBox.style.display = 'block';
       return;
     }
 
-    customerId = docSnap.id;
-    customerName = data.name || '';
+    customerId = checkResult.customerId;
+    customerName = checkResult.name || '';
     customerPhone = phone;
 
     // دخول لحساب موجود — نطلب OTP دايماً هلق (مش بس أول تسجيل)

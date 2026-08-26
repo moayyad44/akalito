@@ -15,6 +15,7 @@
 
 const { onDocumentUpdated } = require("firebase-functions/v2/firestore");
 const { onDocumentCreated } = require("firebase-functions/v2/firestore");
+const { onCall, HttpsError } = require("firebase-functions/v2/https");
 const { setGlobalOptions } = require("firebase-functions/v2");
 const admin = require("firebase-admin");
 
@@ -313,3 +314,33 @@ exports.onOrderReady = onDocumentUpdated(
     }
   }
 );
+
+/* ══════════════════════════════════════════════════════════
+   checkCustomerPhone — فحص وجود حساب زبون برقم هاتف معيّن، سيرفر-سايد.
+   ⚠️ سبب وجودها: تطبيق الزبون كان يستعلم مجموعة `customers` مباشرة
+   (where phone == ...) وقاعدة القراءة كانت `if true` (لازمة نظرياً
+   لعمل هالفحص قبل أي Auth). المشكلة: القراءة المفتوحة بتسمح لأي حد
+   بالعالم يجيب `getDocs(collection(db,'customers'))` بدون فلتر ويفرّغ
+   اسم ورقم هاتف كل زبون بالنظام — تسريب بيانات حقيقي، مو بس مشكلة
+   تخمين. الحل: `customers.read` صار مقيّد لصاحب الحساب/الأدمن بس، وهاي
+   الدالة (Admin SDK، بتتجاوز القواعد) هي الطريقة الوحيدة المتبقية
+   للتحقق من رقم معيّن قبل تسجيل الدخول أو إنشاء حساب جديد — بترجع
+   معلومة عن رقم واحد بالضبط تم إرساله، مش كامل الجدول. ══════════════ */
+exports.checkCustomerPhone = onCall(async (request) => {
+  const phone = String((request.data && request.data.phone) || "").trim();
+  if (!/^0\d{8,9}$/.test(phone)) {
+    throw new HttpsError("invalid-argument", "رقم الهاتف غير صحيح");
+  }
+
+  const snap = await db.collection("customers").where("phone", "==", phone).limit(1).get();
+  if (snap.empty) {
+    return { exists: false };
+  }
+  const data = snap.docs[0].data();
+  return {
+    exists: true,
+    customerId: snap.docs[0].id,
+    name: data.name || "",
+    isBlocked: !!data.is_blocked,
+  };
+});

@@ -560,7 +560,7 @@ if ("serviceWorker" in navigator) {
       <div style="display:flex;align-items:center;gap:10px;">
         <button class="icon-btn" onclick="toggleStoreMenu()" title="القائمة">☰</button>
         <div>
-          <div class="greeting">🏪 <b id="store-greeting-name"></b></div>
+          <div class="greeting"><span id="store-greeting-avatar">🏪</span> <b id="store-greeting-name"></b></div>
           <div style="color:var(--text30);font-size:12px;" id="store-employee-name"></div>
         </div>
       </div>
@@ -779,6 +779,7 @@ let notifUnsubs = [];
 let ingredientsCache = []; // يُحمَّل عند الحاجة بواسطة loadStoreProductsData
 let storeId = null;
 let storeName = '';
+let storeImage = '';
 let storeEmpName = '';
 let storeEmpPhone = '';
 
@@ -832,6 +833,7 @@ function cleanupStaleStoreLoadProgress() {
 }
 const STORE_ID_KEY = 'akleto_store_id';
 const STORE_NAME_KEY = 'akleto_store_name';
+const STORE_IMAGE_KEY = 'akleto_store_image';
 const STORE_EMP_NAME_KEY = 'akleto_store_emp_name';
 const STORE_EMP_PHONE_KEY = 'akleto_store_emp_phone';
 const STORE_WORK_SESSION_ID_KEY = 'akleto_store_work_session_id';
@@ -908,7 +910,8 @@ window.loginAsStore = async () => {
         return;
       }
       _pendingStoreLogin = {
-        multi: false, name, phone, storeId: sId, storeName: storeData.name || 'متجر', existingEmpId: empDoc.id
+        multi: false, name, phone, storeId: sId, storeName: storeData.name || 'متجر',
+        storeImage: storeData.image_url || '', existingEmpId: empDoc.id
       };
     } else {
       // رقم مصرّح بأكتر من متجر — نجمع كل السجلات ونأجّل الاختيار لبعد OTP
@@ -960,7 +963,7 @@ window.confirmStoreOtp = async () => {
       return;
     }
 
-    const { name, phone, storeId: sId, storeName: sName, existingEmpId } = _pendingStoreLogin;
+    const { name, phone, storeId: sId, storeName: sName, storeImage: sImage, existingEmpId } = _pendingStoreLogin;
 
     // الموظف موجود مسبقاً (أضافه الأدمن) — هون بس نربط auth_uid ونؤكد
     // التحقق من رقمه. الاسم أصلاً من إدخال الأدمن، ما في داعي نطلبه
@@ -972,10 +975,12 @@ window.confirmStoreOtp = async () => {
 
     storeId = sId;
     storeName = sName;
+    storeImage = sImage || '';
     storeEmpName = name;
     storeEmpPhone = phone;
     localStorage.setItem(STORE_ID_KEY, storeId);
     localStorage.setItem(STORE_NAME_KEY, storeName);
+    localStorage.setItem(STORE_IMAGE_KEY, storeImage);
     localStorage.setItem(STORE_EMP_NAME_KEY, storeEmpName);
     localStorage.setItem(STORE_EMP_PHONE_KEY, storeEmpPhone);
 
@@ -1010,7 +1015,7 @@ async function showStoreSelectScreen() {
       if (!storeSnap.exists()) continue;
       const sData = storeSnap.data();
       if (sData.is_active === false) continue; // متجر معطّل — نستبعده من الخيارات
-      resolved.push({ empId: emp.id, storeId: emp.storeId, name: emp.name, storeName: sData.name || 'متجر' });
+      resolved.push({ empId: emp.id, storeId: emp.storeId, name: emp.name, storeName: sData.name || 'متجر', storeImage: sData.image_url || '' });
     }
     if (!resolved.length) {
       listEl.innerHTML = '';
@@ -1019,8 +1024,11 @@ async function showStoreSelectScreen() {
       return;
     }
     listEl.innerHTML = resolved.map(r => `
-      <button type="button" class="btn-main" style="width:100%;"
-              onclick='selectStoreAndEnter(${JSON.stringify(r).replace(/'/g, "&#39;")})'>🏪 ${r.storeName}</button>
+      <button type="button" class="btn-main" style="width:100%;display:flex;align-items:center;justify-content:center;gap:8px;"
+              onclick='selectStoreAndEnter(${JSON.stringify(r).replace(/'/g, "&#39;")})'>
+        ${r.storeImage ? `<img src="${r.storeImage}" style="width:22px;height:22px;border-radius:50%;object-fit:cover;flex-shrink:0;" />` : '🏪'}
+        ${r.storeName}
+      </button>
     `).join('');
   } catch (e) {
     console.error('load store select list error', e);
@@ -1044,10 +1052,12 @@ window.selectStoreAndEnter = async (choice) => {
 
     storeId = choice.storeId;
     storeName = choice.storeName;
+    storeImage = choice.storeImage || '';
     storeEmpName = choice.name;
     storeEmpPhone = phone;
     localStorage.setItem(STORE_ID_KEY, storeId);
     localStorage.setItem(STORE_NAME_KEY, storeName);
+    localStorage.setItem(STORE_IMAGE_KEY, storeImage);
     localStorage.setItem(STORE_EMP_NAME_KEY, storeEmpName);
     localStorage.setItem(STORE_EMP_PHONE_KEY, storeEmpPhone);
 
@@ -1077,7 +1087,9 @@ window.resendStoreOtp = async () => {
 };
 
 window.toggleStoreMenu = () => {
-  document.getElementById('csd-store-avatar').textContent = '🏪';
+  document.getElementById('csd-store-avatar').innerHTML = storeImage
+    ? `<img src="${storeImage}" style="width:100%;height:100%;object-fit:cover;border-radius:inherit;" />`
+    : '🏪';
   document.getElementById('csd-store-name').textContent = storeName || 'متجر';
   document.getElementById('csd-store-phone').textContent = storeEmpName || '';
   document.getElementById('csOverlayStore').classList.add('open');
@@ -1100,6 +1112,9 @@ window.menuStoreGoOrders = () => { closeStoreMenu(); goStoreHome(); };
 window.menuStoreGoProducts = () => { closeStoreMenu(); goStoreHome(); openStoreProducts(); };
 
 function enterStoreMode() {
+  document.getElementById('store-greeting-avatar').innerHTML = storeImage
+    ? `<img src="${storeImage}" style="width:22px;height:22px;border-radius:50%;object-fit:cover;vertical-align:middle;" />`
+    : '🏪';
   document.getElementById('store-greeting-name').textContent = storeName;
   document.getElementById('store-employee-name').textContent = 'مسجل دخول: ' + storeEmpName;
   document.getElementById('storeOrdersScreen').classList.remove('hidden');
@@ -1122,9 +1137,10 @@ window.logoutStore = () => {
   closeStoreWorkSession();
   localStorage.removeItem(STORE_ID_KEY);
   localStorage.removeItem(STORE_NAME_KEY);
+  localStorage.removeItem(STORE_IMAGE_KEY);
   localStorage.removeItem(STORE_EMP_NAME_KEY);
   localStorage.removeItem(STORE_EMP_PHONE_KEY);
-  storeId = null; storeName = ''; storeEmpName = ''; storeEmpPhone = '';
+  storeId = null; storeName = ''; storeImage = ''; storeEmpName = ''; storeEmpPhone = '';
   document.getElementById('appShell').classList.add('hidden');
   document.getElementById('storeOrdersScreen').classList.add('hidden');
   document.getElementById('storeProductsScreen').classList.add('hidden');
@@ -1139,6 +1155,13 @@ function watchStoreOpenState() {
     const data = snap.data();
     storeIsOpen = data.is_open !== false; // افتراضياً "متاح" لو الحقل غير موجود (متجر قديم لسا ما استخدم الميزة)
     renderStoreAvailBtn();
+    // تحديث الصورة لحظياً لو الأدمن رفع/غيّر صورة المتجر بعد ما الموظف سجّل دخول
+    if ((data.image_url || '') !== storeImage) {
+      storeImage = data.image_url || '';
+      localStorage.setItem(STORE_IMAGE_KEY, storeImage);
+      const avatar = document.getElementById('store-greeting-avatar');
+      if (avatar) avatar.innerHTML = storeImage ? `<img src="${storeImage}" style="width:22px;height:22px;border-radius:50%;object-fit:cover;vertical-align:middle;" />` : '🏪';
+    }
   }, err => console.error('watchStoreOpenState error', err));
 }
 
@@ -1975,6 +1998,7 @@ window.addEventListener('DOMContentLoaded', () => {
   if (savedStoreId) {
     storeId = savedStoreId;
     storeName = localStorage.getItem(STORE_NAME_KEY) || '';
+    storeImage = localStorage.getItem(STORE_IMAGE_KEY) || '';
     storeEmpName = localStorage.getItem(STORE_EMP_NAME_KEY) || '';
     storeEmpPhone = localStorage.getItem(STORE_EMP_PHONE_KEY) || '';
     document.getElementById('storeLoginScreen').classList.add('hidden');

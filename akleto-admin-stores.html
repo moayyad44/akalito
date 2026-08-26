@@ -21,13 +21,14 @@ import {
   watchUnreadNotifications,
   watchPendingDriversCount,
   db, auth, collection, getDocs, addDoc, updateDoc, deleteDoc, doc, serverTimestamp,
-  onAuthStateChanged, signOut, withTimeout
+  onAuthStateChanged, signOut, withTimeout, uploadImage
 } from "./firebase-init.js";
 
 let storesCache = [];
 let employeesCache = [];
 let isSavingStore = false;
 let currentEditingStoreId = null;
+let storeImageFile = null;
 
 const GOOGLE_MAPS_API_KEY = 'AIzaSyD9MvJvwKWxnYtiNhFBPO9Z_4tv9qoSeMY';
 let googleMapsLoadPromise = null;
@@ -170,7 +171,7 @@ window.addEventListener('DOMContentLoaded', () => {
 
       return `
         <div class="ingredient-list-item" style="align-items:flex-start;flex-wrap:wrap;cursor:pointer;" onclick="openEditStoreModal('${s.id}')">
-          <div class="ing-thumb">🏪</div>
+          <div class="ing-thumb">${s.image_url ? `<img src="${s.image_url}" style="width:100%;height:100%;object-fit:cover;border-radius:inherit;" />` : '🏪'}</div>
           <div class="ing-info">
             <div class="ing-name">${s.name || 'بدون اسم'} ${!active ? '<span style="color:#D9534F;font-size:11px;">(غير نشط)</span>' : ''}</div>
             <div class="ing-meta">📍 ${s.address || '—'} · 📞 ${s.phone || '—'}</div>
@@ -264,10 +265,12 @@ window.addEventListener('DOMContentLoaded', () => {
   /* ══════ مودال إضافة/تعديل متجر ══════ */
   window.openAddStoreModal = () => {
     currentEditingStoreId = null;
+    storeImageFile = null;
     document.getElementById('storeForm').reset();
     document.getElementById('storeFormError').style.display = 'none';
     document.getElementById('sf-locate-status').textContent = '';
     document.getElementById('storeModalTitle').textContent = '🏪 متجر شريك جديد';
+    document.getElementById('sf-image-preview').classList.remove('show');
     document.getElementById('sf-delete-btn').classList.add('hidden');
     document.getElementById('sf-pin-hint').classList.remove('hidden');
     document.getElementById('sf-employees-section').classList.add('hidden'); // ما في متجر لسا لنضيفله موظفين
@@ -283,6 +286,7 @@ window.addEventListener('DOMContentLoaded', () => {
     const s = storesCache.find(x => x.id === id);
     if (!s) return;
     currentEditingStoreId = id;
+    storeImageFile = null;
     document.getElementById('storeForm').reset();
     document.getElementById('storeFormError').style.display = 'none';
     document.getElementById('sf-locate-status').textContent = '';
@@ -292,6 +296,9 @@ window.addEventListener('DOMContentLoaded', () => {
     document.getElementById('sf-address').value = s.address || '';
     document.getElementById('sf-lat').value = s.lat != null ? s.lat : '';
     document.getElementById('sf-lng').value = s.lng != null ? s.lng : '';
+    const img = document.getElementById('sf-image-preview');
+    if (s.image_url) { img.src = s.image_url; img.classList.add('show'); }
+    else { img.classList.remove('show'); }
     document.getElementById('sf-delete-btn').classList.remove('hidden');
     document.getElementById('sf-pin-hint').classList.add('hidden');
     document.getElementById('sf-employees-section').classList.remove('hidden');
@@ -304,6 +311,15 @@ window.addEventListener('DOMContentLoaded', () => {
     const lat = s.lat != null ? s.lat : 31.9539;
     const lng = s.lng != null ? s.lng : 35.9106;
     setTimeout(() => initStoreMap(lat, lng), 60);
+  };
+
+  window.previewStoreImage = (ev) => {
+    const file = ev.target.files[0];
+    if (!file) return;
+    storeImageFile = file;
+    const img = document.getElementById('sf-image-preview');
+    img.src = URL.createObjectURL(file);
+    img.classList.add('show');
   };
 
   window.closeAddStoreModal = () => {
@@ -368,18 +384,24 @@ window.addEventListener('DOMContentLoaded', () => {
     saveBtn.textContent = 'جاري الحفظ...';
 
     try {
+      let image_url = currentEditingStoreId ? (storesCache.find(s=>s.id===currentEditingStoreId)||{}).image_url || '' : '';
+      if (storeImageFile) {
+        try { image_url = await uploadImage(storeImageFile, 'stores'); }
+        catch(imgErr) { console.error('store image upload error', imgErr); showToast('صار خطأ برفع الصورة، بس باقي البيانات تحفظت ⚠️', true); }
+      }
+
       if (currentEditingStoreId) {
         await withTimeout(updateDoc(doc(db, 'stores', currentEditingStoreId), {
-          name, phone, address, lat, lng
+          name, phone, address, lat, lng, image_url
         }), 15000, 'انتهت مهلة الحفظ — تأكد من الإنترنت');
         const s = storesCache.find(x => x.id === currentEditingStoreId);
-        if (s) Object.assign(s, { name, phone, address, lat, lng });
+        if (s) Object.assign(s, { name, phone, address, lat, lng, image_url });
         closeAddStoreModal();
         showToast('تم حفظ التعديلات ✅');
         renderStores();
       } else {
         await withTimeout(addDoc(collection(db, 'stores'), {
-          name, phone, address, lat, lng, is_active: true, rating: null, created_at: serverTimestamp()
+          name, phone, address, lat, lng, image_url, is_active: true, rating: null, created_at: serverTimestamp()
         }), 15000, 'انتهت مهلة الحفظ — تأكد من الإنترنت');
         closeAddStoreModal();
         showToast('تم إنشاء المتجر ✅ — ما تنسى تضيف أرقام الموظفين المصرّحين من قائمة المتاجر');
@@ -526,6 +548,15 @@ if ("serviceWorker" in navigator) {
         <div class="form-group">
           <label>اسم المتجر</label>
           <input type="text" id="sf-name" placeholder="مثال: سوبرماركت الأمانة" required />
+        </div>
+
+        <div class="form-group">
+          <label>صورة المتجر</label>
+          <div class="image-upload-box">
+            <img id="sf-image-preview" class="image-preview" />
+            <input type="file" id="sf-image" accept="image/*" onchange="previewStoreImage(event)" />
+          </div>
+          <div class="field-hint">📐 الأبعاد الموصى بها: 800×800 بكسل (مربّعة) — أقل من 300 كيلوبايت، تفضيلياً WebP</div>
         </div>
 
         <div class="form-group">

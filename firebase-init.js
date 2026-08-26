@@ -15,6 +15,9 @@ import {
 import {
   getStorage, ref as storageRef, uploadBytes, getDownloadURL
 } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-storage.js";
+import {
+  getFunctions, httpsCallable
+} from "https://www.gstatic.com/firebasejs/10.12.0/firebase-functions.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyAefkYqFsvL9wQEZYnGkb_y47eYZacrs7U",
@@ -29,6 +32,7 @@ export const app     = initializeApp(firebaseConfig);
 export const db      = initializeFirestore(app, { experimentalAutoDetectLongPolling: true });
 export const auth    = getAuth(app);
 export const storage = getStorage(app);
+export const functionsInstance = getFunctions(app, "europe-west1"); // نفس منطقة Cloud Functions الموجودة أصلاً
 
 export {
   collection, getDocs, getDoc, query, orderBy, limit, where, onSnapshot,
@@ -36,8 +40,20 @@ export {
   runTransaction, arrayUnion,
   onAuthStateChanged, signInWithEmailAndPassword, signOut, signInAnonymously,
   RecaptchaVerifier, signInWithPhoneNumber,
-  storageRef, uploadBytes, getDownloadURL
+  storageRef, uploadBytes, getDownloadURL,
+  httpsCallable
 };
+
+/* يتحقق من وجود حساب زبون برقم هاتف معيّن عبر Cloud Function
+   (checkCustomerPhone) بدل قراءة مجموعة customers مباشرة — القراءة
+   العامة كانت بتسمح بتفريغ اسم/هاتف كل الزبائن، فصار الفحص سيرفر-سايد
+   ويرجّع معلومة الرقم المُرسَل بس. يرجّع { exists, customerId?, name?,
+   isBlocked? }. */
+export async function checkCustomerPhone(phone) {
+  const fn = httpsCallable(functionsInstance, 'checkCustomerPhone');
+  const res = await fn({ phone });
+  return res.data;
+}
 
 /* ══════════════════════════════════════════════════════════
    تحقق OTP برقم الهاتف (Firebase Phone Auth) — مشترك بين تطبيقات

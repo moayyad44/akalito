@@ -91,10 +91,8 @@ export async function sendOtpCode(containerId, localPhone) {
   return confirmationResult;
 }
 
-/* رسالة خطأ عربية مفهومة حسب كود خطأ Firebase Phone Auth الشائعة.
-   🔧 وضع تشخيص مؤقت: نلحق كود/نص الخطأ الحقيقي بآخر الرسالة عشان
-   نقدر نشخّص أي مشكلة بسرعة بدون remote debugging — لاحقاً لما تستقر
-   الميزة منشيل هالسطر الأخير ونخليها رسالة نظيفة بس. */
+/* رسالة خطأ عربية مفهومة حسب كود خطأ Firebase Phone Auth أو Cloud
+   Functions الشائعة. */
 export function otpErrorMessage(err) {
   const code = err && err.code;
   let msg;
@@ -104,9 +102,10 @@ export function otpErrorMessage(err) {
   else if (code === 'auth/invalid-phone-number') msg = 'رقم الهاتف غير صحيح';
   else if (code === 'auth/unauthorized-domain') msg = 'خطأ إعداد بالسيرفر (دومين غير مصرّح) — تواصل مع الدعم الفني';
   else if (code === 'auth/quota-exceeded') msg = 'تم تجاوز حد الرسائل النصية المسموح — جرب لاحقاً';
+  else if (code === 'functions/invalid-argument') msg = 'رقم الهاتف غير صحيح';
+  else if (code === 'functions/internal' || code === 'functions/unavailable') msg = 'صار خطأ بالاتصال بالسيرفر — تأكد من الإنترنت وجرب مرة ثانية';
   else msg = 'صار خطأ بإرسال أو تأكيد رمز التحقق — جرب مرة ثانية';
-  const debugSuffix = ` [DEBUG: ${code || 'no-code'} — ${(err && err.message || '').slice(0, 120)}]`;
-  return msg + debugSuffix;
+  return msg;
 }
 
 /* رفع صورة إلى Firebase Storage وإرجاع الرابط — مشتركة بكل الصفحات */

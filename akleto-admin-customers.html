@@ -68,7 +68,7 @@ window.addEventListener('DOMContentLoaded', () => {
       customersCache = snap.docs.map(d => ({ id: d.id, ...d.data() }));
     } catch(e) {
       console.error('load customers error', e);
-      wrap.innerHTML = `<div class="empty-state" style="padding:14px 0;">صار خطأ بتحميل الزبائن — تحقق من الإنترنت</div>`;
+      wrap.innerHTML = `<div class="empty-state" style="padding:14px 0;">صار خطأ بتحميل الزبائن: ${e && e.code || 'unknown'} — ${(e && e.message || '').slice(0,150)}</div>`;
       return;
     }
     document.getElementById('customers-count').textContent = customersCache.length;

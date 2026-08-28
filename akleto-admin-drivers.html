@@ -97,7 +97,7 @@ window.addEventListener('DOMContentLoaded', () => {
       driversCache = driversSnap.docs.map(d => ({ id: d.id, ...d.data(), ...(docsMap[d.id] || {}) }));
     } catch(e) {
       console.error('load drivers error', e);
-      wrap.innerHTML = `<div class="empty-state" style="padding:14px 0;">صار خطأ بتحميل السائقين — تحقق من الإنترنت</div>`;
+      wrap.innerHTML = `<div class="empty-state" style="padding:14px 0;">صار خطأ بتحميل السائقين: ${e && e.code || 'unknown'} — ${(e && e.message || '').slice(0,150)}</div>`;
       return;
     }
     document.getElementById('drivers-count').textContent = driversCache.length;

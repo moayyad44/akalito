@@ -453,7 +453,8 @@ let currentIban = '';
 async function loadIbanStatus() {
   const statusEl = document.getElementById('acc-iban-status');
   try {
-    const snap = await getDoc(doc(db, 'drivers', session.id));
+    // 🚨 الآيبان صار بمستند driver_documents (مكان الحقول الحساسة) بدل drivers نفسه
+    const snap = await getDoc(doc(db, 'driver_documents', session.id));
     currentIban = (snap.exists() && snap.data().iban) || '';
     statusEl.textContent = currentIban ? currentIban : 'ما أضفته بعد — بتقدر تضيفه بأي وقت';
   } catch (e) {

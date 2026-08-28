@@ -4,7 +4,7 @@
 //  akleto-driver-deliveries.html, akleto-driver-account.html)
 // ══════════════════════════════════════════════════════════
 import {
-  db, doc, updateDoc, deleteDoc, collection, query, where, onSnapshot,
+  db, doc, updateDoc, setDoc, deleteDoc, collection, query, where, onSnapshot,
   serverTimestamp, withTimeout, addDoc, getDoc, getDocs, runTransaction,
   auth, onAuthStateChanged, signInAnonymously
 } from "./firebase-init.js";
@@ -172,8 +172,12 @@ export const APPROVAL_PENDING = 'pending';
 export const APPROVAL_APPROVED = 'approved';
 export const APPROVAL_REJECTED = 'rejected';
 
-/* يبحث عن سائق برقم هاتفه — يرجع أول نتيجة أو null. يُستخدم بالتسجيل (منع تكرار) وبالدخول. */
+/* يبحث عن سائق برقم هاتفه — يرجع أول نتيجة أو null. يُستخدم بالتسجيل (منع تكرار) وبالدخول.
+   🚨 لازم Auth (حتى Anonymous) قبل هالاستعلام — قراءة drivers صارت مقيّدة
+   لمستخدم مسجّل دخول بس (مش عامة بالكامل)، فنضمن هون وجود Auth أول شي
+   بدل ما نعتمد على استدعاء الشاشة له مسبقاً. */
 export async function findDriverByPhone(phone) {
+  await ensureDriverAuth();
   const q = query(collection(db, 'drivers'), where('phone', '==', phone));
   const snap = await withTimeout(getDocs(q), 15000, 'انتهت مهلة الاتصال — تأكد من الإنترنت');
   if (snap.empty) return null;
@@ -181,7 +185,11 @@ export async function findDriverByPhone(phone) {
   return { id: d.id, ...d.data() };
 }
 
-/* ينشئ حساب سائق جديد بحالة "قيد المراجعة" */
+/* ينشئ حساب سائق جديد بحالة "قيد المراجعة".
+   🚨 الحقول الحساسة (صور الوثائق + IBAN) صارت بمستند منفصل `driver_documents`
+   (نفس معرّف السائق) — مو على مستند drivers نفسه اللي قراءته صارت مسموحة
+   لأي مستخدم مسجّل دخول (مش أدمن/صاحب الحساب بس)، فلازم تولّف الحقول
+   الحساسة بمكان أضيق حماية. */
 export async function createDriverAccount(data) {
   const authUid = await ensureDriverAuth();
   const payload = {
@@ -190,14 +198,6 @@ export async function createDriverAccount(data) {
     vehicle_type: data.vehicle_type,
     vehicle_make_model: data.vehicle_make_model || '',
     plate_number: data.plate_number,
-    photo_url: data.photo_url,
-    id_front_url: data.id_front_url,
-    id_back_url: data.id_back_url,
-    license_url: data.license_url,
-    vehicle_license_front_url: data.vehicle_license_front_url,
-    vehicle_license_back_url: data.vehicle_license_back_url,
-    clearance_certificate_url: data.clearance_certificate_url,
-    iban: data.iban || '',
     approval_status: APPROVAL_PENDING,
     is_active: true,
     is_available: false,
@@ -206,6 +206,17 @@ export async function createDriverAccount(data) {
     created_at: serverTimestamp()
   };
   const ref = await withTimeout(addDoc(collection(db, 'drivers'), payload), 20000, 'انتهت مهلة الحفظ — تأكد من الإنترنت');
+
+  await withTimeout(setDoc(doc(db, 'driver_documents', ref.id), {
+    photo_url: data.photo_url,
+    id_front_url: data.id_front_url,
+    id_back_url: data.id_back_url,
+    license_url: data.license_url,
+    vehicle_license_front_url: data.vehicle_license_front_url,
+    vehicle_license_back_url: data.vehicle_license_back_url,
+    clearance_certificate_url: data.clearance_certificate_url,
+    iban: data.iban || '',
+  }), 20000, 'انتهت مهلة الحفظ — تأكد من الإنترنت');
 
   addDoc(collection(db, 'admin_notifications'), {
     type: 'driver_signup',
@@ -227,6 +238,13 @@ export async function resubmitDriverAccount(driverId, data) {
     vehicle_type: data.vehicle_type,
     vehicle_make_model: data.vehicle_make_model || '',
     plate_number: data.plate_number,
+    approval_status: APPROVAL_PENDING,
+    rejection_reason: '',
+    resubmitted_at: serverTimestamp()
+  };
+  await withTimeout(updateDoc(doc(db, 'drivers', driverId), payload), 20000, 'انتهت مهلة الحفظ — تأكد من الإنترنت');
+
+  await withTimeout(setDoc(doc(db, 'driver_documents', driverId), {
     photo_url: data.photo_url,
     id_front_url: data.id_front_url,
     id_back_url: data.id_back_url,
@@ -235,11 +253,7 @@ export async function resubmitDriverAccount(driverId, data) {
     vehicle_license_back_url: data.vehicle_license_back_url,
     clearance_certificate_url: data.clearance_certificate_url,
     iban: data.iban || '',
-    approval_status: APPROVAL_PENDING,
-    rejection_reason: '',
-    resubmitted_at: serverTimestamp()
-  };
-  await withTimeout(updateDoc(doc(db, 'drivers', driverId), payload), 20000, 'انتهت مهلة الحفظ — تأكد من الإنترنت');
+  }, { merge: true }), 20000, 'انتهت مهلة الحفظ — تأكد من الإنترنت');
 
   addDoc(collection(db, 'admin_notifications'), {
     type: 'driver_signup',
@@ -253,9 +267,10 @@ export async function resubmitDriverAccount(driverId, data) {
   return driverId;
 }
 
-/* يضيف/يحدّث الآيبان لسائق موجود أصلاً (يُستخدم لو تخطى مرحلة الآيبان بالتسجيل وحبّ يضيفه لاحقاً) */
+/* يضيف/يحدّث الآيبان لسائق موجود أصلاً (يُستخدم لو تخطى مرحلة الآيبان بالتسجيل وحبّ يضيفه لاحقاً)
+   🚨 صار يكتب لمستند driver_documents (مكان الحقول الحساسة) بدل drivers نفسه. */
 export function updateDriverIban(driverId, iban) {
-  return withTimeout(updateDoc(doc(db, 'drivers', driverId), { iban }), 15000, 'انتهت مهلة الحفظ — تأكد من الإنترنت');
+  return withTimeout(setDoc(doc(db, 'driver_documents', driverId), { iban }, { merge: true }), 15000, 'انتهت مهلة الحفظ — تأكد من الإنترنت');
 }
 
 // ⚠️ قيمة عمولة افتراضية احتياطية (تُستخدم فقط لحد ما توصل إعدادات الأدمن الفعلية من Firestore،

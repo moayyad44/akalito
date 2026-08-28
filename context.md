@@ -2755,3 +2755,44 @@ firebase functions:delete advanceOrderOffer --region europe-west1
 
 ### الحالة
 ⏳ **لسا ما اشتغلنا عليها** — مسجّلة هون كمهمة تُنفَّذ بالتطبيقات الثلاث مع بعض بجلسة قادمة (بعد ما نخلص مهمة تضييق القراءة المفتوحة الحالية: drivers ثم orders).
+
+
+## 24 أغسطس 2026 (تكملة 8) — تقييد قراءة `drivers` + فصل الوثائق الحساسة لمجموعة جديدة
+
+ثاني مجموعة من مهمة تضييق القراءة المفتوحة (بعد `customers`). أعقد شوي لأنه اكتشفنا مستند كل سائق فيه حقول **حساسة جداً**: صور الهوية (وجهين)، رخصة القيادة، رخصة المركبة (وجهين)، شهادة عدم محكومية، و**IBAN** (رقم حساب بنكي) — كلها كانت مكشوفة بالكامل بسبب `drivers.read: if true`.
+
+### الاستخدامات الفعلية اللي لازم تضل شغّالة (راجعناها قبل التنفيذ)
+- `findDriverByPhone` (فحص رقم مكرر بالتسجيل/الدخول) — يحتاج شغل قبل أي Auth حقيقي.
+- `watchActiveDrivers` (خريطة "السائقين المتاحين" — كل سائق شغّال بيشوف باقي السائقين) — بين سائقين مسجّلين دخول لبعض بس (أكدنا عدم استخدامها من تطبيق الزبون أو المتجر).
+- لوحة الأدمن: تحتاج تشوف كل شي بما فيه الوثائق لمراجعة طلبات التسجيل.
+
+### الحل (فصل الحساس عن العام، نفس فلسفة PIN المتجر)
+1. **مجموعة جديدة `driver_documents/{driverId}`** (نفس معرّف السائق) — فيها بس الحقول الحساسة (`photo_url`, `id_front_url`, `id_back_url`, `license_url`, `vehicle_license_front_url`, `vehicle_license_back_url`, `clearance_certificate_url`, `iban`). محمية بـ`isAdmin() || isOwnerDriver(driverId)` (نفس الدالة المساعدة الموجودة أصلاً، بتتحقق من `drivers/{driverId}.auth_uid`).
+2. **`drivers.read`**: من `if true` (أي حد بالعالم) إلى `if request.auth != null` (أي مستخدم مسجّل دخول، حتى Anonymous) — تضييق حقيقي بدون ما يكسر خريطة السائقين أو فحص الرقم المكرر.
+3. **`driver-shared.js`**:
+   - `findDriverByPhone()`: صارت تستدعي `ensureDriverAuth()` أول شي (تضمن وجود Auth — حتى Anonymous — قبل القراءة، بدل ما تعتمد على إنه الشاشة استدعته مسبقاً).
+   - `createDriverAccount()`: الحقول الآمنة تُكتب على `drivers` متل قبل، والحقول الحساسة تُكتب بـ`setDoc` منفصل على `driver_documents/{newId}` بعد إنشاء السائق.
+   - `resubmitDriverAccount()`: نفس الفصل — الحقول الآمنة على `drivers` (update)، الحساسة على `driver_documents` (`setDoc` بـ`merge:true`).
+   - `updateDriverIban()`: صارت تكتب لـ`driver_documents` بدل `drivers`.
+4. **`akleto-driver-account.html`** (شاشة "حسابي" بتطبيق السائق): قراءة حالة الآيبان صارت من `driver_documents/{id}` بدل `drivers/{id}`.
+5. **`akleto-admin-drivers.html`**: `loadDrivers()` صارت تجيب `drivers` و`driver_documents` مع بعض (`Promise.all`) وتدمجهم بـ`driversCache` بنفس شكل الكائن القديم (`{...driverData, ...docsData}`) — عشان مودال عرض تفاصيل السائق يضل يشتغل **بدون أي تغيير** بالكود اللي بيعرضه.
+6. **أُكِّد**: لا استخدام لهالحقول الحساسة بأي من (`akleto-driver.html`, `akleto-driver-home.html`, `akleto-driver-cards.html`, `akleto-driver-deliveries.html`, `akleto-driver-orders.html`, `akleto-driver-reports.html`, `akleto-driver-settle.html`, `akleto-driver-signup.html` عدا شاشة إعادة التقديم اللي بتقرأ الحقول الآمنة بس أصلاً) ولا بلوحة الأدمن الرئيسية (`akleto-admin.html` — بس ملخص اسم/حالة).
+
+### 🆕 Cloud Function ترحيل `migrateDriverDocuments` (مرة وحدة، متل `migrateStorePins` سابقاً)
+تنقل أي حقل حساس لسا موجود بمستندات `drivers` القديمة (من قبل هالتحديث) لمجموعة `driver_documents`، وتحذفه من `drivers` بعدها. محمية بفحص `admins/{uid}` صريح جوا الدالة نفسها. **زر مؤقت "ترحيل الآن"** أُضيف بأعلى `akleto-admin-drivers.html` (بطاقة بحدود برتقالية) — **لازم يُضغط مرة وحدة بس بعد أول نشر لهالتحديث**، وبعدها ينحذف الزر (تنظيف لاحق).
+
+### التحقق قبل الرفع
+`node --check` على `functions/index.js`, `driver-shared.js`, module scripts بـ`akleto-admin-drivers.html` و`akleto-driver-account.html` — كلها سليمة. عدّ الأقواس بـ`firestore.rules` (55/55) بعد إضافة قاعدة `driver_documents`.
+
+### ⚠️ المطلوب من مؤيد (بالترتيب بالضبط)
+1. `git pull` — **تأكد إنه ما في رسالة `error`/`Aborting`** (نفس مشكلة قبل، الملفات المتضاربة كانت android/capacitor).
+2. `firebase deploy --only functions` — لازم أول شي عشان `migrateDriverDocuments` يصير موجود على السيرفر.
+3. `firebase deploy --only firestore:rules` — عشان `driver_documents` تصير محمية وتقييد `drivers.read` يصير فعلي.
+4. افتح `akleto-admin-drivers.html`، اضغط **"ترحيل الآن"** (البطاقة البرتقالية بأعلى الصفحة) **مرة وحدة بس** — تأكد الرسالة تقول "تم ترحيل X من Y سائق ✅".
+5. تحقق يدوياً من Firebase Console → Firestore: مستندات `drivers` ما عاد فيها أي حقل من الحقول الحساسة، ومجموعة `driver_documents` الجديدة فيها كل الوثائق.
+6. اختبار: افتح مودال تفاصيل أي سائق بلوحة الأدمن — لازم تظهر الوثائق والآيبان زي ما كانت بالضبط (بما إنه الدمج صار تلقائي بالكود). افتح شاشة "حسابي" بتطبيق السائق — تأكد حالة الآيبان ظاهرة صح. جرّب تسجيل سائق جديد كامل (بما فيه رفع الوثائق) — تأكد ينحفظ ويظهر صح بمراجعة الأدمن.
+7. بعد التأكد من نجاح الترحيل والاختبار، احذف بطاقة "ترحيل الآن" من `akleto-admin-drivers.html` (تنظيف).
+8. لا حاجة لبناء APK — كل التعديلات ملفات ويب + سيرفر.
+
+### الخطوة التالية
+`orders` — آخر وأعقد مجموعة بمهمة تضييق القراءة المفتوحة (3-4 أطراف: زبون/متجر/سائق/أدمن).

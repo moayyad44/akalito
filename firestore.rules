@@ -80,8 +80,14 @@ service cloud.firestore {
     }
 
     /* ═══ drivers — أول مجموعة مقيّدة فعلياً (تجربة) ═══
-       - القراءة تضل عامة: مستخدمة لعرض "السائقين القريبين مني" بالخريطة
-         ولوحة تحكم الأدمن، ما فيها بيانات حساسة كافية تستاهل تقييد القراءة حالياً.
+       🚨 الحقول الحساسة (صور الهوية/الرخصة/شهادة عدم المحكومية + IBAN)
+       انتقلت لمجموعة منفصلة `driver_documents` (تحت) — كانت هون على نفس
+       مستند drivers اللي قراءته كانت `if true`، يعني أي حد بالعالم كان
+       يقدر يشوف صور وثائق رسمية وأرقام حسابات بنكية لكل سائق. القراءة
+       هلق صارت لأي مستخدم مسجّل دخول بس (مش لأي حد بالعالم) — كافي
+       لتغطية خريطة "السائقين القريبين" بين السائقين لبعض (watchActiveDrivers)
+       وفحص الرقم المكرر قبل التسجيل (findDriverByPhone عبر ensureDriverAuth
+       أول شي، حتى لو Anonymous)، بدون ما يحتاج القراءة تكون عامة بالكامل.
        - الإنشاء (create): لازم يكون فيه Auth (حتى لو مجهول/Anonymous)،
          وحقل auth_uid بالمستند الجديد لازم يطابق هوية المُنشئ.
        - التعديل (update): مسموح للأدمن دايماً. غير هيك، مسموح بس لصاحب
@@ -94,7 +100,7 @@ service cloud.firestore {
          إيقاف الحساب قرار أدمن حصري).
        - الحذف: أدمن بس. */
     match /drivers/{driverId} {
-      allow read: if true;
+      allow read: if request.auth != null;
 
       allow create: if request.auth != null
         && request.resource.data.auth_uid == request.auth.uid;
@@ -113,6 +119,15 @@ service cloud.firestore {
       allow delete: if isAdmin() || (
         request.auth != null && resource.data.auth_uid == request.auth.uid
       );
+    }
+
+    /* ═══ driver_documents — وثائق السائق الحساسة (منفصلة عن drivers) ═══
+       صور الهوية، رخصة القيادة، رخصة المركبة، شهادة عدم المحكومية،
+       والآيبان — كل هاي ما لازم تكون مقروءة لغير صاحبها أو الأدمن
+       إطلاقاً (لا حتى لسائقين تانيين). نفس معرّف مستند drivers بالضبط
+       (driverId مشترك بين المجموعتين). */
+    match /driver_documents/{driverId} {
+      allow read, write: if isAdmin() || isOwnerDriver(driverId);
     }
 
     /* ═══ customers — ثاني مجموعة مقيّدة فعلياً (نفس نمط drivers) ═══

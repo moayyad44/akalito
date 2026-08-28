@@ -344,3 +344,51 @@ exports.checkCustomerPhone = onCall(async (request) => {
     isBlocked: !!data.is_blocked,
   };
 });
+
+/* ══════════════════════════════════════════════════════════
+   migrateDriverDocuments — دالة ترحيل تُستخدم مرة وحدة بس (يدوياً من أدمن حقيقي).
+   تنقل الحقول الحساسة (صور الهوية/الرخصة/شهادة عدم المحكومية + IBAN)
+   الموجودة بمستندات drivers القديمة (كانت تُقرأ ضمن قراءة drivers.read
+   العامة سابقاً) لمجموعة driver_documents المحمية، وتحذف الحقول من
+   drivers بعدها — عشان ما يضل أي حقل حساس مكشوف حتى بعد نشر القواعد
+   الجديدة (اللي صارت drivers.read مسموحة لأي مستخدم مسجّل دخول، مش
+   أدمن/صاحب الحساب بس). محمية بفحص admins/{uid} صريح جوا الدالة نفسها. */
+exports.migrateDriverDocuments = onCall(async (request) => {
+  if (!request.auth) {
+    throw new HttpsError("unauthenticated", "لازم تسجّل دخول كأدمن أولاً");
+  }
+  const adminDoc = await db.collection("admins").doc(request.auth.uid).get();
+  if (!adminDoc.exists) {
+    throw new HttpsError("permission-denied", "هالميزة للأدمن بس");
+  }
+
+  const SENSITIVE_FIELDS = [
+    "photo_url", "id_front_url", "id_back_url", "license_url",
+    "vehicle_license_front_url", "vehicle_license_back_url",
+    "clearance_certificate_url", "iban",
+  ];
+
+  const driversSnap = await db.collection("drivers").get();
+  const ops = [];
+  let migrated = 0;
+  driversSnap.docs.forEach((driverDoc) => {
+    const data = driverDoc.data();
+    const hasSensitive = SENSITIVE_FIELDS.some((f) => f in data);
+    if (!hasSensitive) return;
+
+    const docPayload = {};
+    const deletePayload = {};
+    SENSITIVE_FIELDS.forEach((f) => {
+      if (f in data) {
+        docPayload[f] = data[f];
+        deletePayload[f] = admin.firestore.FieldValue.delete();
+      }
+    });
+
+    ops.push(db.collection("driver_documents").doc(driverDoc.id).set(docPayload, { merge: true }));
+    ops.push(driverDoc.ref.update(deletePayload));
+    migrated++;
+  });
+  await Promise.all(ops);
+  return { migrated, totalDrivers: driversSnap.size };
+});

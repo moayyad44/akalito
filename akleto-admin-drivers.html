@@ -21,7 +21,7 @@ import {
   watchUnreadNotifications,
   watchPendingDriversCount,
   db, auth, collection, getDocs, doc, updateDoc,
-  onAuthStateChanged, signOut, withTimeout
+  onAuthStateChanged, signOut, withTimeout, functionsInstance, httpsCallable
 } from "./firebase-init.js";
 
 let driversCache = [];
@@ -61,6 +61,24 @@ window.addEventListener('DOMContentLoaded', () => {
   });
 
   window.adminLogout = () => signOut(auth);
+
+  window.migrateDriverDocs = async () => {
+    const btn = document.getElementById('migrateDriverDocsBtn');
+    btn.disabled = true;
+    btn.textContent = 'جاري الترحيل...';
+    try {
+      const fn = httpsCallable(functionsInstance, 'migrateDriverDocuments');
+      const res = await fn();
+      showToast(`تم ترحيل ${res.data.migrated} من ${res.data.totalDrivers} سائق ✅`);
+      await loadDrivers();
+    } catch(e) {
+      console.error('migrate driver docs error', e);
+      showToast('صار خطأ بالترحيل — تأكد إنه Cloud Functions منشورة، وجرب مرة ثانية ❌', true);
+    } finally {
+      btn.disabled = false;
+      btn.textContent = 'ترحيل الآن';
+    }
+  };
 
   async function loadDrivers() {
     const wrap = document.getElementById('driversWrap');
@@ -329,6 +347,20 @@ if ("serviceWorker" in navigator) {
     <div class="topbar-actions">
       <button class="menu-toggle" id="menuBtn" onclick="toggleSidebar()" title="القائمة">☰</button>
       <button class="theme-toggle" id="themeBtn" onclick="toggleTheme()" title="تبديل الوضع">🌙</button>
+    </div>
+  </div>
+
+  <!-- 🔧 زر ترحيل مؤقت (مرة وحدة) — ينقل وثائق السائقين الحساسة (صور
+       هوية/رخصة/شهادة عدم محكومية + IBAN) الموجودة بمستندات drivers
+       القديمة لمجموعة driver_documents المحمية. احذف هالبطاقة بعد
+       الاستخدام مرة وحدة، ما في داعي تبقى بالواجهة. -->
+  <div class="card" style="border:1px solid var(--orange);margin-bottom:14px;">
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;">
+      <div>
+        <div style="font-weight:700;">🔧 ترحيل وثائق السائقين الحساسة (مرة وحدة بس)</div>
+        <div class="ing-meta">ينقل صور الهوية/الرخصة والآيبان لمكان محمي — اضغطه مرة وحدة بعد أول نشر لهالتحديث.</div>
+      </div>
+      <button type="button" class="btn-primary" id="migrateDriverDocsBtn" onclick="migrateDriverDocs()">ترحيل الآن</button>
     </div>
   </div>
 

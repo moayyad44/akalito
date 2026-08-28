@@ -67,8 +67,16 @@ window.addEventListener('DOMContentLoaded', () => {
     const pendingWrap = document.getElementById('pendingWrap');
     wrap.innerHTML = `<div class="empty-state" style="padding:14px 0;">جاري التحميل...</div>`;
     try {
-      const snap = await getDocs(collection(db, 'drivers'));
-      driversCache = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      // 🚨 الوثائق الحساسة (صور الهوية/الرخصة/شهادة عدم المحكومية + IBAN)
+      // صارت بمجموعة منفصلة driver_documents (نفس معرّف drivers) — لازم
+      // ندمجها هون عشان تضل نفس تجربة عرض التفاصيل زي ما هي بدون تغيير.
+      const [driversSnap, docsSnap] = await Promise.all([
+        getDocs(collection(db, 'drivers')),
+        getDocs(collection(db, 'driver_documents'))
+      ]);
+      const docsMap = {};
+      docsSnap.docs.forEach(d => { docsMap[d.id] = d.data(); });
+      driversCache = driversSnap.docs.map(d => ({ id: d.id, ...d.data(), ...(docsMap[d.id] || {}) }));
     } catch(e) {
       console.error('load drivers error', e);
       wrap.innerHTML = `<div class="empty-state" style="padding:14px 0;">صار خطأ بتحميل السائقين — تحقق من الإنترنت</div>`;

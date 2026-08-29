@@ -2843,3 +2843,16 @@ firebase functions:delete advanceOrderOffer --region europe-west1
 2. `firebase deploy --only firestore:rules`
 3. **لا حاجة لأي بناء APK** — تعديل ملف قواعد بس.
 4. اختبار سريع (الأهم): تأكد الأدمن لسا يقدر يدير الوجبات/المكونات/الكوبونات/الإشعارات عادي، وتأكد السائق يقدر يفتح "تقارير العمل" ويطلب تسديد/تحويل رصيد، وتأكد المتجر يقدر يحدّث توفر منتجاته ويطلب تحصيل عمولة.
+
+## 21 أغسطس 2026 (تكملة) — ✅ رفع Node.js runtime لمشروع Cloud Functions من 20 لـ22
+
+بطلب مؤيد — عالج تحذير ظهر بآخر `firebase deploy --only functions`: Node.js 20 توقّف دعمه (deprecated) من 30 أبريل 2026، وبينحذف نهائياً (decommissioned) بـ30 أكتوبر 2026 — بعدها ما رح يكون ممكن ننشر أي تحديث على الدوال بدون ترقية.
+
+**التعديل:** `functions/package.json` — حقل `engines.node` تغيّر من `"20"` لـ`"22"`. تعديل سطر واحد بس، بدون أي تغيير على كود الدوال نفسه (`functions/index.js`) ولا على `firebase-admin`/`firebase-functions` (النسخ الحالية `^12.1.0`/`^5.0.0` بتدعم Node 22 بدون مشاكل).
+
+**⚠️ تحذير منفصل ظهر بنفس النشر (لم يُعالَج بهالتحديث):** "package.json indicates an outdated version of firebase-functions... there will be breaking changes when you upgrade" — هاد تحذير تاني مختلف (نسخة المكتبة نفسها، مو نسخة Node) وفيه احتمال breaking changes حقيقي لو رفعناها، فتُرك لجلسة منفصلة مخصصة له بعد اختبار كافي، مش ضمن نطاق هالتعديل البسيط.
+
+### المطلوب من مؤيد
+1. `git pull`
+2. `firebase deploy --only functions` — أول نشر بعد التعديل هذا لازم يطبّق نسخة Node الجديدة على كل الدوال الست (`onOrderUpdated`, `onAdminNotificationCreated`, `onOrderCreated`, `onOrderReady`, `checkCustomerPhone`, `migrateDriverDocuments`) — **متوقع تظهر "Successful update operation" لكل وحدة فيهم هالمرة، مو "Skipped"، لأنه بيئة التشغيل (runtime) تغيّرت فعلياً**.
+3. تأكد بعد النشر إنه تحذير Node 20 اختفى من مخرجات الأمر.

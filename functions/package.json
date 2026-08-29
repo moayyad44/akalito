@@ -2,7 +2,7 @@
   "name": "akalito-functions",
   "description": "Cloud Functions لمشروع أكليتو — إرسال إشعارات الدفع (FCM) عند تغيّر حالة الطلب",
   "engines": {
-    "node": "20"
+    "node": "22"
   },
   "main": "index.js",
   "scripts": {

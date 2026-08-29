@@ -97,7 +97,8 @@ window.addEventListener('DOMContentLoaded', () => {
       driversCache = driversSnap.docs.map(d => ({ id: d.id, ...d.data(), ...(docsMap[d.id] || {}) }));
     } catch(e) {
       console.error('load drivers error', e);
-      wrap.innerHTML = `<div class="empty-state" style="padding:14px 0;">صار خطأ بتحميل السائقين: ${e && e.code || 'unknown'} — ${(e && e.message || '').slice(0,150)}</div>`;
+      const myUid = auth.currentUser ? auth.currentUser.uid : 'ما في مستخدم مسجّل دخول (auth.currentUser فاضي)';
+      wrap.innerHTML = `<div class="empty-state" style="padding:14px 0;">صار خطأ بتحميل السائقين: ${e && e.code || 'unknown'} — ${(e && e.message || '').slice(0,150)}<br/><br/>🔑 UID الحالي: <b style="font-family:monospace;">${myUid}</b></div>`;
       return;
     }
     document.getElementById('drivers-count').textContent = driversCache.length;

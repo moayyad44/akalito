@@ -289,23 +289,112 @@ service cloud.firestore {
       allow delete: if isAdmin();
     }
 
-    /* ═══ باقي المجموعات — لسا على وضعها المفتوح الأصلي (بانتظار دور
-       لاحق لو احتجنا)، عدا store_employees اللي اتصحّح تكرارها هون. ═══ */
-    match /admin_notifications/{id} { allow read, write: if true; }
-    match /user_notifications/{id} { allow read, write: if true; }
-    match /app_settings/{id} { allow read, write: if true; }
-    match /coupons/{id} { allow read, write: if true; }
-    match /meals/{id} { allow read, write: if true; }
-    match /meal_ingredients/{id} { allow read, write: if true; }
-    match /ingredients/{id} { allow read, write: if true; }
-    match /measure_config/{id} { allow read, write: if true; }
-    match /counters/{id} { allow read, write: if true; }
-    match /driver_shifts/{id} { allow read, write: if true; }
-    match /driver_balance_transactions/{id} { allow read, write: if true; }
-    match /store_ingredients/{id} { allow read, write: if true; }
-    match /store_work_sessions/{id} { allow read, write: if true; }
-    match /store_commission_requests/{id} { allow read, write: if true; }
-    match /users/{id} { allow read, write: if true; }
+    /* ═══ 21 أغسطس 2026 — تأمين باقي المجموعات (كانت كلها if true) ═══
+       نفس فلسفة drivers/customers/stores/orders: كل مجموعة تُقيّد حسب
+       مين فعلياً بيكتب/يقرأ فيها بالتطبيق، بالاعتماد على Anonymous Auth
+       الموجود أصلاً بكل التطبيقات + isAdmin(). */
+
+    /* الكتالوج العام (وجبات/مكونات/روابطها/وحدات القياس) — قراءة عامة
+       (تطبيق الزبون يحمّلها حتى قبل أي تفاعل)، كتابة أدمن بس. */
+    match /meals/{id} { allow read: if true; allow write: if isAdmin(); }
+    match /meal_ingredients/{id} { allow read: if true; allow write: if isAdmin(); }
+    match /ingredients/{id} { allow read: if true; allow write: if isAdmin(); }
+    match /measure_config/{id} { allow read: if true; allow write: if isAdmin(); }
+
+    /* عداد رقم الطلب التسلسلي — يُكتب من تطبيق الزبون بـtransaction وقت
+       إنشاء كل طلب (بدون واجهة أدمن). قراءة عامة، كتابة لأي مستخدم مسجّل
+       (حتى Anonymous) بما إنه ما فيه صاحب واحد محدد لهالمستند. */
+    match /counters/{id} {
+      allow read: if true;
+      allow write: if request.auth != null;
+    }
+
+    /* إعدادات العمولات (نسبة/مبلغ ثابت للسائق والمتجر) — تُقرأ حياً من
+       كل صفحات السائق/المتجر، تُكتب فقط من akleto-admin-settings.html. */
+    match /app_settings/{id} {
+      allow read: if request.auth != null;
+      allow write: if isAdmin();
+    }
+
+    /* أكواد الخصم — الزبون يحتاج يقرأها للتحقق منها، ويحتاج يزيد
+       used_count فقط (بtransaction) وقت تنفيذ الطلب. أي تعديل تاني
+       (القيمة، الحد الأقصى، الصلاحية...) أدمن بس. */
+    match /coupons/{id} {
+      allow read: if request.auth != null;
+      allow create, delete: if isAdmin();
+      allow update: if isAdmin() || (
+        request.auth != null &&
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['used_count', 'updated_at'])
+      );
+    }
+
+    /* تنبيهات الأدمن الداخلية — تُكتب تلقائياً (fire-and-forget) من
+       تطبيقات الزبون/المتجر/السائق عند أحداث الطلب، تُقرأ وتُدار من
+       لوحة الأدمن بس. */
+    match /admin_notifications/{id} {
+      allow create: if request.auth != null;
+      allow read, update, delete: if isAdmin();
+    }
+
+    /* رسائل الأدمن للمستخدمين — تُكتب من لوحة الأدمن بس، تُقرأ من كل
+       التطبيقات (تُفلتر محلياً حسب audience/target_id بالكود). */
+    match /user_notifications/{id} {
+      allow read: if request.auth != null;
+      allow create, update, delete: if isAdmin();
+    }
+
+    /* ورديات عمل السائق (لحساب ساعات العمل والمسافة) — صاحب الوردية بس
+       (أو الأدمن) يقدر يقرأ/يكتب، وممنوع يغيّر driver_id بعد الإنشاء. */
+    match /driver_shifts/{id} {
+      allow read: if isAdmin() || (resource.data.driver_id != null && isOwnerDriver(resource.data.driver_id));
+      allow create: if isAdmin() || isOwnerDriver(request.resource.data.driver_id);
+      allow update: if isAdmin() || (
+        isOwnerDriver(resource.data.driver_id) &&
+        request.resource.data.driver_id == resource.data.driver_id
+      );
+      allow delete: if isAdmin();
+    }
+
+    /* طلبات تسديد/تحويل رصيد السائق — السائق يقدر بس ينشئ طلب جديد
+       بحالة pending عن نفسه، وبعدها بس الأدمن يقدر يأكّد/يرفض. */
+    match /driver_balance_transactions/{id} {
+      allow read: if isAdmin() || (resource.data.driver_id != null && isOwnerDriver(resource.data.driver_id));
+      allow create: if (isAdmin() || isOwnerDriver(request.resource.data.driver_id))
+        && request.resource.data.status == 'pending';
+      allow update, delete: if isAdmin();
+    }
+
+    /* توفر/أسعار منتجات كل متجر — قراءة عامة (يستخدمها منطق "أقرب متجر"
+       بتطبيق الزبون لكل المتاجر مع بعض)، كتابة لموظف المتجر نفسه بس. */
+    match /store_ingredients/{id} {
+      allow read: if true;
+      allow create, update: if isAdmin() || isStoreEmployee(request.resource.data.store_id);
+      allow delete: if isAdmin() || isStoreEmployee(resource.data.store_id);
+    }
+
+    /* ورديات عمل موظف المتجر (لحساب ساعات الدوام) — موظف المتجر نفسه
+       بس (أو الأدمن) يقدر يقرأ/يكتب. */
+    match /store_work_sessions/{id} {
+      allow read: if isAdmin() || (resource.data.store_id != null && isStoreEmployee(resource.data.store_id));
+      allow create: if isAdmin() || isStoreEmployee(request.resource.data.store_id);
+      allow update: if isAdmin() || isStoreEmployee(resource.data.store_id);
+      allow delete: if isAdmin();
+    }
+
+    /* طلبات تحصيل عمولة موظف المتجر — نفس نمط driver_balance_transactions:
+       الموظف ينشئ طلب pending عن متجره بس، والأدمن بس يأكّد/يرفض. */
+    match /store_commission_requests/{id} {
+      allow read: if isAdmin() || (resource.data.store_id != null && isStoreEmployee(resource.data.store_id));
+      allow create: if (isAdmin() || isStoreEmployee(request.resource.data.store_id))
+        && request.resource.data.status == 'pending';
+      allow update, delete: if isAdmin();
+    }
+
+    /* مجموعة غير موثّقة الاستخدام الفعلي بالتطبيق حالياً — أدمن بس
+       لحد ما نتأكد شو الغرض الحقيقي منها (احتياط أمان افتراضي). */
+    match /users/{id} {
+      allow read, write: if isAdmin();
+    }
   }
 }
 

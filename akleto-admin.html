@@ -239,11 +239,11 @@ window.addEventListener('DOMContentLoaded', () => {
       });
     } catch(e) { console.error('orders load error', e); }
 
-    // ── المستخدمين (عدد) ──
+    // ── المستخدمين (عدد) ── 🔧 22 أغسطس 2026: كانت تقرأ من مجموعة 'users' الفاضية دايماً (غير مستخدمة بأي مكان بالمشروع) فالرقم كان صفر ثابت. صُحّحت لتقرأ من 'customers' (المجموعة الحقيقية للزبائن).
     try {
-      const usersSnap = await getDocs(collection(db, 'users'));
-      document.getElementById('stat-users-count').textContent = usersSnap.size;
-    } catch(e) { console.error('users load error', e); }
+      const customersSnap = await getDocs(collection(db, 'customers'));
+      document.getElementById('stat-users-count').textContent = customersSnap.size;
+    } catch(e) { console.error('customers count load error', e); }
   }
 
   function renderTopMeals(meals) {

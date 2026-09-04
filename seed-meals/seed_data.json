@@ -1,0 +1,1156 @@
+{
+  "ingredients": {
+    "buns": {
+      "name_ar": "خبز برغر",
+      "category": "مخبوزات",
+      "measure_type": "count",
+      "package_label": "كيس 6 حبات",
+      "package_qty": 6,
+      "price_per_package": 1.5,
+      "image_url": "https://placehold.co/600x400/A23E48/FFF3E4?text=%D8%AE%D8%A8%D8%B2%20%D8%A8%D8%B1%D8%BA%D8%B1&font=cairo"
+    },
+    "beef_patty": {
+      "name_ar": "لحمة برغر (شرحة)",
+      "category": "لحوم",
+      "measure_type": "count",
+      "package_label": "كيس 4 شرائح",
+      "package_qty": 4,
+      "price_per_package": 3.5,
+      "image_url": "https://placehold.co/600x400/A23E48/FFF3E4?text=%D9%84%D8%AD%D9%85%D8%A9%20%D8%A8%D8%B1%D8%BA%D8%B1%20%28%D8%B4%D8%B1%D8%AD%D8%A9%29&font=cairo"
+    },
+    "beef_mince": {
+      "name_ar": "لحمة بقر مفرومة",
+      "category": "لحوم",
+      "measure_type": "weight",
+      "package_label": "كيس 500غ",
+      "package_qty": 500,
+      "price_per_package": 4.2,
+      "image_url": "https://placehold.co/600x400/A23E48/FFF3E4?text=%D9%84%D8%AD%D9%85%D8%A9%20%D8%A8%D9%82%D8%B1%20%D9%85%D9%81%D8%B1%D9%88%D9%85%D8%A9&font=cairo"
+    },
+    "chicken_breast": {
+      "name_ar": "صدور دجاج",
+      "category": "لحوم",
+      "measure_type": "weight",
+      "package_label": "كيلو",
+      "package_qty": 1000,
+      "price_per_package": 3.8,
+      "image_url": "https://placehold.co/600x400/A23E48/FFF3E4?text=%D8%B5%D8%AF%D9%88%D8%B1%20%D8%AF%D8%AC%D8%A7%D8%AC&font=cairo"
+    },
+    "cheddar_slice": {
+      "name_ar": "جبنة شيدر شرائح",
+      "category": "ألبان",
+      "measure_type": "count",
+      "package_label": "كيس 10 شرائح",
+      "package_qty": 10,
+      "price_per_package": 2.2,
+      "image_url": "https://placehold.co/600x400/A23E48/FFF3E4?text=%D8%AC%D8%A8%D9%86%D8%A9%20%D8%B4%D9%8A%D8%AF%D8%B1%20%D8%B4%D8%B1%D8%A7%D8%A6%D8%AD&font=cairo"
+    },
+    "lettuce": {
+      "name_ar": "خس",
+      "category": "خضار",
+      "measure_type": "weight",
+      "package_label": "حبة (~400غ)",
+      "package_qty": 400,
+      "price_per_package": 0.5,
+      "image_url": "https://placehold.co/600x400/A23E48/FFF3E4?text=%D8%AE%D8%B3&font=cairo"
+    },
+    "tomato": {
+      "name_ar": "طماطم",
+      "category": "خضار",
+      "measure_type": "weight",
+      "package_label": "كيلو",
+      "package_qty": 1000,
+      "price_per_package": 0.8,
+      "image_url": "https://placehold.co/600x400/A23E48/FFF3E4?text=%D8%B7%D9%85%D8%A7%D8%B7%D9%85&font=cairo"
+    },
+    "red_onion": {
+      "name_ar": "بصل أحمر",
+      "category": "خضار",
+      "measure_type": "weight",
+      "package_label": "كيلو",
+      "package_qty": 1000,
+      "price_per_package": 0.6,
+      "image_url": "https://placehold.co/600x400/A23E48/FFF3E4?text=%D8%A8%D8%B5%D9%84%20%D8%A3%D8%AD%D9%85%D8%B1&font=cairo"
+    },
+    "pickles": {
+      "name_ar": "مخلل خيار (شرائح)",
+      "category": "مخللات",
+      "measure_type": "weight",
+      "package_label": "برطمان 500غ",
+      "package_qty": 500,
+      "price_per_package": 1.8,
+      "image_url": "https://placehold.co/600x400/A23E48/FFF3E4?text=%D9%85%D8%AE%D9%84%D9%84%20%D8%AE%D9%8A%D8%A7%D8%B1%20%28%D8%B4%D8%B1%D8%A7%D8%A6%D8%AD%29&font=cairo"
+    },
+    "ketchup": {
+      "name_ar": "كاتشب",
+      "category": "صوصات",
+      "measure_type": "volume",
+      "package_label": "عبوة 500مل",
+      "package_qty": 500,
+      "price_per_package": 1.5,
+      "image_url": "https://placehold.co/600x400/A23E48/FFF3E4?text=%D9%83%D8%A7%D8%AA%D8%B4%D8%A8&font=cairo"
+    },
+    "mayo": {
+      "name_ar": "مايونيز",
+      "category": "صوصات",
+      "measure_type": "volume",
+      "package_label": "عبوة 500مل",
+      "package_qty": 500,
+      "price_per_package": 1.6,
+      "image_url": "https://placehold.co/600x400/A23E48/FFF3E4?text=%D9%85%D8%A7%D9%8A%D9%88%D9%86%D9%8A%D8%B2&font=cairo"
+    },
+    "mustard": {
+      "name_ar": "خردل",
+      "category": "صوصات",
+      "measure_type": "volume",
+      "package_label": "عبوة 250مل",
+      "package_qty": 250,
+      "price_per_package": 1.2,
+      "image_url": "https://placehold.co/600x400/A23E48/FFF3E4?text=%D8%AE%D8%B1%D8%AF%D9%84&font=cairo"
+    },
+    "shawarma_bread": {
+      "name_ar": "خبز شاورما (صمون)",
+      "category": "مخبوزات",
+      "measure_type": "count",
+      "package_label": "كيس 5 حبات",
+      "package_qty": 5,
+      "price_per_package": 1.0,
+      "image_url": "https://placehold.co/600x400/A23E48/FFF3E4?text=%D8%AE%D8%A8%D8%B2%20%D8%B4%D8%A7%D9%88%D8%B1%D9%85%D8%A7%20%28%D8%B5%D9%85%D9%88%D9%86%29&font=cairo"
+    },
+    "shawarma_meat": {
+      "name_ar": "لحمة شاورما شرائح",
+      "category": "لحوم",
+      "measure_type": "weight",
+      "package_label": "كيس 500غ",
+      "package_qty": 500,
+      "price_per_package": 4.5,
+      "image_url": "https://placehold.co/600x400/A23E48/FFF3E4?text=%D9%84%D8%AD%D9%85%D8%A9%20%D8%B4%D8%A7%D9%88%D8%B1%D9%85%D8%A7%20%D8%B4%D8%B1%D8%A7%D8%A6%D8%AD&font=cairo"
+    },
+    "garlic_sauce": {
+      "name_ar": "صوص ثوم",
+      "category": "صوصات",
+      "measure_type": "volume",
+      "package_label": "عبوة 300مل",
+      "package_qty": 300,
+      "price_per_package": 1.7,
+      "image_url": "https://placehold.co/600x400/A23E48/FFF3E4?text=%D8%B5%D9%88%D8%B5%20%D8%AB%D9%88%D9%85&font=cairo"
+    },
+    "fries_frozen": {
+      "name_ar": "بطاطا مقلية مجمدة",
+      "category": "مجمدات",
+      "measure_type": "weight",
+      "package_label": "كيس 1كغ",
+      "package_qty": 1000,
+      "price_per_package": 2.2,
+      "image_url": "https://placehold.co/600x400/A23E48/FFF3E4?text=%D8%A8%D8%B7%D8%A7%D8%B7%D8%A7%20%D9%85%D9%82%D9%84%D9%8A%D8%A9%20%D9%85%D8%AC%D9%85%D8%AF%D8%A9&font=cairo"
+    },
+    "pizza_dough": {
+      "name_ar": "عجينة بيتزا جاهزة",
+      "category": "مخبوزات",
+      "measure_type": "count",
+      "package_label": "قرص 30سم",
+      "package_qty": 1,
+      "price_per_package": 1.2,
+      "image_url": "https://placehold.co/600x400/A23E48/FFF3E4?text=%D8%B9%D8%AC%D9%8A%D9%86%D8%A9%20%D8%A8%D9%8A%D8%AA%D8%B2%D8%A7%20%D8%AC%D8%A7%D9%87%D8%B2%D8%A9&font=cairo"
+    },
+    "pizza_sauce": {
+      "name_ar": "صلصة بيتزا",
+      "category": "صوصات",
+      "measure_type": "volume",
+      "package_label": "علبة 400مل",
+      "package_qty": 400,
+      "price_per_package": 1.1,
+      "image_url": "https://placehold.co/600x400/A23E48/FFF3E4?text=%D8%B5%D9%84%D8%B5%D8%A9%20%D8%A8%D9%8A%D8%AA%D8%B2%D8%A7&font=cairo"
+    },
+    "mozzarella": {
+      "name_ar": "جبنة موزاريلا مبشورة",
+      "category": "ألبان",
+      "measure_type": "weight",
+      "package_label": "كيس 500غ",
+      "package_qty": 500,
+      "price_per_package": 3.5,
+      "image_url": "https://placehold.co/600x400/A23E48/FFF3E4?text=%D8%AC%D8%A8%D9%86%D8%A9%20%D9%85%D9%88%D8%B2%D8%A7%D8%B1%D9%8A%D9%84%D8%A7%20%D9%85%D8%A8%D8%B4%D9%88%D8%B1%D8%A9&font=cairo"
+    },
+    "pepperoni": {
+      "name_ar": "بيبروني شرائح",
+      "category": "لحوم",
+      "measure_type": "weight",
+      "package_label": "كيس 200غ",
+      "package_qty": 200,
+      "price_per_package": 2.8,
+      "image_url": "https://placehold.co/600x400/A23E48/FFF3E4?text=%D8%A8%D9%8A%D8%A8%D8%B1%D9%88%D9%86%D9%8A%20%D8%B4%D8%B1%D8%A7%D8%A6%D8%AD&font=cairo"
+    },
+    "bell_pepper": {
+      "name_ar": "فليفلة ملونة",
+      "category": "خضار",
+      "measure_type": "weight",
+      "package_label": "كيلو",
+      "package_qty": 1000,
+      "price_per_package": 1.5,
+      "image_url": "https://placehold.co/600x400/A23E48/FFF3E4?text=%D9%81%D9%84%D9%8A%D9%81%D9%84%D8%A9%20%D9%85%D9%84%D9%88%D9%86%D8%A9&font=cairo"
+    },
+    "mushroom": {
+      "name_ar": "فطر",
+      "category": "خضار",
+      "measure_type": "weight",
+      "package_label": "علبة 250غ",
+      "package_qty": 250,
+      "price_per_package": 1.4,
+      "image_url": "https://placehold.co/600x400/A23E48/FFF3E4?text=%D9%81%D8%B7%D8%B1&font=cairo"
+    },
+    "black_olives": {
+      "name_ar": "زيتون أسود شرائح",
+      "category": "معلبات",
+      "measure_type": "weight",
+      "package_label": "علبة 200غ",
+      "package_qty": 200,
+      "price_per_package": 1.3,
+      "image_url": "https://placehold.co/600x400/A23E48/FFF3E4?text=%D8%B2%D9%8A%D8%AA%D9%88%D9%86%20%D8%A3%D8%B3%D9%88%D8%AF%20%D8%B4%D8%B1%D8%A7%D8%A6%D8%AD&font=cairo"
+    },
+    "chicken_strips": {
+      "name_ar": "ستربس دجاج مقرمش مجمد",
+      "category": "مجمدات",
+      "measure_type": "weight",
+      "package_label": "كيس 1كغ",
+      "package_qty": 1000,
+      "price_per_package": 5.5,
+      "image_url": "https://placehold.co/600x400/A23E48/FFF3E4?text=%D8%B3%D8%AA%D8%B1%D8%A8%D8%B3%20%D8%AF%D8%AC%D8%A7%D8%AC%20%D9%85%D9%82%D8%B1%D9%85%D8%B4%20%D9%85%D8%AC%D9%85%D8%AF&font=cairo"
+    },
+    "nuggets": {
+      "name_ar": "ناغتس دجاج مجمد",
+      "category": "مجمدات",
+      "measure_type": "weight",
+      "package_label": "كيس 1كغ",
+      "package_qty": 1000,
+      "price_per_package": 5.0,
+      "image_url": "https://placehold.co/600x400/A23E48/FFF3E4?text=%D9%86%D8%A7%D8%BA%D8%AA%D8%B3%20%D8%AF%D8%AC%D8%A7%D8%AC%20%D9%85%D8%AC%D9%85%D8%AF&font=cairo"
+    },
+    "hotdog_sausage": {
+      "name_ar": "نقانق هوت دوج",
+      "category": "لحوم",
+      "measure_type": "count",
+      "package_label": "كيس 8 حبات",
+      "package_qty": 8,
+      "price_per_package": 2.5,
+      "image_url": "https://placehold.co/600x400/A23E48/FFF3E4?text=%D9%86%D9%82%D8%A7%D9%86%D9%82%20%D9%87%D9%88%D8%AA%20%D8%AF%D9%88%D8%AC&font=cairo"
+    },
+    "hotdog_bread": {
+      "name_ar": "خبز هوت دوج",
+      "category": "مخبوزات",
+      "measure_type": "count",
+      "package_label": "كيس 6 حبات",
+      "package_qty": 6,
+      "price_per_package": 1.2,
+      "image_url": "https://placehold.co/600x400/A23E48/FFF3E4?text=%D8%AE%D8%A8%D8%B2%20%D9%87%D9%88%D8%AA%20%D8%AF%D9%88%D8%AC&font=cairo"
+    },
+    "tortilla_wrap": {
+      "name_ar": "خبز راب (تورتيلا)",
+      "category": "مخبوزات",
+      "measure_type": "count",
+      "package_label": "كيس 8 حبات",
+      "package_qty": 8,
+      "price_per_package": 1.8,
+      "image_url": "https://placehold.co/600x400/A23E48/FFF3E4?text=%D8%AE%D8%A8%D8%B2%20%D8%B1%D8%A7%D8%A8%20%28%D8%AA%D9%88%D8%B1%D8%AA%D9%8A%D9%84%D8%A7%29&font=cairo"
+    },
+    "ranch_sauce": {
+      "name_ar": "صوص رانش",
+      "category": "صوصات",
+      "measure_type": "volume",
+      "package_label": "عبوة 350مل",
+      "package_qty": 350,
+      "price_per_package": 2.0,
+      "image_url": "https://placehold.co/600x400/A23E48/FFF3E4?text=%D8%B5%D9%88%D8%B5%20%D8%B1%D8%A7%D9%86%D8%B4&font=cairo"
+    },
+    "cooking_cream": {
+      "name_ar": "كريمة طبخ",
+      "category": "ألبان",
+      "measure_type": "volume",
+      "package_label": "علبة 250مل",
+      "package_qty": 250,
+      "price_per_package": 1.5,
+      "image_url": "https://placehold.co/600x400/A23E48/FFF3E4?text=%D9%83%D8%B1%D9%8A%D9%85%D8%A9%20%D8%B7%D8%A8%D8%AE&font=cairo"
+    },
+    "garlic": {
+      "name_ar": "ثوم",
+      "category": "خضار",
+      "measure_type": "weight",
+      "package_label": "كيلو",
+      "package_qty": 1000,
+      "price_per_package": 2.5,
+      "image_url": "https://placehold.co/600x400/A23E48/FFF3E4?text=%D8%AB%D9%88%D9%85&font=cairo"
+    },
+    "pasta_penne": {
+      "name_ar": "معكرونة بيني",
+      "category": "حبوب ونشويات",
+      "measure_type": "weight",
+      "package_label": "كيس 500غ",
+      "package_qty": 500,
+      "price_per_package": 1.0,
+      "image_url": "https://placehold.co/600x400/A23E48/FFF3E4?text=%D9%85%D8%B9%D9%83%D8%B1%D9%88%D9%86%D8%A9%20%D8%A8%D9%8A%D9%86%D9%8A&font=cairo"
+    },
+    "tomato_paste": {
+      "name_ar": "معجون طماطم",
+      "category": "معلبات",
+      "measure_type": "weight",
+      "package_label": "علبة 400غ",
+      "package_qty": 400,
+      "price_per_package": 0.9,
+      "image_url": "https://placehold.co/600x400/A23E48/FFF3E4?text=%D9%85%D8%B9%D8%AC%D9%88%D9%86%20%D8%B7%D9%85%D8%A7%D8%B7%D9%85&font=cairo"
+    },
+    "green_onion": {
+      "name_ar": "بصل أخضر",
+      "category": "خضار",
+      "measure_type": "weight",
+      "package_label": "ربطة (~150غ)",
+      "package_qty": 150,
+      "price_per_package": 0.4,
+      "image_url": "https://placehold.co/600x400/A23E48/FFF3E4?text=%D8%A8%D8%B5%D9%84%20%D8%A3%D8%AE%D8%B6%D8%B1&font=cairo"
+    },
+    "parsley": {
+      "name_ar": "بقدونس",
+      "category": "خضار",
+      "measure_type": "weight",
+      "package_label": "ربطة (~150غ)",
+      "package_qty": 150,
+      "price_per_package": 0.4,
+      "image_url": "https://placehold.co/600x400/A23E48/FFF3E4?text=%D8%A8%D9%82%D8%AF%D9%88%D9%86%D8%B3&font=cairo"
+    },
+    "hot_sauce": {
+      "name_ar": "صوص حار (شطة)",
+      "category": "صوصات",
+      "measure_type": "volume",
+      "package_label": "عبوة 250مل",
+      "package_qty": 250,
+      "price_per_package": 1.6,
+      "image_url": "https://placehold.co/600x400/A23E48/FFF3E4?text=%D8%B5%D9%88%D8%B5%20%D8%AD%D8%A7%D8%B1%20%28%D8%B4%D8%B7%D8%A9%29&font=cairo"
+    },
+    "falafel_frozen": {
+      "name_ar": "فلافل جاهز مجمد",
+      "category": "مجمدات",
+      "measure_type": "weight",
+      "package_label": "كيس 1كغ",
+      "package_qty": 1000,
+      "price_per_package": 3.2,
+      "image_url": "https://placehold.co/600x400/A23E48/FFF3E4?text=%D9%81%D9%84%D8%A7%D9%81%D9%84%20%D8%AC%D8%A7%D9%87%D8%B2%20%D9%85%D8%AC%D9%85%D8%AF&font=cairo"
+    },
+    "arabic_bread": {
+      "name_ar": "خبز عربي",
+      "category": "مخبوزات",
+      "measure_type": "count",
+      "package_label": "كيس 5 أرغفة",
+      "package_qty": 5,
+      "price_per_package": 0.5,
+      "image_url": "https://placehold.co/600x400/A23E48/FFF3E4?text=%D8%AE%D8%A8%D8%B2%20%D8%B9%D8%B1%D8%A8%D9%8A&font=cairo"
+    },
+    "tahini": {
+      "name_ar": "طحينة",
+      "category": "معلبات",
+      "measure_type": "weight",
+      "package_label": "علبة 500غ",
+      "package_qty": 500,
+      "price_per_package": 2.0,
+      "image_url": "https://placehold.co/600x400/A23E48/FFF3E4?text=%D8%B7%D8%AD%D9%8A%D9%86%D8%A9&font=cairo"
+    },
+    "potato_whole": {
+      "name_ar": "بطاطا حبات",
+      "category": "خضار",
+      "measure_type": "weight",
+      "package_label": "كيلو",
+      "package_qty": 1000,
+      "price_per_package": 0.6,
+      "image_url": "https://placehold.co/600x400/A23E48/FFF3E4?text=%D8%A8%D8%B7%D8%A7%D8%B7%D8%A7%20%D8%AD%D8%A8%D8%A7%D8%AA&font=cairo"
+    }
+  },
+  "meals": [
+    {
+      "name_ar": "برغر لحمة كلاسيك",
+      "category": "برغر",
+      "difficulty": "سهل",
+      "prep_time_min": 15,
+      "base_price": 3.5,
+      "servings_default": 1,
+      "is_active": true,
+      "description": "برغر لحمة كلاسيك — تحضير سريع، مكونات طازة.",
+      "image_url": "https://placehold.co/600x400/A23E48/FFF3E4?text=%D8%A8%D8%B1%D8%BA%D8%B1%20%D9%84%D8%AD%D9%85%D8%A9%20%D9%83%D9%84%D8%A7%D8%B3%D9%8A%D9%83&font=cairo",
+      "recipe": [
+        {
+          "ingredient_key": "buns",
+          "recipe_unit": "حبة",
+          "recipe_qty": 1
+        },
+        {
+          "ingredient_key": "beef_patty",
+          "recipe_unit": "حبة",
+          "recipe_qty": 1
+        },
+        {
+          "ingredient_key": "cheddar_slice",
+          "recipe_unit": "حبة",
+          "recipe_qty": 1
+        },
+        {
+          "ingredient_key": "lettuce",
+          "recipe_unit": "غرام",
+          "recipe_qty": 20
+        },
+        {
+          "ingredient_key": "tomato",
+          "recipe_unit": "غرام",
+          "recipe_qty": 20
+        },
+        {
+          "ingredient_key": "red_onion",
+          "recipe_unit": "غرام",
+          "recipe_qty": 15
+        },
+        {
+          "ingredient_key": "pickles",
+          "recipe_unit": "غرام",
+          "recipe_qty": 15
+        },
+        {
+          "ingredient_key": "ketchup",
+          "recipe_unit": "معلقة كبيرة",
+          "recipe_qty": 1
+        },
+        {
+          "ingredient_key": "mayo",
+          "recipe_unit": "معلقة كبيرة",
+          "recipe_qty": 1
+        }
+      ]
+    },
+    {
+      "name_ar": "برغر دجاج مقرمش",
+      "category": "برغر",
+      "difficulty": "سهل",
+      "prep_time_min": 18,
+      "base_price": 3.75,
+      "servings_default": 1,
+      "is_active": true,
+      "description": "برغر دجاج مقرمش — تحضير سريع، مكونات طازة.",
+      "image_url": "https://placehold.co/600x400/A23E48/FFF3E4?text=%D8%A8%D8%B1%D8%BA%D8%B1%20%D8%AF%D8%AC%D8%A7%D8%AC%20%D9%85%D9%82%D8%B1%D9%85%D8%B4&font=cairo",
+      "recipe": [
+        {
+          "ingredient_key": "buns",
+          "recipe_unit": "حبة",
+          "recipe_qty": 1
+        },
+        {
+          "ingredient_key": "chicken_strips",
+          "recipe_unit": "غرام",
+          "recipe_qty": 150
+        },
+        {
+          "ingredient_key": "cheddar_slice",
+          "recipe_unit": "حبة",
+          "recipe_qty": 1
+        },
+        {
+          "ingredient_key": "lettuce",
+          "recipe_unit": "غرام",
+          "recipe_qty": 20
+        },
+        {
+          "ingredient_key": "mayo",
+          "recipe_unit": "معلقة كبيرة",
+          "recipe_qty": 1
+        },
+        {
+          "ingredient_key": "hot_sauce",
+          "recipe_unit": "معلقة صغيرة",
+          "recipe_qty": 1
+        }
+      ]
+    },
+    {
+      "name_ar": "برغر دبل تشيز",
+      "category": "برغر",
+      "difficulty": "سهل",
+      "prep_time_min": 18,
+      "base_price": 4.25,
+      "servings_default": 1,
+      "is_active": true,
+      "description": "برغر دبل تشيز — تحضير سريع، مكونات طازة.",
+      "image_url": "https://placehold.co/600x400/A23E48/FFF3E4?text=%D8%A8%D8%B1%D8%BA%D8%B1%20%D8%AF%D8%A8%D9%84%20%D8%AA%D8%B4%D9%8A%D8%B2&font=cairo",
+      "recipe": [
+        {
+          "ingredient_key": "buns",
+          "recipe_unit": "حبة",
+          "recipe_qty": 1
+        },
+        {
+          "ingredient_key": "beef_patty",
+          "recipe_unit": "حبة",
+          "recipe_qty": 2
+        },
+        {
+          "ingredient_key": "cheddar_slice",
+          "recipe_unit": "حبة",
+          "recipe_qty": 2
+        },
+        {
+          "ingredient_key": "red_onion",
+          "recipe_unit": "غرام",
+          "recipe_qty": 15
+        },
+        {
+          "ingredient_key": "pickles",
+          "recipe_unit": "غرام",
+          "recipe_qty": 20
+        },
+        {
+          "ingredient_key": "ketchup",
+          "recipe_unit": "معلقة كبيرة",
+          "recipe_qty": 1
+        },
+        {
+          "ingredient_key": "mustard",
+          "recipe_unit": "معلقة صغيرة",
+          "recipe_qty": 1
+        }
+      ]
+    },
+    {
+      "name_ar": "شاورما دجاج",
+      "category": "شاورما",
+      "difficulty": "سهل",
+      "prep_time_min": 15,
+      "base_price": 2.75,
+      "servings_default": 1,
+      "is_active": true,
+      "description": "شاورما دجاج — تحضير سريع، مكونات طازة.",
+      "image_url": "https://placehold.co/600x400/A23E48/FFF3E4?text=%D8%B4%D8%A7%D9%88%D8%B1%D9%85%D8%A7%20%D8%AF%D8%AC%D8%A7%D8%AC&font=cairo",
+      "recipe": [
+        {
+          "ingredient_key": "shawarma_bread",
+          "recipe_unit": "حبة",
+          "recipe_qty": 1
+        },
+        {
+          "ingredient_key": "chicken_breast",
+          "recipe_unit": "غرام",
+          "recipe_qty": 150
+        },
+        {
+          "ingredient_key": "garlic_sauce",
+          "recipe_unit": "معلقة كبيرة",
+          "recipe_qty": 1
+        },
+        {
+          "ingredient_key": "pickles",
+          "recipe_unit": "غرام",
+          "recipe_qty": 20
+        },
+        {
+          "ingredient_key": "tomato",
+          "recipe_unit": "غرام",
+          "recipe_qty": 20
+        },
+        {
+          "ingredient_key": "red_onion",
+          "recipe_unit": "غرام",
+          "recipe_qty": 10
+        }
+      ]
+    },
+    {
+      "name_ar": "شاورما لحمة",
+      "category": "شاورما",
+      "difficulty": "سهل",
+      "prep_time_min": 15,
+      "base_price": 3.25,
+      "servings_default": 1,
+      "is_active": true,
+      "description": "شاورما لحمة — تحضير سريع، مكونات طازة.",
+      "image_url": "https://placehold.co/600x400/A23E48/FFF3E4?text=%D8%B4%D8%A7%D9%88%D8%B1%D9%85%D8%A7%20%D9%84%D8%AD%D9%85%D8%A9&font=cairo",
+      "recipe": [
+        {
+          "ingredient_key": "shawarma_bread",
+          "recipe_unit": "حبة",
+          "recipe_qty": 1
+        },
+        {
+          "ingredient_key": "shawarma_meat",
+          "recipe_unit": "غرام",
+          "recipe_qty": 150
+        },
+        {
+          "ingredient_key": "garlic_sauce",
+          "recipe_unit": "معلقة كبيرة",
+          "recipe_qty": 1
+        },
+        {
+          "ingredient_key": "pickles",
+          "recipe_unit": "غرام",
+          "recipe_qty": 20
+        },
+        {
+          "ingredient_key": "red_onion",
+          "recipe_unit": "غرام",
+          "recipe_qty": 15
+        },
+        {
+          "ingredient_key": "parsley",
+          "recipe_unit": "غرام",
+          "recipe_qty": 10
+        }
+      ]
+    },
+    {
+      "name_ar": "بيتزا مارغريتا",
+      "category": "بيتزا",
+      "difficulty": "متوسط",
+      "prep_time_min": 22,
+      "base_price": 4.0,
+      "servings_default": 1,
+      "is_active": true,
+      "description": "بيتزا مارغريتا — تحضير سريع، مكونات طازة.",
+      "image_url": "https://placehold.co/600x400/A23E48/FFF3E4?text=%D8%A8%D9%8A%D8%AA%D8%B2%D8%A7%20%D9%85%D8%A7%D8%B1%D8%BA%D8%B1%D9%8A%D8%AA%D8%A7&font=cairo",
+      "recipe": [
+        {
+          "ingredient_key": "pizza_dough",
+          "recipe_unit": "حبة",
+          "recipe_qty": 1
+        },
+        {
+          "ingredient_key": "pizza_sauce",
+          "recipe_unit": "معلقة كبيرة",
+          "recipe_qty": 3
+        },
+        {
+          "ingredient_key": "mozzarella",
+          "recipe_unit": "غرام",
+          "recipe_qty": 150
+        }
+      ]
+    },
+    {
+      "name_ar": "بيتزا خضار",
+      "category": "بيتزا",
+      "difficulty": "متوسط",
+      "prep_time_min": 24,
+      "base_price": 4.25,
+      "servings_default": 1,
+      "is_active": true,
+      "description": "بيتزا خضار — تحضير سريع، مكونات طازة.",
+      "image_url": "https://placehold.co/600x400/A23E48/FFF3E4?text=%D8%A8%D9%8A%D8%AA%D8%B2%D8%A7%20%D8%AE%D8%B6%D8%A7%D8%B1&font=cairo",
+      "recipe": [
+        {
+          "ingredient_key": "pizza_dough",
+          "recipe_unit": "حبة",
+          "recipe_qty": 1
+        },
+        {
+          "ingredient_key": "pizza_sauce",
+          "recipe_unit": "معلقة كبيرة",
+          "recipe_qty": 3
+        },
+        {
+          "ingredient_key": "mozzarella",
+          "recipe_unit": "غرام",
+          "recipe_qty": 120
+        },
+        {
+          "ingredient_key": "bell_pepper",
+          "recipe_unit": "غرام",
+          "recipe_qty": 50
+        },
+        {
+          "ingredient_key": "mushroom",
+          "recipe_unit": "غرام",
+          "recipe_qty": 40
+        },
+        {
+          "ingredient_key": "black_olives",
+          "recipe_unit": "غرام",
+          "recipe_qty": 20
+        },
+        {
+          "ingredient_key": "red_onion",
+          "recipe_unit": "غرام",
+          "recipe_qty": 20
+        }
+      ]
+    },
+    {
+      "name_ar": "بيتزا بيبروني",
+      "category": "بيتزا",
+      "difficulty": "متوسط",
+      "prep_time_min": 22,
+      "base_price": 4.5,
+      "servings_default": 1,
+      "is_active": true,
+      "description": "بيتزا بيبروني — تحضير سريع، مكونات طازة.",
+      "image_url": "https://placehold.co/600x400/A23E48/FFF3E4?text=%D8%A8%D9%8A%D8%AA%D8%B2%D8%A7%20%D8%A8%D9%8A%D8%A8%D8%B1%D9%88%D9%86%D9%8A&font=cairo",
+      "recipe": [
+        {
+          "ingredient_key": "pizza_dough",
+          "recipe_unit": "حبة",
+          "recipe_qty": 1
+        },
+        {
+          "ingredient_key": "pizza_sauce",
+          "recipe_unit": "معلقة كبيرة",
+          "recipe_qty": 3
+        },
+        {
+          "ingredient_key": "mozzarella",
+          "recipe_unit": "غرام",
+          "recipe_qty": 150
+        },
+        {
+          "ingredient_key": "pepperoni",
+          "recipe_unit": "غرام",
+          "recipe_qty": 60
+        }
+      ]
+    },
+    {
+      "name_ar": "ستربس دجاج مقرمش",
+      "category": "دجاج مقرمش",
+      "difficulty": "سهل",
+      "prep_time_min": 15,
+      "base_price": 4.75,
+      "servings_default": 1,
+      "is_active": true,
+      "description": "ستربس دجاج مقرمش — تحضير سريع، مكونات طازة.",
+      "image_url": "https://placehold.co/600x400/A23E48/FFF3E4?text=%D8%B3%D8%AA%D8%B1%D8%A8%D8%B3%20%D8%AF%D8%AC%D8%A7%D8%AC%20%D9%85%D9%82%D8%B1%D9%85%D8%B4&font=cairo",
+      "recipe": [
+        {
+          "ingredient_key": "chicken_strips",
+          "recipe_unit": "غرام",
+          "recipe_qty": 250
+        },
+        {
+          "ingredient_key": "fries_frozen",
+          "recipe_unit": "غرام",
+          "recipe_qty": 150
+        },
+        {
+          "ingredient_key": "ketchup",
+          "recipe_unit": "معلقة كبيرة",
+          "recipe_qty": 1
+        },
+        {
+          "ingredient_key": "ranch_sauce",
+          "recipe_unit": "معلقة كبيرة",
+          "recipe_qty": 1
+        }
+      ]
+    },
+    {
+      "name_ar": "ناغتس دجاج",
+      "category": "دجاج مقرمش",
+      "difficulty": "سهل",
+      "prep_time_min": 12,
+      "base_price": 3.75,
+      "servings_default": 1,
+      "is_active": true,
+      "description": "ناغتس دجاج — تحضير سريع، مكونات طازة.",
+      "image_url": "https://placehold.co/600x400/A23E48/FFF3E4?text=%D9%86%D8%A7%D8%BA%D8%AA%D8%B3%20%D8%AF%D8%AC%D8%A7%D8%AC&font=cairo",
+      "recipe": [
+        {
+          "ingredient_key": "nuggets",
+          "recipe_unit": "غرام",
+          "recipe_qty": 250
+        },
+        {
+          "ingredient_key": "fries_frozen",
+          "recipe_unit": "غرام",
+          "recipe_qty": 150
+        },
+        {
+          "ingredient_key": "ketchup",
+          "recipe_unit": "معلقة كبيرة",
+          "recipe_qty": 1
+        },
+        {
+          "ingredient_key": "mustard",
+          "recipe_unit": "معلقة صغيرة",
+          "recipe_qty": 1
+        }
+      ]
+    },
+    {
+      "name_ar": "سندويش فيليه دجاج مشوي",
+      "category": "ساندويشات",
+      "difficulty": "سهل",
+      "prep_time_min": 16,
+      "base_price": 3.5,
+      "servings_default": 1,
+      "is_active": true,
+      "description": "سندويش فيليه دجاج مشوي — تحضير سريع، مكونات طازة.",
+      "image_url": "https://placehold.co/600x400/A23E48/FFF3E4?text=%D8%B3%D9%86%D8%AF%D9%88%D9%8A%D8%B4%20%D9%81%D9%8A%D9%84%D9%8A%D9%87%20%D8%AF%D8%AC%D8%A7%D8%AC%20%D9%85%D8%B4%D9%88%D9%8A&font=cairo",
+      "recipe": [
+        {
+          "ingredient_key": "buns",
+          "recipe_unit": "حبة",
+          "recipe_qty": 1
+        },
+        {
+          "ingredient_key": "chicken_breast",
+          "recipe_unit": "غرام",
+          "recipe_qty": 150
+        },
+        {
+          "ingredient_key": "lettuce",
+          "recipe_unit": "غرام",
+          "recipe_qty": 20
+        },
+        {
+          "ingredient_key": "tomato",
+          "recipe_unit": "غرام",
+          "recipe_qty": 20
+        },
+        {
+          "ingredient_key": "mayo",
+          "recipe_unit": "معلقة كبيرة",
+          "recipe_qty": 1
+        },
+        {
+          "ingredient_key": "cheddar_slice",
+          "recipe_unit": "حبة",
+          "recipe_qty": 1
+        }
+      ]
+    },
+    {
+      "name_ar": "هوت دوج كلاسيك",
+      "category": "ساندويشات",
+      "difficulty": "سهل",
+      "prep_time_min": 10,
+      "base_price": 2.25,
+      "servings_default": 1,
+      "is_active": true,
+      "description": "هوت دوج كلاسيك — تحضير سريع، مكونات طازة.",
+      "image_url": "https://placehold.co/600x400/A23E48/FFF3E4?text=%D9%87%D9%88%D8%AA%20%D8%AF%D9%88%D8%AC%20%D9%83%D9%84%D8%A7%D8%B3%D9%8A%D9%83&font=cairo",
+      "recipe": [
+        {
+          "ingredient_key": "hotdog_bread",
+          "recipe_unit": "حبة",
+          "recipe_qty": 1
+        },
+        {
+          "ingredient_key": "hotdog_sausage",
+          "recipe_unit": "حبة",
+          "recipe_qty": 1
+        },
+        {
+          "ingredient_key": "ketchup",
+          "recipe_unit": "معلقة كبيرة",
+          "recipe_qty": 1
+        },
+        {
+          "ingredient_key": "mustard",
+          "recipe_unit": "معلقة كبيرة",
+          "recipe_qty": 1
+        },
+        {
+          "ingredient_key": "red_onion",
+          "recipe_unit": "غرام",
+          "recipe_qty": 15
+        }
+      ]
+    },
+    {
+      "name_ar": "راب دجاج كريسبي",
+      "category": "راب",
+      "difficulty": "سهل",
+      "prep_time_min": 15,
+      "base_price": 3.25,
+      "servings_default": 1,
+      "is_active": true,
+      "description": "راب دجاج كريسبي — تحضير سريع، مكونات طازة.",
+      "image_url": "https://placehold.co/600x400/A23E48/FFF3E4?text=%D8%B1%D8%A7%D8%A8%20%D8%AF%D8%AC%D8%A7%D8%AC%20%D9%83%D8%B1%D9%8A%D8%B3%D8%A8%D9%8A&font=cairo",
+      "recipe": [
+        {
+          "ingredient_key": "tortilla_wrap",
+          "recipe_unit": "حبة",
+          "recipe_qty": 1
+        },
+        {
+          "ingredient_key": "chicken_strips",
+          "recipe_unit": "غرام",
+          "recipe_qty": 120
+        },
+        {
+          "ingredient_key": "lettuce",
+          "recipe_unit": "غرام",
+          "recipe_qty": 20
+        },
+        {
+          "ingredient_key": "cheddar_slice",
+          "recipe_unit": "حبة",
+          "recipe_qty": 1
+        },
+        {
+          "ingredient_key": "ranch_sauce",
+          "recipe_unit": "معلقة كبيرة",
+          "recipe_qty": 1
+        }
+      ]
+    },
+    {
+      "name_ar": "بطاطا مقلية بالصوص الحار",
+      "category": "جانبية",
+      "difficulty": "سهل",
+      "prep_time_min": 12,
+      "base_price": 3.0,
+      "servings_default": 1,
+      "is_active": true,
+      "description": "بطاطا مقلية بالصوص الحار — تحضير سريع، مكونات طازة.",
+      "image_url": "https://placehold.co/600x400/A23E48/FFF3E4?text=%D8%A8%D8%B7%D8%A7%D8%B7%D8%A7%20%D9%85%D9%82%D9%84%D9%8A%D8%A9%20%D8%A8%D8%A7%D9%84%D8%B5%D9%88%D8%B5%20%D8%A7%D9%84%D8%AD%D8%A7%D8%B1&font=cairo",
+      "recipe": [
+        {
+          "ingredient_key": "fries_frozen",
+          "recipe_unit": "غرام",
+          "recipe_qty": 300
+        },
+        {
+          "ingredient_key": "mozzarella",
+          "recipe_unit": "غرام",
+          "recipe_qty": 60
+        },
+        {
+          "ingredient_key": "hot_sauce",
+          "recipe_unit": "معلقة كبيرة",
+          "recipe_qty": 1
+        },
+        {
+          "ingredient_key": "ketchup",
+          "recipe_unit": "معلقة كبيرة",
+          "recipe_qty": 1
+        }
+      ]
+    },
+    {
+      "name_ar": "باستا ألفريدو بالدجاج",
+      "category": "باستا",
+      "difficulty": "متوسط",
+      "prep_time_min": 22,
+      "base_price": 4.5,
+      "servings_default": 1,
+      "is_active": true,
+      "description": "باستا ألفريدو بالدجاج — تحضير سريع، مكونات طازة.",
+      "image_url": "https://placehold.co/600x400/A23E48/FFF3E4?text=%D8%A8%D8%A7%D8%B3%D8%AA%D8%A7%20%D8%A3%D9%84%D9%81%D8%B1%D9%8A%D8%AF%D9%88%20%D8%A8%D8%A7%D9%84%D8%AF%D8%AC%D8%A7%D8%AC&font=cairo",
+      "recipe": [
+        {
+          "ingredient_key": "pasta_penne",
+          "recipe_unit": "غرام",
+          "recipe_qty": 150
+        },
+        {
+          "ingredient_key": "chicken_breast",
+          "recipe_unit": "غرام",
+          "recipe_qty": 120
+        },
+        {
+          "ingredient_key": "cooking_cream",
+          "recipe_unit": "معلقة كبيرة",
+          "recipe_qty": 4
+        },
+        {
+          "ingredient_key": "mozzarella",
+          "recipe_unit": "غرام",
+          "recipe_qty": 40
+        },
+        {
+          "ingredient_key": "garlic",
+          "recipe_unit": "غرام",
+          "recipe_qty": 5
+        }
+      ]
+    },
+    {
+      "name_ar": "باستا بولونيز",
+      "category": "باستا",
+      "difficulty": "متوسط",
+      "prep_time_min": 25,
+      "base_price": 4.25,
+      "servings_default": 1,
+      "is_active": true,
+      "description": "باستا بولونيز — تحضير سريع، مكونات طازة.",
+      "image_url": "https://placehold.co/600x400/A23E48/FFF3E4?text=%D8%A8%D8%A7%D8%B3%D8%AA%D8%A7%20%D8%A8%D9%88%D9%84%D9%88%D9%86%D9%8A%D8%B2&font=cairo",
+      "recipe": [
+        {
+          "ingredient_key": "pasta_penne",
+          "recipe_unit": "غرام",
+          "recipe_qty": 150
+        },
+        {
+          "ingredient_key": "beef_mince",
+          "recipe_unit": "غرام",
+          "recipe_qty": 120
+        },
+        {
+          "ingredient_key": "tomato_paste",
+          "recipe_unit": "غرام",
+          "recipe_qty": 30
+        },
+        {
+          "ingredient_key": "red_onion",
+          "recipe_unit": "غرام",
+          "recipe_qty": 30
+        },
+        {
+          "ingredient_key": "garlic",
+          "recipe_unit": "غرام",
+          "recipe_qty": 5
+        }
+      ]
+    },
+    {
+      "name_ar": "فاهيتا دجاج",
+      "category": "أطباق رئيسية",
+      "difficulty": "متوسط",
+      "prep_time_min": 20,
+      "base_price": 4.75,
+      "servings_default": 1,
+      "is_active": true,
+      "description": "فاهيتا دجاج — تحضير سريع، مكونات طازة.",
+      "image_url": "https://placehold.co/600x400/A23E48/FFF3E4?text=%D9%81%D8%A7%D9%87%D9%8A%D8%AA%D8%A7%20%D8%AF%D8%AC%D8%A7%D8%AC&font=cairo",
+      "recipe": [
+        {
+          "ingredient_key": "tortilla_wrap",
+          "recipe_unit": "حبة",
+          "recipe_qty": 2
+        },
+        {
+          "ingredient_key": "chicken_breast",
+          "recipe_unit": "غرام",
+          "recipe_qty": 150
+        },
+        {
+          "ingredient_key": "bell_pepper",
+          "recipe_unit": "غرام",
+          "recipe_qty": 80
+        },
+        {
+          "ingredient_key": "red_onion",
+          "recipe_unit": "غرام",
+          "recipe_qty": 40
+        },
+        {
+          "ingredient_key": "hot_sauce",
+          "recipe_unit": "معلقة صغيرة",
+          "recipe_qty": 1
+        }
+      ]
+    },
+    {
+      "name_ar": "كيسادية دجاج بالجبنة",
+      "category": "راب",
+      "difficulty": "متوسط",
+      "prep_time_min": 18,
+      "base_price": 3.75,
+      "servings_default": 1,
+      "is_active": true,
+      "description": "كيسادية دجاج بالجبنة — تحضير سريع، مكونات طازة.",
+      "image_url": "https://placehold.co/600x400/A23E48/FFF3E4?text=%D9%83%D9%8A%D8%B3%D8%A7%D8%AF%D9%8A%D8%A9%20%D8%AF%D8%AC%D8%A7%D8%AC%20%D8%A8%D8%A7%D9%84%D8%AC%D8%A8%D9%86%D8%A9&font=cairo",
+      "recipe": [
+        {
+          "ingredient_key": "tortilla_wrap",
+          "recipe_unit": "حبة",
+          "recipe_qty": 2
+        },
+        {
+          "ingredient_key": "chicken_breast",
+          "recipe_unit": "غرام",
+          "recipe_qty": 100
+        },
+        {
+          "ingredient_key": "mozzarella",
+          "recipe_unit": "غرام",
+          "recipe_qty": 100
+        },
+        {
+          "ingredient_key": "bell_pepper",
+          "recipe_unit": "غرام",
+          "recipe_qty": 30
+        },
+        {
+          "ingredient_key": "ranch_sauce",
+          "recipe_unit": "معلقة كبيرة",
+          "recipe_qty": 1
+        }
+      ]
+    },
+    {
+      "name_ar": "سندويش فلافل",
+      "category": "ساندويشات",
+      "difficulty": "سهل",
+      "prep_time_min": 12,
+      "base_price": 1.75,
+      "servings_default": 1,
+      "is_active": true,
+      "description": "سندويش فلافل — تحضير سريع، مكونات طازة.",
+      "image_url": "https://placehold.co/600x400/A23E48/FFF3E4?text=%D8%B3%D9%86%D8%AF%D9%88%D9%8A%D8%B4%20%D9%81%D9%84%D8%A7%D9%81%D9%84&font=cairo",
+      "recipe": [
+        {
+          "ingredient_key": "arabic_bread",
+          "recipe_unit": "حبة",
+          "recipe_qty": 1
+        },
+        {
+          "ingredient_key": "falafel_frozen",
+          "recipe_unit": "غرام",
+          "recipe_qty": 150
+        },
+        {
+          "ingredient_key": "tahini",
+          "recipe_unit": "معلقة كبيرة",
+          "recipe_qty": 2
+        },
+        {
+          "ingredient_key": "tomato",
+          "recipe_unit": "غرام",
+          "recipe_qty": 20
+        },
+        {
+          "ingredient_key": "parsley",
+          "recipe_unit": "غرام",
+          "recipe_qty": 10
+        },
+        {
+          "ingredient_key": "pickles",
+          "recipe_unit": "غرام",
+          "recipe_qty": 15
+        }
+      ]
+    },
+    {
+      "name_ar": "صينية بطاطا بالجبنة",
+      "category": "جانبية",
+      "difficulty": "سهل",
+      "prep_time_min": 15,
+      "base_price": 3.5,
+      "servings_default": 1,
+      "is_active": true,
+      "description": "صينية بطاطا بالجبنة — تحضير سريع، مكونات طازة.",
+      "image_url": "https://placehold.co/600x400/A23E48/FFF3E4?text=%D8%B5%D9%8A%D9%86%D9%8A%D8%A9%20%D8%A8%D8%B7%D8%A7%D8%B7%D8%A7%20%D8%A8%D8%A7%D9%84%D8%AC%D8%A8%D9%86%D8%A9&font=cairo",
+      "recipe": [
+        {
+          "ingredient_key": "potato_whole",
+          "recipe_unit": "غرام",
+          "recipe_qty": 300
+        },
+        {
+          "ingredient_key": "cheddar_slice",
+          "recipe_unit": "حبة",
+          "recipe_qty": 2
+        },
+        {
+          "ingredient_key": "ranch_sauce",
+          "recipe_unit": "معلقة كبيرة",
+          "recipe_qty": 1
+        },
+        {
+          "ingredient_key": "green_onion",
+          "recipe_unit": "غرام",
+          "recipe_qty": 10
+        }
+      ]
+    }
+  ]
+}

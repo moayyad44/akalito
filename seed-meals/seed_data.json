@@ -7,7 +7,7 @@
       "package_label": "كيس 6 حبات",
       "package_qty": 6,
       "price_per_package": 1.5,
-      "image_url": "https://placehold.co/600x400/A23E48/FFF3E4?text=%D8%AE%D8%A8%D8%B2%20%D8%A8%D8%B1%D8%BA%D8%B1&font=cairo"
+      "image_url": "https://placehold.co/600x400/A23E48/A23E48.png"
     },
     "beef_patty": {
       "name_ar": "لحمة برغر (شرحة)",
@@ -16,7 +16,7 @@
       "package_label": "كيس 4 شرائح",
       "package_qty": 4,
       "price_per_package": 3.5,
-      "image_url": "https://placehold.co/600x400/A23E48/FFF3E4?text=%D9%84%D8%AD%D9%85%D8%A9%20%D8%A8%D8%B1%D8%BA%D8%B1%20%28%D8%B4%D8%B1%D8%AD%D8%A9%29&font=cairo"
+      "image_url": "https://placehold.co/600x400/A23E48/A23E48.png"
     },
     "beef_mince": {
       "name_ar": "لحمة بقر مفرومة",
@@ -25,7 +25,7 @@
       "package_label": "كيس 500غ",
       "package_qty": 500,
       "price_per_package": 4.2,
-      "image_url": "https://placehold.co/600x400/A23E48/FFF3E4?text=%D9%84%D8%AD%D9%85%D8%A9%20%D8%A8%D9%82%D8%B1%20%D9%85%D9%81%D8%B1%D9%88%D9%85%D8%A9&font=cairo"
+      "image_url": "https://placehold.co/600x400/A23E48/A23E48.png"
     },
     "chicken_breast": {
       "name_ar": "صدور دجاج",
@@ -34,7 +34,7 @@
       "package_label": "كيلو",
       "package_qty": 1000,
       "price_per_package": 3.8,
-      "image_url": "https://placehold.co/600x400/A23E48/FFF3E4?text=%D8%B5%D8%AF%D9%88%D8%B1%20%D8%AF%D8%AC%D8%A7%D8%AC&font=cairo"
+      "image_url": "https://placehold.co/600x400/A23E48/A23E48.png"
     },
     "cheddar_slice": {
       "name_ar": "جبنة شيدر شرائح",
@@ -43,7 +43,7 @@
       "package_label": "كيس 10 شرائح",
       "package_qty": 10,
       "price_per_package": 2.2,
-      "image_url": "https://placehold.co/600x400/A23E48/FFF3E4?text=%D8%AC%D8%A8%D9%86%D8%A9%20%D8%B4%D9%8A%D8%AF%D8%B1%20%D8%B4%D8%B1%D8%A7%D8%A6%D8%AD&font=cairo"
+      "image_url": "https://placehold.co/600x400/A23E48/A23E48.png"
     },
     "lettuce": {
       "name_ar": "خس",
@@ -52,7 +52,7 @@
       "package_label": "حبة (~400غ)",
       "package_qty": 400,
       "price_per_package": 0.5,
-      "image_url": "https://placehold.co/600x400/A23E48/FFF3E4?text=%D8%AE%D8%B3&font=cairo"
+      "image_url": "https://placehold.co/600x400/A23E48/A23E48.png"
     },
     "tomato": {
       "name_ar": "طماطم",
@@ -61,7 +61,7 @@
       "package_label": "كيلو",
       "package_qty": 1000,
       "price_per_package": 0.8,
-      "image_url": "https://placehold.co/600x400/A23E48/FFF3E4?text=%D8%B7%D9%85%D8%A7%D8%B7%D9%85&font=cairo"
+      "image_url": "https://placehold.co/600x400/A23E48/A23E48.png"
     },
     "red_onion": {
       "name_ar": "بصل أحمر",
@@ -70,7 +70,7 @@
       "package_label": "كيلو",
       "package_qty": 1000,
       "price_per_package": 0.6,
-      "image_url": "https://placehold.co/600x400/A23E48/FFF3E4?text=%D8%A8%D8%B5%D9%84%20%D8%A3%D8%AD%D9%85%D8%B1&font=cairo"
+      "image_url": "https://placehold.co/600x400/A23E48/A23E48.png"
     },
     "pickles": {
       "name_ar": "مخلل خيار (شرائح)",
@@ -79,7 +79,7 @@
       "package_label": "برطمان 500غ",
       "package_qty": 500,
       "price_per_package": 1.8,
-      "image_url": "https://placehold.co/600x400/A23E48/FFF3E4?text=%D9%85%D8%AE%D9%84%D9%84%20%D8%AE%D9%8A%D8%A7%D8%B1%20%28%D8%B4%D8%B1%D8%A7%D8%A6%D8%AD%29&font=cairo"
+      "image_url": "https://placehold.co/600x400/A23E48/A23E48.png"
     },
     "ketchup": {
       "name_ar": "كاتشب",
@@ -88,7 +88,7 @@
       "package_label": "عبوة 500مل",
       "package_qty": 500,
       "price_per_package": 1.5,
-      "image_url": "https://placehold.co/600x400/A23E48/FFF3E4?text=%D9%83%D8%A7%D8%AA%D8%B4%D8%A8&font=cairo"
+      "image_url": "https://placehold.co/600x400/A23E48/A23E48.png"
     },
     "mayo": {
       "name_ar": "مايونيز",
@@ -97,7 +97,7 @@
       "package_label": "عبوة 500مل",
       "package_qty": 500,
       "price_per_package": 1.6,
-      "image_url": "https://placehold.co/600x400/A23E48/FFF3E4?text=%D9%85%D8%A7%D9%8A%D9%88%D9%86%D9%8A%D8%B2&font=cairo"
+      "image_url": "https://placehold.co/600x400/A23E48/A23E48.png"
     },
     "mustard": {
       "name_ar": "خردل",
@@ -106,7 +106,7 @@
       "package_label": "عبوة 250مل",
       "package_qty": 250,
       "price_per_package": 1.2,
-      "image_url": "https://placehold.co/600x400/A23E48/FFF3E4?text=%D8%AE%D8%B1%D8%AF%D9%84&font=cairo"
+      "image_url": "https://placehold.co/600x400/A23E48/A23E48.png"
     },
     "shawarma_bread": {
       "name_ar": "خبز شاورما (صمون)",
@@ -115,7 +115,7 @@
       "package_label": "كيس 5 حبات",
       "package_qty": 5,
       "price_per_package": 1.0,
-      "image_url": "https://placehold.co/600x400/A23E48/FFF3E4?text=%D8%AE%D8%A8%D8%B2%20%D8%B4%D8%A7%D9%88%D8%B1%D9%85%D8%A7%20%28%D8%B5%D9%85%D9%88%D9%86%29&font=cairo"
+      "image_url": "https://placehold.co/600x400/A23E48/A23E48.png"
     },
     "shawarma_meat": {
       "name_ar": "لحمة شاورما شرائح",
@@ -124,7 +124,7 @@
       "package_label": "كيس 500غ",
       "package_qty": 500,
       "price_per_package": 4.5,
-      "image_url": "https://placehold.co/600x400/A23E48/FFF3E4?text=%D9%84%D8%AD%D9%85%D8%A9%20%D8%B4%D8%A7%D9%88%D8%B1%D9%85%D8%A7%20%D8%B4%D8%B1%D8%A7%D8%A6%D8%AD&font=cairo"
+      "image_url": "https://placehold.co/600x400/A23E48/A23E48.png"
     },
     "garlic_sauce": {
       "name_ar": "صوص ثوم",
@@ -133,7 +133,7 @@
       "package_label": "عبوة 300مل",
       "package_qty": 300,
       "price_per_package": 1.7,
-      "image_url": "https://placehold.co/600x400/A23E48/FFF3E4?text=%D8%B5%D9%88%D8%B5%20%D8%AB%D9%88%D9%85&font=cairo"
+      "image_url": "https://placehold.co/600x400/A23E48/A23E48.png"
     },
     "fries_frozen": {
       "name_ar": "بطاطا مقلية مجمدة",
@@ -142,7 +142,7 @@
       "package_label": "كيس 1كغ",
       "package_qty": 1000,
       "price_per_package": 2.2,
-      "image_url": "https://placehold.co/600x400/A23E48/FFF3E4?text=%D8%A8%D8%B7%D8%A7%D8%B7%D8%A7%20%D9%85%D9%82%D9%84%D9%8A%D8%A9%20%D9%85%D8%AC%D9%85%D8%AF%D8%A9&font=cairo"
+      "image_url": "https://placehold.co/600x400/A23E48/A23E48.png"
     },
     "pizza_dough": {
       "name_ar": "عجينة بيتزا جاهزة",
@@ -151,7 +151,7 @@
       "package_label": "قرص 30سم",
       "package_qty": 1,
       "price_per_package": 1.2,
-      "image_url": "https://placehold.co/600x400/A23E48/FFF3E4?text=%D8%B9%D8%AC%D9%8A%D9%86%D8%A9%20%D8%A8%D9%8A%D8%AA%D8%B2%D8%A7%20%D8%AC%D8%A7%D9%87%D8%B2%D8%A9&font=cairo"
+      "image_url": "https://placehold.co/600x400/A23E48/A23E48.png"
     },
     "pizza_sauce": {
       "name_ar": "صلصة بيتزا",
@@ -160,7 +160,7 @@
       "package_label": "علبة 400مل",
       "package_qty": 400,
       "price_per_package": 1.1,
-      "image_url": "https://placehold.co/600x400/A23E48/FFF3E4?text=%D8%B5%D9%84%D8%B5%D8%A9%20%D8%A8%D9%8A%D8%AA%D8%B2%D8%A7&font=cairo"
+      "image_url": "https://placehold.co/600x400/A23E48/A23E48.png"
     },
     "mozzarella": {
       "name_ar": "جبنة موزاريلا مبشورة",
@@ -169,7 +169,7 @@
       "package_label": "كيس 500غ",
       "package_qty": 500,
       "price_per_package": 3.5,
-      "image_url": "https://placehold.co/600x400/A23E48/FFF3E4?text=%D8%AC%D8%A8%D9%86%D8%A9%20%D9%85%D9%88%D8%B2%D8%A7%D8%B1%D9%8A%D9%84%D8%A7%20%D9%85%D8%A8%D8%B4%D9%88%D8%B1%D8%A9&font=cairo"
+      "image_url": "https://placehold.co/600x400/A23E48/A23E48.png"
     },
     "pepperoni": {
       "name_ar": "بيبروني شرائح",
@@ -178,7 +178,7 @@
       "package_label": "كيس 200غ",
       "package_qty": 200,
       "price_per_package": 2.8,
-      "image_url": "https://placehold.co/600x400/A23E48/FFF3E4?text=%D8%A8%D9%8A%D8%A8%D8%B1%D9%88%D9%86%D9%8A%20%D8%B4%D8%B1%D8%A7%D8%A6%D8%AD&font=cairo"
+      "image_url": "https://placehold.co/600x400/A23E48/A23E48.png"
     },
     "bell_pepper": {
       "name_ar": "فليفلة ملونة",
@@ -187,7 +187,7 @@
       "package_label": "كيلو",
       "package_qty": 1000,
       "price_per_package": 1.5,
-      "image_url": "https://placehold.co/600x400/A23E48/FFF3E4?text=%D9%81%D9%84%D9%8A%D9%81%D9%84%D8%A9%20%D9%85%D9%84%D9%88%D9%86%D8%A9&font=cairo"
+      "image_url": "https://placehold.co/600x400/A23E48/A23E48.png"
     },
     "mushroom": {
       "name_ar": "فطر",
@@ -196,7 +196,7 @@
       "package_label": "علبة 250غ",
       "package_qty": 250,
       "price_per_package": 1.4,
-      "image_url": "https://placehold.co/600x400/A23E48/FFF3E4?text=%D9%81%D8%B7%D8%B1&font=cairo"
+      "image_url": "https://placehold.co/600x400/A23E48/A23E48.png"
     },
     "black_olives": {
       "name_ar": "زيتون أسود شرائح",
@@ -205,7 +205,7 @@
       "package_label": "علبة 200غ",
       "package_qty": 200,
       "price_per_package": 1.3,
-      "image_url": "https://placehold.co/600x400/A23E48/FFF3E4?text=%D8%B2%D9%8A%D8%AA%D9%88%D9%86%20%D8%A3%D8%B3%D9%88%D8%AF%20%D8%B4%D8%B1%D8%A7%D8%A6%D8%AD&font=cairo"
+      "image_url": "https://placehold.co/600x400/A23E48/A23E48.png"
     },
     "chicken_strips": {
       "name_ar": "ستربس دجاج مقرمش مجمد",
@@ -214,7 +214,7 @@
       "package_label": "كيس 1كغ",
       "package_qty": 1000,
       "price_per_package": 5.5,
-      "image_url": "https://placehold.co/600x400/A23E48/FFF3E4?text=%D8%B3%D8%AA%D8%B1%D8%A8%D8%B3%20%D8%AF%D8%AC%D8%A7%D8%AC%20%D9%85%D9%82%D8%B1%D9%85%D8%B4%20%D9%85%D8%AC%D9%85%D8%AF&font=cairo"
+      "image_url": "https://placehold.co/600x400/A23E48/A23E48.png"
     },
     "nuggets": {
       "name_ar": "ناغتس دجاج مجمد",
@@ -223,7 +223,7 @@
       "package_label": "كيس 1كغ",
       "package_qty": 1000,
       "price_per_package": 5.0,
-      "image_url": "https://placehold.co/600x400/A23E48/FFF3E4?text=%D9%86%D8%A7%D8%BA%D8%AA%D8%B3%20%D8%AF%D8%AC%D8%A7%D8%AC%20%D9%85%D8%AC%D9%85%D8%AF&font=cairo"
+      "image_url": "https://placehold.co/600x400/A23E48/A23E48.png"
     },
     "hotdog_sausage": {
       "name_ar": "نقانق هوت دوج",
@@ -232,7 +232,7 @@
       "package_label": "كيس 8 حبات",
       "package_qty": 8,
       "price_per_package": 2.5,
-      "image_url": "https://placehold.co/600x400/A23E48/FFF3E4?text=%D9%86%D9%82%D8%A7%D9%86%D9%82%20%D9%87%D9%88%D8%AA%20%D8%AF%D9%88%D8%AC&font=cairo"
+      "image_url": "https://placehold.co/600x400/A23E48/A23E48.png"
     },
     "hotdog_bread": {
       "name_ar": "خبز هوت دوج",
@@ -241,7 +241,7 @@
       "package_label": "كيس 6 حبات",
       "package_qty": 6,
       "price_per_package": 1.2,
-      "image_url": "https://placehold.co/600x400/A23E48/FFF3E4?text=%D8%AE%D8%A8%D8%B2%20%D9%87%D9%88%D8%AA%20%D8%AF%D9%88%D8%AC&font=cairo"
+      "image_url": "https://placehold.co/600x400/A23E48/A23E48.png"
     },
     "tortilla_wrap": {
       "name_ar": "خبز راب (تورتيلا)",
@@ -250,7 +250,7 @@
       "package_label": "كيس 8 حبات",
       "package_qty": 8,
       "price_per_package": 1.8,
-      "image_url": "https://placehold.co/600x400/A23E48/FFF3E4?text=%D8%AE%D8%A8%D8%B2%20%D8%B1%D8%A7%D8%A8%20%28%D8%AA%D9%88%D8%B1%D8%AA%D9%8A%D9%84%D8%A7%29&font=cairo"
+      "image_url": "https://placehold.co/600x400/A23E48/A23E48.png"
     },
     "ranch_sauce": {
       "name_ar": "صوص رانش",
@@ -259,7 +259,7 @@
       "package_label": "عبوة 350مل",
       "package_qty": 350,
       "price_per_package": 2.0,
-      "image_url": "https://placehold.co/600x400/A23E48/FFF3E4?text=%D8%B5%D9%88%D8%B5%20%D8%B1%D8%A7%D9%86%D8%B4&font=cairo"
+      "image_url": "https://placehold.co/600x400/A23E48/A23E48.png"
     },
     "cooking_cream": {
       "name_ar": "كريمة طبخ",
@@ -268,7 +268,7 @@
       "package_label": "علبة 250مل",
       "package_qty": 250,
       "price_per_package": 1.5,
-      "image_url": "https://placehold.co/600x400/A23E48/FFF3E4?text=%D9%83%D8%B1%D9%8A%D9%85%D8%A9%20%D8%B7%D8%A8%D8%AE&font=cairo"
+      "image_url": "https://placehold.co/600x400/A23E48/A23E48.png"
     },
     "garlic": {
       "name_ar": "ثوم",
@@ -277,7 +277,7 @@
       "package_label": "كيلو",
       "package_qty": 1000,
       "price_per_package": 2.5,
-      "image_url": "https://placehold.co/600x400/A23E48/FFF3E4?text=%D8%AB%D9%88%D9%85&font=cairo"
+      "image_url": "https://placehold.co/600x400/A23E48/A23E48.png"
     },
     "pasta_penne": {
       "name_ar": "معكرونة بيني",
@@ -286,7 +286,7 @@
       "package_label": "كيس 500غ",
       "package_qty": 500,
       "price_per_package": 1.0,
-      "image_url": "https://placehold.co/600x400/A23E48/FFF3E4?text=%D9%85%D8%B9%D9%83%D8%B1%D9%88%D9%86%D8%A9%20%D8%A8%D9%8A%D9%86%D9%8A&font=cairo"
+      "image_url": "https://placehold.co/600x400/A23E48/A23E48.png"
     },
     "tomato_paste": {
       "name_ar": "معجون طماطم",
@@ -295,7 +295,7 @@
       "package_label": "علبة 400غ",
       "package_qty": 400,
       "price_per_package": 0.9,
-      "image_url": "https://placehold.co/600x400/A23E48/FFF3E4?text=%D9%85%D8%B9%D8%AC%D9%88%D9%86%20%D8%B7%D9%85%D8%A7%D8%B7%D9%85&font=cairo"
+      "image_url": "https://placehold.co/600x400/A23E48/A23E48.png"
     },
     "green_onion": {
       "name_ar": "بصل أخضر",
@@ -304,7 +304,7 @@
       "package_label": "ربطة (~150غ)",
       "package_qty": 150,
       "price_per_package": 0.4,
-      "image_url": "https://placehold.co/600x400/A23E48/FFF3E4?text=%D8%A8%D8%B5%D9%84%20%D8%A3%D8%AE%D8%B6%D8%B1&font=cairo"
+      "image_url": "https://placehold.co/600x400/A23E48/A23E48.png"
     },
     "parsley": {
       "name_ar": "بقدونس",
@@ -313,7 +313,7 @@
       "package_label": "ربطة (~150غ)",
       "package_qty": 150,
       "price_per_package": 0.4,
-      "image_url": "https://placehold.co/600x400/A23E48/FFF3E4?text=%D8%A8%D9%82%D8%AF%D9%88%D9%86%D8%B3&font=cairo"
+      "image_url": "https://placehold.co/600x400/A23E48/A23E48.png"
     },
     "hot_sauce": {
       "name_ar": "صوص حار (شطة)",
@@ -322,7 +322,7 @@
       "package_label": "عبوة 250مل",
       "package_qty": 250,
       "price_per_package": 1.6,
-      "image_url": "https://placehold.co/600x400/A23E48/FFF3E4?text=%D8%B5%D9%88%D8%B5%20%D8%AD%D8%A7%D8%B1%20%28%D8%B4%D8%B7%D8%A9%29&font=cairo"
+      "image_url": "https://placehold.co/600x400/A23E48/A23E48.png"
     },
     "falafel_frozen": {
       "name_ar": "فلافل جاهز مجمد",
@@ -331,7 +331,7 @@
       "package_label": "كيس 1كغ",
       "package_qty": 1000,
       "price_per_package": 3.2,
-      "image_url": "https://placehold.co/600x400/A23E48/FFF3E4?text=%D9%81%D9%84%D8%A7%D9%81%D9%84%20%D8%AC%D8%A7%D9%87%D8%B2%20%D9%85%D8%AC%D9%85%D8%AF&font=cairo"
+      "image_url": "https://placehold.co/600x400/A23E48/A23E48.png"
     },
     "arabic_bread": {
       "name_ar": "خبز عربي",
@@ -340,7 +340,7 @@
       "package_label": "كيس 5 أرغفة",
       "package_qty": 5,
       "price_per_package": 0.5,
-      "image_url": "https://placehold.co/600x400/A23E48/FFF3E4?text=%D8%AE%D8%A8%D8%B2%20%D8%B9%D8%B1%D8%A8%D9%8A&font=cairo"
+      "image_url": "https://placehold.co/600x400/A23E48/A23E48.png"
     },
     "tahini": {
       "name_ar": "طحينة",
@@ -349,7 +349,7 @@
       "package_label": "علبة 500غ",
       "package_qty": 500,
       "price_per_package": 2.0,
-      "image_url": "https://placehold.co/600x400/A23E48/FFF3E4?text=%D8%B7%D8%AD%D9%8A%D9%86%D8%A9&font=cairo"
+      "image_url": "https://placehold.co/600x400/A23E48/A23E48.png"
     },
     "potato_whole": {
       "name_ar": "بطاطا حبات",
@@ -358,7 +358,7 @@
       "package_label": "كيلو",
       "package_qty": 1000,
       "price_per_package": 0.6,
-      "image_url": "https://placehold.co/600x400/A23E48/FFF3E4?text=%D8%A8%D8%B7%D8%A7%D8%B7%D8%A7%20%D8%AD%D8%A8%D8%A7%D8%AA&font=cairo"
+      "image_url": "https://placehold.co/600x400/A23E48/A23E48.png"
     }
   },
   "meals": [
@@ -371,7 +371,7 @@
       "servings_default": 1,
       "is_active": true,
       "description": "برغر لحمة كلاسيك — تحضير سريع، مكونات طازة.",
-      "image_url": "https://placehold.co/600x400/A23E48/FFF3E4?text=%D8%A8%D8%B1%D8%BA%D8%B1%20%D9%84%D8%AD%D9%85%D8%A9%20%D9%83%D9%84%D8%A7%D8%B3%D9%8A%D9%83&font=cairo",
+      "image_url": "https://placehold.co/600x400/A23E48/A23E48.png",
       "recipe": [
         {
           "ingredient_key": "buns",
@@ -429,7 +429,7 @@
       "servings_default": 1,
       "is_active": true,
       "description": "برغر دجاج مقرمش — تحضير سريع، مكونات طازة.",
-      "image_url": "https://placehold.co/600x400/A23E48/FFF3E4?text=%D8%A8%D8%B1%D8%BA%D8%B1%20%D8%AF%D8%AC%D8%A7%D8%AC%20%D9%85%D9%82%D8%B1%D9%85%D8%B4&font=cairo",
+      "image_url": "https://placehold.co/600x400/A23E48/A23E48.png",
       "recipe": [
         {
           "ingredient_key": "buns",
@@ -472,7 +472,7 @@
       "servings_default": 1,
       "is_active": true,
       "description": "برغر دبل تشيز — تحضير سريع، مكونات طازة.",
-      "image_url": "https://placehold.co/600x400/A23E48/FFF3E4?text=%D8%A8%D8%B1%D8%BA%D8%B1%20%D8%AF%D8%A8%D9%84%20%D8%AA%D8%B4%D9%8A%D8%B2&font=cairo",
+      "image_url": "https://placehold.co/600x400/A23E48/A23E48.png",
       "recipe": [
         {
           "ingredient_key": "buns",
@@ -520,7 +520,7 @@
       "servings_default": 1,
       "is_active": true,
       "description": "شاورما دجاج — تحضير سريع، مكونات طازة.",
-      "image_url": "https://placehold.co/600x400/A23E48/FFF3E4?text=%D8%B4%D8%A7%D9%88%D8%B1%D9%85%D8%A7%20%D8%AF%D8%AC%D8%A7%D8%AC&font=cairo",
+      "image_url": "https://placehold.co/600x400/A23E48/A23E48.png",
       "recipe": [
         {
           "ingredient_key": "shawarma_bread",
@@ -563,7 +563,7 @@
       "servings_default": 1,
       "is_active": true,
       "description": "شاورما لحمة — تحضير سريع، مكونات طازة.",
-      "image_url": "https://placehold.co/600x400/A23E48/FFF3E4?text=%D8%B4%D8%A7%D9%88%D8%B1%D9%85%D8%A7%20%D9%84%D8%AD%D9%85%D8%A9&font=cairo",
+      "image_url": "https://placehold.co/600x400/A23E48/A23E48.png",
       "recipe": [
         {
           "ingredient_key": "shawarma_bread",
@@ -606,7 +606,7 @@
       "servings_default": 1,
       "is_active": true,
       "description": "بيتزا مارغريتا — تحضير سريع، مكونات طازة.",
-      "image_url": "https://placehold.co/600x400/A23E48/FFF3E4?text=%D8%A8%D9%8A%D8%AA%D8%B2%D8%A7%20%D9%85%D8%A7%D8%B1%D8%BA%D8%B1%D9%8A%D8%AA%D8%A7&font=cairo",
+      "image_url": "https://placehold.co/600x400/A23E48/A23E48.png",
       "recipe": [
         {
           "ingredient_key": "pizza_dough",
@@ -634,7 +634,7 @@
       "servings_default": 1,
       "is_active": true,
       "description": "بيتزا خضار — تحضير سريع، مكونات طازة.",
-      "image_url": "https://placehold.co/600x400/A23E48/FFF3E4?text=%D8%A8%D9%8A%D8%AA%D8%B2%D8%A7%20%D8%AE%D8%B6%D8%A7%D8%B1&font=cairo",
+      "image_url": "https://placehold.co/600x400/A23E48/A23E48.png",
       "recipe": [
         {
           "ingredient_key": "pizza_dough",
@@ -682,7 +682,7 @@
       "servings_default": 1,
       "is_active": true,
       "description": "بيتزا بيبروني — تحضير سريع، مكونات طازة.",
-      "image_url": "https://placehold.co/600x400/A23E48/FFF3E4?text=%D8%A8%D9%8A%D8%AA%D8%B2%D8%A7%20%D8%A8%D9%8A%D8%A8%D8%B1%D9%88%D9%86%D9%8A&font=cairo",
+      "image_url": "https://placehold.co/600x400/A23E48/A23E48.png",
       "recipe": [
         {
           "ingredient_key": "pizza_dough",
@@ -715,7 +715,7 @@
       "servings_default": 1,
       "is_active": true,
       "description": "ستربس دجاج مقرمش — تحضير سريع، مكونات طازة.",
-      "image_url": "https://placehold.co/600x400/A23E48/FFF3E4?text=%D8%B3%D8%AA%D8%B1%D8%A8%D8%B3%20%D8%AF%D8%AC%D8%A7%D8%AC%20%D9%85%D9%82%D8%B1%D9%85%D8%B4&font=cairo",
+      "image_url": "https://placehold.co/600x400/A23E48/A23E48.png",
       "recipe": [
         {
           "ingredient_key": "chicken_strips",
@@ -748,7 +748,7 @@
       "servings_default": 1,
       "is_active": true,
       "description": "ناغتس دجاج — تحضير سريع، مكونات طازة.",
-      "image_url": "https://placehold.co/600x400/A23E48/FFF3E4?text=%D9%86%D8%A7%D8%BA%D8%AA%D8%B3%20%D8%AF%D8%AC%D8%A7%D8%AC&font=cairo",
+      "image_url": "https://placehold.co/600x400/A23E48/A23E48.png",
       "recipe": [
         {
           "ingredient_key": "nuggets",
@@ -781,7 +781,7 @@
       "servings_default": 1,
       "is_active": true,
       "description": "سندويش فيليه دجاج مشوي — تحضير سريع، مكونات طازة.",
-      "image_url": "https://placehold.co/600x400/A23E48/FFF3E4?text=%D8%B3%D9%86%D8%AF%D9%88%D9%8A%D8%B4%20%D9%81%D9%8A%D9%84%D9%8A%D9%87%20%D8%AF%D8%AC%D8%A7%D8%AC%20%D9%85%D8%B4%D9%88%D9%8A&font=cairo",
+      "image_url": "https://placehold.co/600x400/A23E48/A23E48.png",
       "recipe": [
         {
           "ingredient_key": "buns",
@@ -824,7 +824,7 @@
       "servings_default": 1,
       "is_active": true,
       "description": "هوت دوج كلاسيك — تحضير سريع، مكونات طازة.",
-      "image_url": "https://placehold.co/600x400/A23E48/FFF3E4?text=%D9%87%D9%88%D8%AA%20%D8%AF%D9%88%D8%AC%20%D9%83%D9%84%D8%A7%D8%B3%D9%8A%D9%83&font=cairo",
+      "image_url": "https://placehold.co/600x400/A23E48/A23E48.png",
       "recipe": [
         {
           "ingredient_key": "hotdog_bread",
@@ -862,7 +862,7 @@
       "servings_default": 1,
       "is_active": true,
       "description": "راب دجاج كريسبي — تحضير سريع، مكونات طازة.",
-      "image_url": "https://placehold.co/600x400/A23E48/FFF3E4?text=%D8%B1%D8%A7%D8%A8%20%D8%AF%D8%AC%D8%A7%D8%AC%20%D9%83%D8%B1%D9%8A%D8%B3%D8%A8%D9%8A&font=cairo",
+      "image_url": "https://placehold.co/600x400/A23E48/A23E48.png",
       "recipe": [
         {
           "ingredient_key": "tortilla_wrap",
@@ -900,7 +900,7 @@
       "servings_default": 1,
       "is_active": true,
       "description": "بطاطا مقلية بالصوص الحار — تحضير سريع، مكونات طازة.",
-      "image_url": "https://placehold.co/600x400/A23E48/FFF3E4?text=%D8%A8%D8%B7%D8%A7%D8%B7%D8%A7%20%D9%85%D9%82%D9%84%D9%8A%D8%A9%20%D8%A8%D8%A7%D9%84%D8%B5%D9%88%D8%B5%20%D8%A7%D9%84%D8%AD%D8%A7%D8%B1&font=cairo",
+      "image_url": "https://placehold.co/600x400/A23E48/A23E48.png",
       "recipe": [
         {
           "ingredient_key": "fries_frozen",
@@ -933,7 +933,7 @@
       "servings_default": 1,
       "is_active": true,
       "description": "باستا ألفريدو بالدجاج — تحضير سريع، مكونات طازة.",
-      "image_url": "https://placehold.co/600x400/A23E48/FFF3E4?text=%D8%A8%D8%A7%D8%B3%D8%AA%D8%A7%20%D8%A3%D9%84%D9%81%D8%B1%D9%8A%D8%AF%D9%88%20%D8%A8%D8%A7%D9%84%D8%AF%D8%AC%D8%A7%D8%AC&font=cairo",
+      "image_url": "https://placehold.co/600x400/A23E48/A23E48.png",
       "recipe": [
         {
           "ingredient_key": "pasta_penne",
@@ -971,7 +971,7 @@
       "servings_default": 1,
       "is_active": true,
       "description": "باستا بولونيز — تحضير سريع، مكونات طازة.",
-      "image_url": "https://placehold.co/600x400/A23E48/FFF3E4?text=%D8%A8%D8%A7%D8%B3%D8%AA%D8%A7%20%D8%A8%D9%88%D9%84%D9%88%D9%86%D9%8A%D8%B2&font=cairo",
+      "image_url": "https://placehold.co/600x400/A23E48/A23E48.png",
       "recipe": [
         {
           "ingredient_key": "pasta_penne",
@@ -1009,7 +1009,7 @@
       "servings_default": 1,
       "is_active": true,
       "description": "فاهيتا دجاج — تحضير سريع، مكونات طازة.",
-      "image_url": "https://placehold.co/600x400/A23E48/FFF3E4?text=%D9%81%D8%A7%D9%87%D9%8A%D8%AA%D8%A7%20%D8%AF%D8%AC%D8%A7%D8%AC&font=cairo",
+      "image_url": "https://placehold.co/600x400/A23E48/A23E48.png",
       "recipe": [
         {
           "ingredient_key": "tortilla_wrap",
@@ -1047,7 +1047,7 @@
       "servings_default": 1,
       "is_active": true,
       "description": "كيسادية دجاج بالجبنة — تحضير سريع، مكونات طازة.",
-      "image_url": "https://placehold.co/600x400/A23E48/FFF3E4?text=%D9%83%D9%8A%D8%B3%D8%A7%D8%AF%D9%8A%D8%A9%20%D8%AF%D8%AC%D8%A7%D8%AC%20%D8%A8%D8%A7%D9%84%D8%AC%D8%A8%D9%86%D8%A9&font=cairo",
+      "image_url": "https://placehold.co/600x400/A23E48/A23E48.png",
       "recipe": [
         {
           "ingredient_key": "tortilla_wrap",
@@ -1085,7 +1085,7 @@
       "servings_default": 1,
       "is_active": true,
       "description": "سندويش فلافل — تحضير سريع، مكونات طازة.",
-      "image_url": "https://placehold.co/600x400/A23E48/FFF3E4?text=%D8%B3%D9%86%D8%AF%D9%88%D9%8A%D8%B4%20%D9%81%D9%84%D8%A7%D9%81%D9%84&font=cairo",
+      "image_url": "https://placehold.co/600x400/A23E48/A23E48.png",
       "recipe": [
         {
           "ingredient_key": "arabic_bread",
@@ -1128,7 +1128,7 @@
       "servings_default": 1,
       "is_active": true,
       "description": "صينية بطاطا بالجبنة — تحضير سريع، مكونات طازة.",
-      "image_url": "https://placehold.co/600x400/A23E48/FFF3E4?text=%D8%B5%D9%8A%D9%86%D9%8A%D8%A9%20%D8%A8%D8%B7%D8%A7%D8%B7%D8%A7%20%D8%A8%D8%A7%D9%84%D8%AC%D8%A8%D9%86%D8%A9&font=cairo",
+      "image_url": "https://placehold.co/600x400/A23E48/A23E48.png",
       "recipe": [
         {
           "ingredient_key": "potato_whole",

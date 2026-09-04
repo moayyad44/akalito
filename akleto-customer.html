@@ -1957,13 +1957,7 @@ window.saveAddressForm = async () => {
     refreshHomeLocationWidget();
   } catch(e) {
     console.error('save address error', e);
-    // 🔧 22 أغسطس 2026: تشخيص مؤقت v3 — نجيب uid الحالي بمعزل عن أي طلب Firestore
-    // (النسخة السابقة كانت تحاول تجيبه جوا نفس try اللي فيها القراءة الممنوعة، فما كان يظهر)
-    const curUid = (auth && auth.currentUser) ? auth.currentUser.uid : null;
-    const isAnon = (auth && auth.currentUser) ? auth.currentUser.isAnonymous : null;
-    const phoneNum = (auth && auth.currentUser) ? auth.currentUser.phoneNumber : null;
-    let extra = ` | customerId=${customerId} | auth.currentUser موجود=${!!(auth && auth.currentUser)} | uid=${curUid} | isAnonymous=${isAnon} | phoneNumber=${phoneNum}`;
-    errBox.textContent = 'صار خطأ بالحفظ — [' + (e.code || '') + ' ' + (e.message || String(e)) + extra + ']';
+    errBox.textContent = 'صار خطأ بالحفظ — جرب مرة ثانية';
     errBox.style.display = 'block';
   } finally {
     btn.disabled = false;

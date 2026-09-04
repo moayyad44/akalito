@@ -1957,7 +1957,8 @@ window.saveAddressForm = async () => {
     refreshHomeLocationWidget();
   } catch(e) {
     console.error('save address error', e);
-    errBox.textContent = 'صار خطأ بالحفظ — جرب مرة ثانية';
+    // 🔧 22 أغسطس 2026: تشخيص مؤقت — بيوضّح السبب الحقيقي بدل رسالة عامة (رح نرجّعها بعد ما نحل المشكلة)
+    errBox.textContent = 'صار خطأ بالحفظ — [تفاصيل تشخيصية: ' + (e.code || '') + ' ' + (e.message || String(e)) + ']';
     errBox.style.display = 'block';
   } finally {
     btn.disabled = false;

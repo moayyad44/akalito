@@ -1957,8 +1957,17 @@ window.saveAddressForm = async () => {
     refreshHomeLocationWidget();
   } catch(e) {
     console.error('save address error', e);
-    // 🔧 22 أغسطس 2026: تشخيص مؤقت — بيوضّح السبب الحقيقي بدل رسالة عامة (رح نرجّعها بعد ما نحل المشكلة)
-    errBox.textContent = 'صار خطأ بالحفظ — [تفاصيل تشخيصية: ' + (e.code || '') + ' ' + (e.message || String(e)) + ']';
+    // 🔧 22 أغسطس 2026: تشخيص مؤقت موسّع — نعرض customerId و uid الحالي لمقارنتهم مع auth_uid المخزّن بمستند الزبون
+    let extra = '';
+    try {
+      const curUid = auth.currentUser ? auth.currentUser.uid : '(لا يوجد مستخدم مسجّل دخول!)';
+      const custSnap = await getDoc(doc(db, 'customers', customerId));
+      const storedAuthUid = custSnap.exists() ? (custSnap.data().auth_uid || '(الحقل غير موجود)') : '(المستند غير موجود!)';
+      extra = ` | customerId=${customerId} | uid الحالي=${curUid} | auth_uid المخزّن=${storedAuthUid}`;
+    } catch (e2) {
+      extra = ' | (فشل حتى بجلب بيانات المقارنة: ' + (e2.message || e2) + ')';
+    }
+    errBox.textContent = 'صار خطأ بالحفظ — [' + (e.code || '') + ' ' + (e.message || String(e)) + extra + ']';
     errBox.style.display = 'block';
   } finally {
     btn.disabled = false;

@@ -276,7 +276,7 @@ service cloud.firestore {
         isStoreEmployee(resource.data.store_id) &&
         request.resource.data.customer_id == resource.data.customer_id &&
         request.resource.data.store_id == resource.data.store_id &&
-        request.resource.data.driver_id == resource.data.driver_id &&
+        request.resource.data.get('driver_id', null) == resource.data.get('driver_id', null) &&
         request.resource.data.total_estimated_price == resource.data.total_estimated_price
       ) || (
         request.auth != null &&
@@ -288,7 +288,7 @@ service cloud.firestore {
         request.resource.data.total_estimated_price == resource.data.total_estimated_price
       ) || (
         request.auth != null &&
-        resource.data.driver_id != null &&
+        resource.data.get('driver_id', null) != null &&
         isOwnerDriver(resource.data.driver_id) &&
         request.resource.data.driver_id == resource.data.driver_id &&
         request.resource.data.customer_id == resource.data.customer_id &&

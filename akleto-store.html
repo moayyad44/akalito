@@ -1918,7 +1918,17 @@ window.markStoreOrderReady = async () => {
     showToast('تم! الطلب صار جاهز للسائق ✅');
   } catch(e) {
     console.error('mark order ready error', e);
-    showToast('صار خطأ — جرب مرة ثانية ❌');
+    // 🔧 22 أغسطس 2026: تشخيص مؤقت لباغ authorized_uids
+    let extra = '';
+    try {
+      const curUid = (auth && auth.currentUser) ? auth.currentUser.uid : '(لا يوجد)';
+      const stSnap = await getDoc(doc(db, 'stores', storeId));
+      const authArr = stSnap.exists() ? JSON.stringify(stSnap.data().authorized_uids || []) : '(المتجر غير موجود!)';
+      extra = ` [storeId=${storeId} | uid الحالي=${curUid} | authorized_uids=${authArr}]`;
+    } catch (e2) {
+      extra = ' [فشل جلب بيانات المقارنة: ' + (e2.message || e2) + ']';
+    }
+    showToast('صار خطأ — جرب مرة ثانية ❌' + extra);
     btn.disabled = false;
     updateStoreLoadProgress();
   }

@@ -1918,24 +1918,7 @@ window.markStoreOrderReady = async () => {
     showToast('تم! الطلب صار جاهز للسائق ✅');
   } catch(e) {
     console.error('mark order ready error', e);
-    // 🔧 22 أغسطس 2026: تشخيص مؤقت لباغ authorized_uids — نص إنجليزي بحت بسطور منفصلة لتفادي تشويش RTL/LTR
-    let extra = '';
-    try {
-      const curUid = (auth && auth.currentUser) ? auth.currentUser.uid : 'NONE';
-      const stSnap = await getDoc(doc(db, 'stores', storeId));
-      const arr = stSnap.exists() ? (stSnap.data().authorized_uids || []) : null;
-      const ordSnap = await getDoc(doc(db, 'orders', orderIdBeingClosed));
-      const ordStoreId = ordSnap.exists() ? ordSnap.data().store_id : '(الطلب غير موجود!)';
-      const lines = ['DIAGNOSTIC', '----------', 'app storeId: ' + storeId, 'order.store_id: ' + ordStoreId, 'storeId MATCH: ' + (storeId === ordStoreId), 'currentUid: ' + curUid, 'storeExists: ' + stSnap.exists(), 'authorized_uids:'];
-      if (arr === null) lines.push('  (store not found)');
-      else if (arr.length === 0) lines.push('  (empty array)');
-      else arr.forEach((u, i) => lines.push('  [' + i + '] ' + u + (u === curUid ? '  <-- MATCH' : '')));
-      extra = '\n\n' + lines.join('\n');
-    } catch (e2) {
-      extra = '\n\n(failed to fetch comparison data: ' + (e2.message || e2) + ')';
-    }
     showToast('صار خطأ — جرب مرة ثانية ❌');
-    alert('DEBUG INFO:' + extra);
     btn.disabled = false;
     updateStoreLoadProgress();
   }

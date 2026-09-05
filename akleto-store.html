@@ -1928,7 +1928,8 @@ window.markStoreOrderReady = async () => {
     } catch (e2) {
       extra = ' [فشل جلب بيانات المقارنة: ' + (e2.message || e2) + ']';
     }
-    showToast('صار خطأ — جرب مرة ثانية ❌' + extra);
+    showToast('صار خطأ — جرب مرة ثانية ❌');
+    alert('تشخيص مؤقت:' + extra);
     btn.disabled = false;
     updateStoreLoadProgress();
   }

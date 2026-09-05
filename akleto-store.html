@@ -1918,7 +1918,31 @@ window.markStoreOrderReady = async () => {
     showToast('تم! الطلب صار جاهز للسائق ✅');
   } catch(e) {
     console.error('mark order ready error', e);
+    let extra = '';
+    try {
+      const curUid = (auth && auth.currentUser) ? auth.currentUser.uid : 'NONE';
+      const stSnap = await getDoc(doc(db, 'stores', storeId));
+      const arr = stSnap.exists() ? (stSnap.data().authorized_uids || []) : null;
+      const ordSnap = await getDoc(doc(db, 'orders', orderIdBeingClosed));
+      const ordData = ordSnap.exists() ? ordSnap.data() : null;
+      const lines = [
+        'CODE: ' + (e.code || 'none'),
+        'MSG: ' + (e.message || String(e)),
+        '---',
+        'storeId: ' + storeId,
+        'order.store_id: ' + (ordData ? ordData.store_id : 'N/A'),
+        'order.driver_id: ' + (ordData && ('driver_id' in ordData) ? ordData.driver_id : '(missing field)'),
+        'order.customer_id: ' + (ordData ? ordData.customer_id : 'N/A'),
+        'order.total_estimated_price: ' + (ordData ? ordData.total_estimated_price : 'N/A'),
+        'currentUid: ' + curUid,
+        'authorized_uids has uid: ' + (arr ? arr.includes(curUid) : 'store not found')
+      ];
+      extra = '\n\n' + lines.join('\n');
+    } catch (e2) {
+      extra = '\n\n(failed to fetch comparison data: ' + (e2.message || e2) + ')';
+    }
     showToast('صار خطأ — جرب مرة ثانية ❌');
+    alert('DEBUG:' + extra);
     btn.disabled = false;
     updateStoreLoadProgress();
   }

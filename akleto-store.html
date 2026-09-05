@@ -1924,7 +1924,9 @@ window.markStoreOrderReady = async () => {
       const curUid = (auth && auth.currentUser) ? auth.currentUser.uid : 'NONE';
       const stSnap = await getDoc(doc(db, 'stores', storeId));
       const arr = stSnap.exists() ? (stSnap.data().authorized_uids || []) : null;
-      const lines = ['DIAGNOSTIC', '----------', 'storeId: ' + storeId, 'currentUid: ' + curUid, 'storeExists: ' + stSnap.exists(), 'authorized_uids:'];
+      const ordSnap = await getDoc(doc(db, 'orders', orderIdBeingClosed));
+      const ordStoreId = ordSnap.exists() ? ordSnap.data().store_id : '(الطلب غير موجود!)';
+      const lines = ['DIAGNOSTIC', '----------', 'app storeId: ' + storeId, 'order.store_id: ' + ordStoreId, 'storeId MATCH: ' + (storeId === ordStoreId), 'currentUid: ' + curUid, 'storeExists: ' + stSnap.exists(), 'authorized_uids:'];
       if (arr === null) lines.push('  (store not found)');
       else if (arr.length === 0) lines.push('  (empty array)');
       else arr.forEach((u, i) => lines.push('  [' + i + '] ' + u + (u === curUid ? '  <-- MATCH' : '')));

@@ -1138,9 +1138,34 @@ if ("serviceWorker" in navigator) {
 import {
   db, collection, getDocs, getDoc, addDoc, doc, updateDoc, deleteDoc, query, where, serverTimestamp, withTimeout,
   onSnapshot, MEASURE_TYPES, convertToBase, loadMeasureTypes, runTransaction,
-  sendOtpCode, otpErrorMessage, checkCustomerPhone,
+  auth, onAuthStateChanged, sendOtpCode, otpErrorMessage, checkCustomerPhone,
   repairCustomerAuthUid
 } from "./firebase-init.js";
+
+/* ══════════════════════════════════════════════════════════
+   ينتظر Firebase يخلص استرجاع جلسة الـPhone Auth المحفوظة من قبل
+   (لو موجودة) قبل ما نكمّل — بدون أي محاولة تسجيل دخول بديلة (فرق
+   جوهري عن الكود المحذوف: هون منستنى بس، ما منحاول "نصلح" الجلسة
+   بأنفسنا لو كانت فاضية). */
+function waitForAuthReady() {
+  return new Promise((resolve) => {
+    const unsub = onAuthStateChanged(auth, (user) => { unsub(); resolve(user); });
+  });
+}
+
+/* محاولة إصلاح صامتة لـauth_uid عند فتح التطبيق بجلسة محفوظة (بدون
+   المرور بشاشة OTP من جديد) — تغطي الحسابات القديمة يلي auth_uid
+   فيها لسا عالق من قبل هالإصلاح. آمنة 100%: ما بتعمل شي لو ما في
+   جلسة Phone Auth حقيقية أصلاً (تفشل بصمت، بلا أي Anonymous fallback). */
+async function repairAuthOnOpen() {
+  try {
+    const user = await waitForAuthReady();
+    if (!user) return;
+    await repairCustomerAuthUid();
+  } catch (e) {
+    console.error('repairAuthOnOpen failed', e);
+  }
+}
 
 function ticketCode(id) { return '#' + (id || '----').slice(-4).toUpperCase(); }
 
@@ -1485,6 +1510,7 @@ function enterApp() {
   document.getElementById('home-greeting-name').textContent = customerName;
   document.getElementById('acc-name').textContent = customerName;
   document.getElementById('acc-phone').textContent = customerPhone;
+  repairAuthOnOpen();
   loadInitialData();
   startNotifListeners();
   initPushNotifications();

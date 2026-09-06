@@ -56,6 +56,19 @@ export async function checkCustomerPhone(phone) {
 }
 
 /* ══════════════════════════════════════════════════════════
+   الحل الجذري لباغ "auth_uid عالق" — تُستدعى بعد كل نجاح OTP بدخول
+   حساب موجود، بدل updateDoc المباشر (كان بيفشل بصمت لو auth_uid
+   القديم عالق أصلاً، نفس القفل الدائري الموثّق بـcontext.md). هاي
+   الدالة (Admin SDK سيرفر-سايد) بتصحّح auth_uid دايماً بغض النظر عن
+   قيمته القديمة، بس لصاحب رقم الهاتف الحقيقي (متحقق بتوكن Firebase
+   نفسه، ما فيها مجال تزوير). يرجّع { customerId, name, isBlocked }. */
+export async function repairCustomerAuthUid() {
+  const fn = httpsCallable(functionsInstance, 'repairCustomerAuthUid');
+  const res = await fn({});
+  return res.data;
+}
+
+/* ══════════════════════════════════════════════════════════
    تحقق OTP برقم الهاتف (Firebase Phone Auth) — مشترك بين تطبيقات
    الزبون، السائق، والمتجر. يُستخدم مرة وحدة بس عند إنشاء حساب جديد
    لأول مرة (مو عند كل تسجيل دخول — الحسابات الحالية بدون تحقق تضل

@@ -1138,7 +1138,8 @@ if ("serviceWorker" in navigator) {
 import {
   db, collection, getDocs, getDoc, addDoc, doc, updateDoc, deleteDoc, query, where, serverTimestamp, withTimeout,
   onSnapshot, MEASURE_TYPES, convertToBase, loadMeasureTypes, runTransaction,
-  auth, onAuthStateChanged, signInAnonymously, sendOtpCode, otpErrorMessage, checkCustomerPhone
+  auth, onAuthStateChanged, signInAnonymously, sendOtpCode, otpErrorMessage, checkCustomerPhone,
+  repairCustomerAuthUid
 } from "./firebase-init.js";
 
 function ticketCode(id) { return '#' + (id || '----').slice(-4).toUpperCase(); }
@@ -1372,9 +1373,16 @@ window.confirmCustomerOtp = async () => {
       customerName = name;
       customerPhone = phone;
     } else if (_pendingCustomerLogin) {
-      // مسار دخول لحساب موجود — نحدّث auth_uid لأنه ممكن يتغيّر كل مرة (جلسة جديدة)
+      // مسار دخول لحساب موجود — نحدّث auth_uid عبر Cloud Function سيرفر-سايد
+      // (repairCustomerAuthUid) بدل updateDoc مباشرة، عشان تشتغل دايماً حتى
+      // لو auth_uid القديم عالق/غير متطابق (مش بس بحالة null/مفقود) —
+      // تفادياً لباغ الزبائن العالقين الموثّق سابقاً (قفل دائري بقواعد الأمان).
       const { id, name, phone } = _pendingCustomerLogin;
-      await updateDoc(doc(db, 'customers', id), { auth_uid: authUid, phone_verified: true }).catch(() => {});
+      try {
+        await repairCustomerAuthUid();
+      } catch (repairErr) {
+        console.error('repairCustomerAuthUid failed', repairErr);
+      }
       customerId = id;
       customerName = name;
       customerPhone = phone;

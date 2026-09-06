@@ -392,3 +392,48 @@ exports.migrateDriverDocuments = onCall(async (request) => {
   await Promise.all(ops);
   return { migrated, totalDrivers: driversSnap.size };
 });
+
+/* ══════════════════════════════════════════════════════════
+   repairCustomerAuthUid — الحل الجذري لباغ "auth_uid عالق قديم" الموثّق
+   مراراً (زبائن قبل نظام الـOTP، أو أي جلسة جديدة صار فيها uid مختلف).
+
+   ⚠️ ليش كانت الكتابة القديمة من المتصفح غير كافية: تحديث auth_uid
+   من عند الزبون نفسه (updateDoc بـakleto-customer.html) محمي بنفس
+   قاعدة الأمان اللي بتشترط تطابق auth_uid *الحالي* — فلو صار عالقاً
+   مرة، ما في طريقة يصحّح حاله لحاله أبداً (قفل دائري/deadlock)، ولازم
+   تدخّل يدوي بسكربت لكل حالة لحالها. هاي الدالة (Admin SDK، بتتجاوز
+   القواعد بالكامل) بتحل المشكلة جذرياً وتلقائياً لأي زبون قديم أو
+   جديد، بدون أي تدخل يدوي بعد اليوم.
+
+   الأمان: ما منثق برقم هاتف يبعته الزبون بالطلب (ممكن يتلاعب فيه) —
+   منستخدم حصراً request.auth.token.phone_number، القيمة يلي Firebase
+   نفسه بيحطها بالتوكن بعد نجاح تحقق OTP حقيقي، ما فيها مجال تزوير.
+   فمهما كانت قيمة auth_uid القديمة العالقة على مستند الزبون، ما حدا
+   غير صاحب الرقم الحقيقي (يلي عدى OTP فعلاً) يقدر يستدعي هاي الدالة
+   وينجح — ما في خطر "اختطاف" حساب زبون تاني.
+
+   تُستدعى مباشرة بعد كل نجاح OTP بتطبيق الزبون (بدل updateDoc القديم)،
+   لمسار تسجيل الدخول لحساب موجود فقط (الإنشاء الجديد أصلاً بيحط
+   auth_uid الصحيح وقت create ومسموح بقاعدة create العادية). ══════════ */
+exports.repairCustomerAuthUid = onCall(async (request) => {
+  if (!request.auth) {
+    throw new HttpsError("unauthenticated", "لازم تسجّل دخول أول");
+  }
+
+  const tokenPhone = String(request.auth.token.phone_number || "");
+  const localPhone = tokenPhone.startsWith("+962") ? "0" + tokenPhone.slice(4) : tokenPhone;
+  if (!/^0\d{8,9}$/.test(localPhone)) {
+    throw new HttpsError("failed-precondition", "الجلسة مش موثّقة برقم هاتف صحيح (لازم OTP حقيقي)");
+  }
+
+  const snap = await db.collection("customers").where("phone", "==", localPhone).limit(1).get();
+  if (snap.empty) {
+    throw new HttpsError("not-found", "ما في حساب زبون بهالرقم");
+  }
+
+  const docRef = snap.docs[0].ref;
+  await docRef.update({ auth_uid: request.auth.uid, phone_verified: true });
+
+  const data = snap.docs[0].data();
+  return { customerId: docRef.id, name: data.name || "", isBlocked: !!data.is_blocked };
+});

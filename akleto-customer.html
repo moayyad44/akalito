@@ -1364,9 +1364,12 @@ window.confirmCustomerOtp = async () => {
       // تفادياً لباغ الزبائن العالقين الموثّق سابقاً (قفل دائري بقواعد الأمان).
       const { id, name, phone } = _pendingCustomerLogin;
       try {
-        await repairCustomerAuthUid();
+        const repairResult = await repairCustomerAuthUid();
+        console.log('repairCustomerAuthUid OK', repairResult);
       } catch (repairErr) {
         console.error('repairCustomerAuthUid failed', repairErr);
+        // 🔍 تشخيص مؤقت — بيتشال بعد ما نلاقي السبب الحقيقي
+        alert('فشل إصلاح الحساب [' + (repairErr.code || '?') + ']: ' + (repairErr.message || repairErr));
       }
       customerId = id;
       customerName = name;
@@ -1949,7 +1952,8 @@ window.saveAddressForm = async () => {
     refreshHomeLocationWidget();
   } catch(e) {
     console.error('save address error', e);
-    errBox.textContent = 'صار خطأ بالحفظ — جرب مرة ثانية';
+    // 🔍 تشخيص مؤقت — بيتشال بعد ما نلاقي السبب الحقيقي
+    errBox.textContent = 'صار خطأ بالحفظ [' + (e.code || '?') + ']: ' + (e.message || e);
     errBox.style.display = 'block';
   } finally {
     btn.disabled = false;

@@ -877,10 +877,11 @@ window.loginAsStore = async () => {
   btn.textContent = 'جاري التحقق...';
 
   try {
-    // 🆕 ما في اختيار متجر ولا اسم يدوي — الأدمن أصلاً حدد مسبقاً وين
-    // بيشتغل هالرقم واسم صاحبه بمجموعة store_employees. هون بس نتحقق
-    // إنه الرقم مصرّح، وممكن يكون مصرّح بأكتر من متجر بنفس الوقت —
-    // بهاي الحالة نأجّل اختيار المتجر لحد بعد تأكيد الـOTP.
+    // 🔧 22 أغسطس 2026: لازم نضمن وجود جلسة Auth (ولو مؤقتة) قبل أي قراءة من
+    // Firestore — سابقاً كان في اعتماد ضمني على جلسة قديمة متبقية من استخدام
+    // سابق، وهاد بينكشف كباغ لأي مستخدم جديد كلياً أو بعد مسح بيانات التطبيق.
+    await ensureStoreAuth();
+
     const empSnap = await withTimeout(
       getDocs(query(collection(db, 'store_employees'), where('phone', '==', phone))),
       15000, 'انتهت مهلة الاتصال — تأكد من الإنترنت'
@@ -929,7 +930,7 @@ window.loginAsStore = async () => {
     document.getElementById('storeOtpScreen').classList.remove('hidden');
   } catch(e) {
     console.error('store login error', e);
-    errBox.textContent = otpErrorMessage(e) + ' [DEBUG: ' + (e.code || 'no-code') + ' | ' + (e.message || String(e)) + ']';
+    errBox.textContent = otpErrorMessage(e);
     errBox.style.display = 'block';
   } finally {
     btn.disabled = false;

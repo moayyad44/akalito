@@ -1138,40 +1138,25 @@ if ("serviceWorker" in navigator) {
 import {
   db, collection, getDocs, getDoc, addDoc, doc, updateDoc, deleteDoc, query, where, serverTimestamp, withTimeout,
   onSnapshot, MEASURE_TYPES, convertToBase, loadMeasureTypes, runTransaction,
-  auth, onAuthStateChanged, signInAnonymously, sendOtpCode, otpErrorMessage, checkCustomerPhone,
+  sendOtpCode, otpErrorMessage, checkCustomerPhone,
   repairCustomerAuthUid
 } from "./firebase-init.js";
 
 function ticketCode(id) { return '#' + (id || '----').slice(-4).toUpperCase(); }
 
 /* ══════════════════════════════════════════════════════════
-   Auth حقيقي (Firebase Anonymous Auth) — مهمة 3+8 (تكملة على الزبون)
-   نفس نمط تطبيق السائق بالضبط: كل جهاز زبون ياخد uid ثابت من Firebase،
-   يُربط بحقل auth_uid على مستند الزبون — أساس قواعد أمان customers الجديدة.
-   ══════════════════════════════════════════════════════════ */
-let _customerAuthPromise = null;
-
-function ensureCustomerAuth() {
-  if (_customerAuthPromise) return _customerAuthPromise;
-  _customerAuthPromise = new Promise((resolve, reject) => {
-    const unsub = onAuthStateChanged(auth, (user) => {
-      if (user) { unsub(); resolve(user.uid); }
-    }, (e) => { console.error('customer auth state error', e); reject(e); });
-    if (!auth.currentUser) {
-      signInAnonymously(auth).catch((e) => { console.error('anonymous sign-in error', e); reject(e); });
-    }
-  });
-  return _customerAuthPromise;
-}
-
-async function linkCustomerAuthUid(customerId) {
-  try {
-    const uid = await ensureCustomerAuth();
-    await updateDoc(doc(db, 'customers', customerId), { auth_uid: uid });
-  } catch (e) {
-    console.error('link customer auth uid error', e);
-  }
-}
+   🗑️ (محذوف) linkCustomerAuthUid / ensureCustomerAuth — كانت آلية
+   قديمة تعتمد على Anonymous Auth كـfallback لجلسات محفوظة من قبل ما
+   يصير OTP إجباري على كل تسجيل دخول. صارت غير ضرورية *ومؤذية فعلياً*:
+   كانت بتشتغل بكل مرة يفتح فيها الزبون التطبيق (عبر enterApp)، وبسبب
+   سباق توقيت (Firebase محتاج جزء ثانية لاستعادة جلسة الـPhone Auth
+   المحفوظة عند تحميل الصفحة)، أحياناً بتلاقي auth.currentUser لسا
+   null وتسجّل دخول Anonymous جديد بالغلط، وتكتب uid المجهول هذا فوق
+   auth_uid الصحيح (Phone Auth) يلي بالكاد انضبط — نفس باغ "auth_uid
+   العالق" الموثّق مراراً، بس هاي المرة السبب داخلي 100% مش خارجي.
+   بما إنه OTP صار إجباري دايماً (سطر ~1474: "نطلب OTP دايماً هلق")،
+   أي جلسة توصل enterApp() أصلاً معها Phone Auth حقيقي محفوظ من
+   Firebase نفسه — صفر داعي لأي fallback إضافي. ══════════════ */
 
 /* ══════════════════════════════════════════════════════════
    زر الرجوع الفيزيائي (Android hardware back button) — يشتغل
@@ -1497,7 +1482,6 @@ function enterApp() {
   document.getElementById('home-greeting-name').textContent = customerName;
   document.getElementById('acc-name').textContent = customerName;
   document.getElementById('acc-phone').textContent = customerPhone;
-  linkCustomerAuthUid(customerId); // يضمن ربط Auth حتى لجلسات قديمة محفوظة من قبل هالتحديث
   loadInitialData();
   startNotifListeners();
   initPushNotifications();

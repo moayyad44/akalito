@@ -929,7 +929,7 @@ window.loginAsStore = async () => {
     document.getElementById('storeOtpScreen').classList.remove('hidden');
   } catch(e) {
     console.error('store login error', e);
-    errBox.textContent = otpErrorMessage(e);
+    errBox.textContent = otpErrorMessage(e) + ' [DEBUG: ' + (e.code || 'no-code') + ' | ' + (e.message || String(e)) + ']';
     errBox.style.display = 'block';
   } finally {
     btn.disabled = false;

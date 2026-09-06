@@ -414,10 +414,23 @@ exports.migrateDriverDocuments = onCall(async (request) => {
 
    تُستدعى مباشرة بعد كل نجاح OTP بتطبيق الزبون (بدل updateDoc القديم)،
    لمسار تسجيل الدخول لحساب موجود فقط (الإنشاء الجديد أصلاً بيحط
-   auth_uid الصحيح وقت create ومسموح بقاعدة create العادية). ══════════ */
+   auth_uid الصحيح وقت create ومسموح بقاعدة create العادية).
+
+   🔧 6 سبتمبر 2026: صارت تاخد customerId من الطلب (بدل ما تدوّر برقم
+   الهاتف بكل مجموعة customers) — لأنه بحالة وجود أكتر من مستند بنفس
+   رقم الهاتف (شائع ببيانات تجريبية: محاولات تسجيل متكررة)، البحث
+   العام كان ممكن "يصلّح" مستند غلط (أول نتيجة تطابقت بالصدفة) بينما
+   التطبيق فعلياً شغّال على مستند تاني — فيضل عالق زي ما هو. هلق
+   بنتحقق إنه رقم هاتف الجلسة (من توكن Firebase) يطابق تحديداً رقم
+   هاتف *نفس المستند* يلي التطبيق طالب نصلحه، مش أي مستند عشوائي. */
 exports.repairCustomerAuthUid = onCall(async (request) => {
   if (!request.auth) {
     throw new HttpsError("unauthenticated", "لازم تسجّل دخول أول");
+  }
+
+  const customerId = String((request.data && request.data.customerId) || "").trim();
+  if (!customerId) {
+    throw new HttpsError("invalid-argument", "customerId مطلوب");
   }
 
   const tokenPhone = String(request.auth.token.phone_number || "");
@@ -426,14 +439,16 @@ exports.repairCustomerAuthUid = onCall(async (request) => {
     throw new HttpsError("failed-precondition", "الجلسة مش موثّقة برقم هاتف صحيح (لازم OTP حقيقي)");
   }
 
-  const snap = await db.collection("customers").where("phone", "==", localPhone).limit(1).get();
-  if (snap.empty) {
-    throw new HttpsError("not-found", "ما في حساب زبون بهالرقم");
+  const docRef = db.collection("customers").doc(customerId);
+  const snap = await docRef.get();
+  if (!snap.exists) {
+    throw new HttpsError("not-found", "ما في حساب زبون بهالمعرّف");
+  }
+  const data = snap.data();
+  if (data.phone !== localPhone) {
+    throw new HttpsError("permission-denied", "رقم هاتف الجلسة ما بيطابق هالحساب");
   }
 
-  const docRef = snap.docs[0].ref;
   await docRef.update({ auth_uid: request.auth.uid, phone_verified: true });
-
-  const data = snap.docs[0].data();
-  return { customerId: docRef.id, name: data.name || "", isBlocked: !!data.is_blocked };
+  return { customerId, name: data.name || "", isBlocked: !!data.is_blocked };
 });

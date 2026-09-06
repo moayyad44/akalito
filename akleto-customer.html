@@ -1161,7 +1161,7 @@ async function repairAuthOnOpen() {
   try {
     const user = await waitForAuthReady();
     if (!user) return;
-    await repairCustomerAuthUid();
+    await repairCustomerAuthUid(customerId);
   } catch (e) {
     console.error('repairAuthOnOpen failed', e);
   }
@@ -1389,7 +1389,7 @@ window.confirmCustomerOtp = async () => {
       // تفادياً لباغ الزبائن العالقين الموثّق سابقاً (قفل دائري بقواعد الأمان).
       const { id, name, phone } = _pendingCustomerLogin;
       try {
-        const repairResult = await repairCustomerAuthUid();
+        const repairResult = await repairCustomerAuthUid(id);
         console.log('repairCustomerAuthUid OK', repairResult);
       } catch (repairErr) {
         console.error('repairCustomerAuthUid failed', repairErr);

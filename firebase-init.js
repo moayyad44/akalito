@@ -62,9 +62,9 @@ export async function checkCustomerPhone(phone) {
    الدالة (Admin SDK سيرفر-سايد) بتصحّح auth_uid دايماً بغض النظر عن
    قيمته القديمة، بس لصاحب رقم الهاتف الحقيقي (متحقق بتوكن Firebase
    نفسه، ما فيها مجال تزوير). يرجّع { customerId, name, isBlocked }. */
-export async function repairCustomerAuthUid() {
+export async function repairCustomerAuthUid(customerId) {
   const fn = httpsCallable(functionsInstance, 'repairCustomerAuthUid');
-  const res = await fn({});
+  const res = await fn({ customerId });
   return res.data;
 }
 

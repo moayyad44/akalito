@@ -1160,8 +1160,9 @@ function waitForAuthReady() {
 async function repairAuthOnOpen() {
   try {
     const user = await waitForAuthReady();
-    if (!user) return;
-    await repairCustomerAuthUid(customerId);
+    if (!user) { console.log('repairAuthOnOpen: no auth user, skipped'); return; }
+    const r = await repairCustomerAuthUid(customerId);
+    console.log('repairAuthOnOpen OK', r);
   } catch (e) {
     console.error('repairAuthOnOpen failed', e);
   }

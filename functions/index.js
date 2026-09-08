@@ -433,22 +433,30 @@ exports.repairCustomerAuthUid = onCall(async (request) => {
     throw new HttpsError("invalid-argument", "customerId مطلوب");
   }
 
-  const tokenPhone = String(request.auth.token.phone_number || "");
+  const tokenPhone = String((request.auth.token && request.auth.token.phone_number) || "");
   const localPhone = tokenPhone.startsWith("+962") ? "0" + tokenPhone.slice(4) : tokenPhone;
   if (!/^0\d{8,9}$/.test(localPhone)) {
-    throw new HttpsError("failed-precondition", "الجلسة مش موثّقة برقم هاتف صحيح (لازم OTP حقيقي)");
+    throw new HttpsError("failed-precondition", "الجلسة مش موثّقة برقم هاتف صحيح (لازم OTP حقيقي) — tokenPhone=" + tokenPhone);
   }
 
-  const docRef = db.collection("customers").doc(customerId);
-  const snap = await docRef.get();
+  let snap;
+  try {
+    snap = await db.collection("customers").doc(customerId).get();
+  } catch (e) {
+    throw new HttpsError("internal", "فشل قراءة مستند الزبون: " + e.message);
+  }
   if (!snap.exists) {
-    throw new HttpsError("not-found", "ما في حساب زبون بهالمعرّف");
+    throw new HttpsError("not-found", "ما في حساب زبون بهالمعرّف: " + customerId);
   }
   const data = snap.data();
   if (data.phone !== localPhone) {
-    throw new HttpsError("permission-denied", "رقم هاتف الجلسة ما بيطابق هالحساب");
+    throw new HttpsError("permission-denied", "رقم هاتف الجلسة (" + localPhone + ") ما بيطابق هاتف الحساب (" + data.phone + ")");
   }
 
-  await docRef.update({ auth_uid: request.auth.uid, phone_verified: true });
+  try {
+    await snap.ref.update({ auth_uid: request.auth.uid, phone_verified: true });
+  } catch (e) {
+    throw new HttpsError("internal", "فشلت كتابة auth_uid: " + e.message);
+  }
   return { customerId, name: data.name || "", isBlocked: !!data.is_blocked };
 });
